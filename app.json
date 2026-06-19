@@ -3,6 +3,7 @@
     "name": "Karya",
     "slug": "Karya",
     "version": "1.0.0",
+    "jsEngine": "hermes",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "karya",
@@ -23,7 +24,8 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+       "bundler": "metro"
     },
     "plugins": [
       "expo-router",
@@ -44,5 +46,7 @@
       "typedRoutes": true,
       "reactCompiler": true
     }
+    
   }
+  
 }

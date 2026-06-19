@@ -1,98 +1,128 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { Image } from "expo-image";
+import {
+  Platform,
+  StyleSheet,
+  View,
+  Text,
+  Touchable,
+  TouchableOpacity,
+} from "react-native";
+import { Link } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Button } from "@react-navigation/elements";
+import { useNavigation } from "expo-router";
+import { router } from "expo-router";
 
 export default function HomeScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
+    <SafeAreaView>
+      <View style={styles.container}>
+        <Text style={styles.textContainer}>KaaryaSiddhi</Text>
+      </View>
+      <View style={styles.imagecontainer}>
         <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+          source={require("../../assets/images/logo.jpeg")}
+          style={styles.image}
+          
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <Text style={styles.contain}>Welcome to KaaryaSiddhi</Text>
+      </View>
+      <View style={styles.screen}>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.buttonContainer}
+            onPress={() => router.push("/AdminLogin")}
+          >
+            <Text style={styles.adminText}>Admin Login</Text>
+          </TouchableOpacity>
+          <Text style={styles.cardtext}>Manage tasks and teams</Text>
+        </View>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.button1Container}>
+            <Text style={styles.adminText}>Employee Login</Text>
+          </TouchableOpacity>
+          <Text style={styles.cardtext}>View and update your tasks</Text>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  cardtext: {},
+  button1Container: {
+    backgroundColor: "#1A2744",
+    width: 270,
+    height: 60,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 15,
+    elevation: 4,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  adminText: {
+    color: "white",
+    fontWeight: "700",
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  buttonContainer: {
+    backgroundColor: "#E8870A",
+    width: 270,
+    height: 60,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 15,
+    elevation: 4,
+  },
+  textContainer: {
+    color: "white",
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  container: {
+    backgroundColor: "#1A2744",
+    padding: "5%",
+  },
+  image: {
+    position: "absolute",
+    resizeMode: "contain",
+    width: 150,
+    height: 150,
+    borderRadius: 100,
+    
+    top: 60,
+  },
+  imagecontainer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  contain: {
+    top: 220,
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  card: {
+    backgroundColor: "white",
+    padding: 20,
+    elevation: 4,
+    borderRadius: 12,
+    height: 140,
+    width: "80%",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+    boxShadow: "0px 4px 50px 0px rgba(187, 164, 186, 0.5)",
+  },
+  screen: {
+    justifyContent: "center",
+    alignItems: "center",
+    flex: 1,
+    marginTop: 385,
   },
 });
+
+// import AdminLogin from "../AdminLogin";
+
+// export default function HomeScreen() {
+//   return <AdminLogin />;
+// }
