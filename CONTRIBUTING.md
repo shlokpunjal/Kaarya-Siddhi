@@ -5,7 +5,7 @@
 ## Setup
 
 ```bash
-git clone https://github.com/<org-or-username>/kaarya-siddhi.git
+git clone https://github.com/shlokpunjal/kaarya-siddhi.git
 cd kaarya-siddhi
 npm install
 npx expo start
