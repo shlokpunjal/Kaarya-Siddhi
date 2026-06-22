@@ -1,16 +1,6 @@
 import { Image } from "expo-image";
-import {
-  Platform,
-  StyleSheet,
-  View,
-  Text,
-  Touchable,
-  TouchableOpacity,
-} from "react-native";
-import { Link } from "expo-router";
+import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button } from "@react-navigation/elements";
-import { useNavigation } from "expo-router";
 import { router } from "expo-router";
 
 export default function HomeScreen() {
@@ -23,7 +13,6 @@ export default function HomeScreen() {
         <Image
           source={require("../../assets/images/logo.jpeg")}
           style={styles.image}
-          
         />
         <Text style={styles.contain}>Welcome to KaaryaSiddhi</Text>
       </View>
@@ -38,8 +27,8 @@ export default function HomeScreen() {
           <Text style={styles.cardtext}>Manage tasks and teams</Text>
         </View>
         <View style={styles.card}>
-          <TouchableOpacity style={styles.button1Container}>
-            <Text style={styles.adminText}>Employee Login</Text>
+          <TouchableOpacity style={styles.button1Container} onPress={()=> router.push("/EmloyeeLogin")}>
+            <Text style={styles.adminText} >Employee Login</Text>
           </TouchableOpacity>
           <Text style={styles.cardtext}>View and update your tasks</Text>
         </View>
@@ -89,7 +78,7 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 100,
-    
+
     top: 60,
   },
   imagecontainer: {

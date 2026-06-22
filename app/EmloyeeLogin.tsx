@@ -3,7 +3,6 @@ import {
   Text,
   View,
   Image,
-  FlatList,
   TouchableOpacity,
   TextInput,
   Alert,
@@ -11,10 +10,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState } from "react";
 import { router } from "expo-router";
-// import { PhoneAuthProvider } from "firebase/auth";
 import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
 import { useRef } from "react";
-// import { auth } from "../firebaseConfig";
 import { auth, app } from "../firebaseConfig";
 import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 
@@ -97,11 +94,11 @@ const AdminLogin = () => {
         <View>
           <Text style={styles.createStyle}>Create new Account?</Text>
         </View>
-        <View style={styles.SetStyle}>
-          <Text onPress={() => router.back()} style={styles.setText}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.SetStyle}>
+          <Text style={styles.setText}>
             Set Up Admin Account
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -206,6 +203,6 @@ const styles = StyleSheet.create({
   divtext: {
     fontSize: 20,
     color: "#8B95A1",
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: 'Poppins_600SemiBold'
   },
 });

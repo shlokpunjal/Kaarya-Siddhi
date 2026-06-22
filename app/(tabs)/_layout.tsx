@@ -3,36 +3,55 @@ import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: "#E8870A", // Active tab icon color (your orange)
-        tabBarInactiveTintColor: "#A0AEC0", // Faded text/icon color
+    <Tabs screenOptions={{
+        headerShown:false,
         tabBarStyle: {
-          backgroundColor: "#1A2744", // Deep theme color for the bar
-          borderTopWidth: 0, // Removes top separator line
-          height: 60,
-          paddingBottom: 8,
+          backgroundColor: "#1f2d4d",
+          height: 70,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          position: "absolute",
         },
-        headerShown: false, // Hides default top white headers
-      }}
-    >
+
+        tabBarActiveTintColor: "#F59E0B",
+        tabBarInactiveTintColor: "gray",
+    }}>
       <Tabs.Screen
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-sharp" size={size} color={color} />
+          tabBarIcon: ({}) => (
+            <Ionicons name="home" size={30} color="rgb(249, 180, 18)" />
           ),
         }}
       />
 
-        
+      <Tabs.Screen
+        name="statistics"
+        options={{
+          title: "statistics",
+          tabBarIcon: ({size }) => (
+            <Ionicons name="bar-chart-outline" size={size} color="rgb(255, 187, 0)" />
+          ),
+        }}
+      />
+
+       <Tabs.Screen
+        name="calendar"
+        options={{
+          title: "Calendar",
+          tabBarIcon: ({ size }) => (
+            <Ionicons name="calendar" size={size} color="rgb(255, 187, 0)" />
+          ),
+        }}
+      />
+
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-sharp" size={size} color={color} />
+          tabBarIcon: ({ size }) => (
+            <Ionicons name="person" size={size} color="rgb(255, 187, 0)" />
           ),
         }}
       />

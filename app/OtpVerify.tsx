@@ -17,38 +17,33 @@ import { useRef } from "react";
 // import { auth } from "../firebaseConfig";
 import { auth, app } from "../firebaseConfig";
 import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
+import { useLocalSearchParams } from "expo-router";
 
 const AdminLogin = () => {
-  const [ph, setPh] = useState("");
-  const [verificationId, setVerificationId] = useState<string | null>(null);
+  const [otp, setOtp] = useState("");
+  const { verificationId } = useLocalSearchParams();
+
   const recaptchaVerifier = useRef<any>(null);
-  const sendOTP = async () => {
+
+  const verifyOTP = async () => {
+    console.log("verificationId:", verificationId);
+    console.log("otp entered:", otp);
     try {
-      if (!ph || ph.length !== 10) {
-        Alert.alert("Error", "Please enter a valid 10-digit phone number");
+      if (!otp || otp.length !== 6) {
+        Alert.alert("Error", "Please enter a valid 6-digit OTP");
         return;
       }
 
-      const provider = new PhoneAuthProvider(auth);
+      const credential = PhoneAuthProvider.credential(verificationId! as string, otp as string);
+      await signInWithCredential(auth, credential);
 
-      const verificationId = await provider.verifyPhoneNumber(
-        `+91${ph}`,
-        recaptchaVerifier.current,
-      );
-
-      setVerificationId(verificationId);
-      Alert.alert("Success", "OTP Sent Successfully");
-
-      router.push({
-        pathname: "/OtpVerify",
-        params: { verificationId },
-      });
+      Alert.alert("Success", "Login Successful");
+      router.push("/Dashboard");
     } catch (error: any) {
       console.log(error);
-      Alert.alert("Error", error?.message || "Failed to send OTP");
+      Alert.alert("Error", error?.message || "Invalid OTP");
     }
   };
-
   return (
     <SafeAreaView>
       <FirebaseRecaptchaVerifierModal
@@ -70,11 +65,11 @@ const AdminLogin = () => {
           <View>
             <TextInput
               style={styles.input}
-              value={ph}
-              placeholder="Enter Phone Number"
-              onChangeText={setPh}
+              value={otp}
+              placeholder="Enter OTP"
+              onChangeText={setOtp}
               keyboardType="phone-pad"
-              maxLength={10}
+              maxLength={6}
             />
           </View>
           {/* 4155420.210.5663. */}
@@ -83,8 +78,8 @@ const AdminLogin = () => {
             <Text style={styles.forgot}>Forgot Password</Text>
           </View> */}
           <View>
-            <TouchableOpacity style={styles.LoginStyle} onPress={sendOTP}>
-              <Text style={styles.LoginText}>Send OTP</Text>
+            <TouchableOpacity style={styles.LoginStyle} onPress={verifyOTP}>
+              <Text style={styles.LoginText}>Verify OTP</Text>
             </TouchableOpacity>
             {/* <TouchableOpacity
               style={styles.LoginStyle}
@@ -112,8 +107,8 @@ export default AdminLogin;
 const styles = StyleSheet.create({
   setText: {
     color: "white",
+    fontWeight: "700",
     fontSize: 15,
-    fontFamily: 'Poppins_600SemiBold',
   },
   SetStyle: {
     alignItems: "center",
@@ -128,23 +123,23 @@ const styles = StyleSheet.create({
   createStyle: {
     color: "#6B7280",
     top: 150,
+    fontWeight: "700",
     fontSize: 18,
-    fontFamily: 'Poppins_400Regular',
   },
   LoginText: {
     color: "white",
+    fontWeight: "700",
     fontSize: 15,
-    fontFamily: 'Poppins_400Regular',
   },
   LoginStyle: {
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#1A2744",
     height: 50,
-    width: 280,
+    width: 250,
     borderRadius: 10,
     elevation: 4,
-    top: 20,
+    top: 30,
   },
   formatForgot: {
     top: 5,
@@ -153,12 +148,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "red",
     textDecorationLine: "underline",
-    fontFamily: 'Poppins_400Regular',
   },
   input: {
     backgroundColor: "#E5E7EB",
     height: 50,
-    width: 280,
+    width: 250,
     justifyContent: "center",
     paddingLeft: 20,
     borderRadius: 10,
@@ -176,7 +170,6 @@ const styles = StyleSheet.create({
   maintext: {
     color: "white",
     fontSize: 20,
-    fontFamily: 'Poppins_400Regular',
   },
   imagestyle: {
     justifyContent: "center",
@@ -198,14 +191,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "white",
     padding: 20,
-    height: 225,
-    width: "80%",
+    height: 230,
+    width: "75%",
     borderRadius: 25,
-    marginTop: 110,
+    top: 80,
   },
   divtext: {
     fontSize: 20,
     color: "#8B95A1",
-    fontFamily: 'Poppins_400Regular',
+    fontWeight: "700",
   },
 });
