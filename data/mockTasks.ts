@@ -1,0 +1,60 @@
+import { Task } from '../types/task';
+
+export const mockTasks: Task[] = [
+  {
+    id: '1',
+    title: 'Some Task',
+    status: 'overdue',
+    assignedTo: 'emp1',
+    createdBy: 'admin1',
+    dueDate: '2026-06-18',
+  },
+  {
+    id: '2',
+    title: 'Bridge Inspection Report',
+    status: 'overdue',
+    assignedTo: 'emp1',
+    createdBy: 'admin1',
+    dueDate: '2026-06-19',
+  },
+  {
+    id: '3',
+    title: 'Site Survey - Block 4',
+    status: 'pending',
+    assignedTo: 'emp1',
+    createdBy: 'admin1',
+    dueDate: '2026-06-25',
+  },
+  {
+    id: '4',
+    title: 'Material Stock Update',
+    status: 'pending',
+    assignedTo: 'emp1',
+    createdBy: 'admin1',
+    dueDate: '2026-06-26',
+  },
+  {
+    id: '5',
+    title: 'Track Maintenance Log',
+    status: 'pending',
+    assignedTo: 'emp1',
+    createdBy: 'admin1',
+    dueDate: '2026-06-27',
+  },
+  {
+    id: '6',
+    title: 'Safety Audit Checklist',
+    status: 'inReview',
+    assignedTo: 'emp1',
+    createdBy: 'admin1',
+    dueDate: '2026-06-22',
+  },
+  {
+    id: '7',
+    title: 'Drainage Plan Review',
+    status: 'inReview',
+    assignedTo: 'emp1',
+    createdBy: 'admin1',
+    dueDate: '2026-06-23',
+  },
+];
