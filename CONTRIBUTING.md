@@ -46,30 +46,25 @@ data/             mockTasks.ts — fake data for UI dev before backend's ready
    # e.g. git checkout -b person2/task-creation-ui
    ```
 
-3. **Merge latest `main` into your branch** if it's been a while since you branched:
-   ```bash
-   git merge main
-   ```
+3. Do the work. Test locally via `npx expo start` before committing.
 
-4. Do the work. Test locally via `npx expo start` before committing.
-
-5. **Commit in small, clear chunks:**
+4. **Commit in small, clear chunks:**
    ```bash
    git add .
    git commit -m "Add task creation form UI"
    ```
 
-6. **Push your branch:**
+5. **Push your branch:**
    ```bash
    git push origin <yourname>/<short-feature-name>
    ```
 
-7. **Open a PR into `main`:**
+6. **Open a PR into `main`:**
    - Title: short, describes the change
    - Description: include `Closes #<issue-number>` so the linked issue auto-closes on merge
    - Request review (see below)
 
-8. **Wait for at least one review before merging.** No self-merges, even under deadline pressure — a 2-minute review catches shared-file breakage early.
+7. **Wait for at least one review before merging.** No self-merges, even under deadline pressure — a 2-minute review catches shared-file breakage early.
 
 ## Who reviews what
 
