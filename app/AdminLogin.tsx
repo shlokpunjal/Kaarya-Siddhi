@@ -11,50 +11,54 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState } from "react";
 import { router } from "expo-router";
-// import { PhoneAuthProvider } from "firebase/auth";
-import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
-import { useRef } from "react";
-// import { auth } from "../firebaseConfig";
-import { auth, app } from "../firebaseConfig";
-import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 
 const AdminLogin = () => {
   const [ph, setPh] = useState("");
-  const [verificationId, setVerificationId] = useState<string | null>(null);
-  const recaptchaVerifier = useRef<any>(null);
+  const [email, setEmail] = useState("");
   const sendOTP = async () => {
     try {
       if (!ph || ph.length !== 10) {
-        Alert.alert("Error", "Please enter a valid 10-digit phone number");
+        Alert.alert("Error", "Enter valid phone number");
         return;
       }
 
-      const provider = new PhoneAuthProvider(auth);
+      if (!email) {
+        Alert.alert("Error", "Enter email");
+        return;
+      }
 
-      const verificationId = await provider.verifyPhoneNumber(
-        `+91${ph}`,
-        recaptchaVerifier.current,
-      );
-
-      setVerificationId(verificationId);
-      Alert.alert("Success", "OTP Sent Successfully");
-
-      router.push({
-        pathname: "/OtpVerify",
-        params: { verificationId },
+      const response = await fetch("http://10.0.2.2:8000/send-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phone: ph,
+          email,
+        }),
       });
-    } catch (error: any) {
+
+      const data = await response.json();
+
+      if (data.success) {
+        Alert.alert("Success", "OTP Sent");
+
+        router.push({
+          pathname: "/OtpVerify",
+          params: {
+            email,
+          },
+        });
+      } else {
+        Alert.alert("Error", data.message);
+      }
+    } catch (error) {
       console.log(error);
-      Alert.alert("Error", error?.message || "Failed to send OTP");
+      Alert.alert("Error", "Could not send OTP");
     }
   };
-
   return (
     <SafeAreaView>
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={auth.app.options}
-      />
       <View style={styles.mainbar}>
         <Text style={styles.maintext}>AdminLogin</Text>
       </View>
@@ -75,6 +79,13 @@ const AdminLogin = () => {
               onChangeText={setPh}
               keyboardType="phone-pad"
               maxLength={10}
+            />
+            <TextInput
+              style={styles.input}
+              value={email}
+              placeholder="Enter Email"
+              onChangeText={setEmail}
+              keyboardType="email-address"
             />
           </View>
           {/* 4155420.210.5663. */}
@@ -113,7 +124,7 @@ const styles = StyleSheet.create({
   setText: {
     color: "white",
     fontSize: 15,
-    fontFamily: 'Poppins_600SemiBold',
+    fontFamily: "Poppins_600SemiBold",
   },
   SetStyle: {
     alignItems: "center",
@@ -123,18 +134,18 @@ const styles = StyleSheet.create({
     width: "50%",
     borderRadius: 10,
     elevation: 4,
-    top: 160,
+    top: 110,
   },
   createStyle: {
     color: "#6B7280",
-    top: 150,
+    top: 100,
     fontSize: 18,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: "Poppins_400Regular",
   },
   LoginText: {
     color: "white",
     fontSize: 15,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: "Poppins_400Regular",
   },
   LoginStyle: {
     alignItems: "center",
@@ -153,7 +164,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "red",
     textDecorationLine: "underline",
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: "Poppins_400Regular",
   },
   input: {
     backgroundColor: "#E5E7EB",
@@ -176,7 +187,7 @@ const styles = StyleSheet.create({
   maintext: {
     color: "white",
     fontSize: 20,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: "Poppins_400Regular",
   },
   imagestyle: {
     justifyContent: "center",
@@ -198,7 +209,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "white",
     padding: 20,
-    height: 225,
+    height: 290,
     width: "80%",
     borderRadius: 25,
     marginTop: 110,
@@ -206,6 +217,6 @@ const styles = StyleSheet.create({
   divtext: {
     fontSize: 20,
     color: "#8B95A1",
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: "Poppins_400Regular",
   },
 });

@@ -2,8 +2,22 @@ import { Image } from "expo-image";
 import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect } from "react";
+
 
 export default function HomeScreen() {
+  useEffect(() => {
+  const checkLogin = async () => {
+    const loggedIn = await AsyncStorage.getItem("loggedIn");
+
+    if (loggedIn === "true") {
+      router.replace("/(tabs)/Dashboard");
+    }
+  };
+
+  checkLogin();
+}, []);
   return (
     <SafeAreaView>
       <View style={styles.container}>
@@ -11,7 +25,7 @@ export default function HomeScreen() {
       </View>
       <View style={styles.imagecontainer}>
         <Image
-          source={require("../../assets/images/logo.jpeg")}
+          source={require("../assets/images/logo.jpeg")}
           style={styles.image}
         />
         <Text style={styles.contain}>Welcome to KaaryaSiddhi</Text>

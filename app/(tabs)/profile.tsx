@@ -1,8 +1,14 @@
-import { Link, router } from "expo-router";
 import { StyleSheet, View, Text, Image, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 
 export default function ModalScreen() {
+  const logout = async () => {
+  await AsyncStorage.removeItem("token");
+
+  router.replace("../index");
+};
   return (
     <SafeAreaView>
       <View style={styles.mainbar}>
@@ -40,7 +46,7 @@ export default function ModalScreen() {
           </Text>
         </View>
         <View>
-          <TouchableOpacity style={styles.button} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.button} onPress={logout}>
             <Text style={styles.buttonText}>Logout</Text>
           </TouchableOpacity>
         </View>
