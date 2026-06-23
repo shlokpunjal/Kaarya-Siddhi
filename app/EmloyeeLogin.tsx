@@ -10,48 +10,58 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState } from "react";
 import { router } from "expo-router";
-import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
 import { useRef } from "react";
-import { auth, app } from "../firebaseConfig";
-import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
-
 const AdminLogin = () => {
   const [ph, setPh] = useState("");
-  const [verificationId, setVerificationId] = useState<string | null>(null);
-  const recaptchaVerifier = useRef<any>(null);
+  const [email, setEmail] = useState("");
   const sendOTP = async () => {
-    try {
-      if (!ph || ph.length !== 10) {
-        Alert.alert("Error", "Please enter a valid 10-digit phone number");
-        return;
+  try {
+    if (!ph || ph.length !== 10) {
+      Alert.alert("Error", "Enter valid phone number");
+      return;
+    }
+
+    if (!email) {
+      Alert.alert("Error", "Enter email");
+      return;
+    }
+
+    const response = await fetch(
+      "http://10.0.2.2:8000/send-otp",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phone: ph,
+          email: email,
+        }),
       }
+    );
 
-      const provider = new PhoneAuthProvider(auth);
+    const data = await response.json();
 
-      const verificationId = await provider.verifyPhoneNumber(
-        `+91${ph}`,
-        recaptchaVerifier.current,
-      );
-
-      setVerificationId(verificationId);
-      Alert.alert("Success", "OTP Sent Successfully");
+    if (data.success) {
+      Alert.alert("Success", "OTP Sent");
 
       router.push({
         pathname: "/OtpVerify",
-        params: { verificationId },
+        params: {
+          email,
+        },
       });
-    } catch (error: any) {
-      console.log(error);
-      Alert.alert("Error", error?.message || "Failed to send OTP");
+    } else {
+      Alert.alert("Error", data.message);
     }
-  };
+  } catch (error) {
+    console.log(error);
+    Alert.alert("Error", "Could not send OTP");
+  }
+};
 
   return (
     <SafeAreaView>
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={auth.app.options}
-      />
       <View style={styles.mainbar}>
         <Text style={styles.maintext}>AdminLogin</Text>
       </View>

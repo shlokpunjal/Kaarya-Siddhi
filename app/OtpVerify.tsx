@@ -3,7 +3,6 @@ import {
   Text,
   View,
   Image,
-  FlatList,
   TouchableOpacity,
   TextInput,
   Alert,
@@ -11,45 +10,65 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState } from "react";
 import { router } from "expo-router";
-// import { PhoneAuthProvider } from "firebase/auth";
-import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
-import { useRef } from "react";
-// import { auth } from "../firebaseConfig";
-import { auth, app } from "../firebaseConfig";
-import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 import { useLocalSearchParams } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AdminLogin = () => {
   const [otp, setOtp] = useState("");
-  const { verificationId } = useLocalSearchParams();
-
-  const recaptchaVerifier = useRef<any>(null);
+  const { email } = useLocalSearchParams();
 
   const verifyOTP = async () => {
-    console.log("verificationId:", verificationId);
-    console.log("otp entered:", otp);
-    try {
-      if (!otp || otp.length !== 6) {
-        Alert.alert("Error", "Please enter a valid 6-digit OTP");
-        return;
-      }
-
-      const credential = PhoneAuthProvider.credential(verificationId! as string, otp as string);
-      await signInWithCredential(auth, credential);
-
-      Alert.alert("Success", "Login Successful");
-      router.push("/Dashboard");
-    } catch (error: any) {
-      console.log(error);
-      Alert.alert("Error", error?.message || "Invalid OTP");
+  try {
+    if (!otp || otp.length !== 6) {
+      Alert.alert("Error", "Enter valid OTP");
+      return;
     }
-  };
+
+    const response = await fetch(
+      "http://10.0.2.2:8000/verify-otp",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          otp,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.success) {
+      await AsyncStorage.setItem(
+        "token",
+        data.token
+      );
+
+      Alert.alert(
+        "Success",
+        "Login Successful"
+      );
+
+      router.replace("/Dashboard");
+    } else {
+      Alert.alert(
+        "Error",
+        data.message
+      );
+    }
+  } catch (error) {
+    console.log(error);
+    Alert.alert(
+      "Error",
+      "Verification failed"
+    );
+  }
+};
+  
   return (
     <SafeAreaView>
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={auth.app.options}
-      />
       <View style={styles.mainbar}>
         <Text style={styles.maintext}>AdminLogin</Text>
       </View>
