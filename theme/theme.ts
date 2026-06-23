@@ -73,7 +73,7 @@ export const lightTheme = {
     },
     brand: {
       primary: '#0B1B3D',    // Deep navy identity
-      accent: '#E06A28',     // Deep saffron CTA
+      accent: '#E8870A',     // Deep saffron CTA
     },
     text: {
       primary: '#1A1A1E',    // Near black ink
