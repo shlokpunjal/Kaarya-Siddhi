@@ -42,7 +42,7 @@ export default function GenExcel() {
 
   const handleGenerate = () => {
     setLoading(true);
-    const url = `${API_BASE}/reports/tasks?${buildQuery()}`;
+    const url = `${API_BASE}/reports/tasks/excel?${buildQuery()}`;
     setGeneratedUrl(url);
     setLoading(false);
   };

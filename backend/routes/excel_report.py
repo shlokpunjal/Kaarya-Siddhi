@@ -8,7 +8,7 @@ from mock_data import mock_tasks
 
 router = APIRouter()
 
-@router.get("/reports/tasks")
+@router.get("/reports/tasks/excel")
 def generate_task_report(
     employee_id: str | None = Query(None),
     status: str | None = Query(None),
@@ -17,6 +17,7 @@ def generate_task_report(
     start_date: str | None = Query(None),
     end_date: str | None = Query(None),
 ):
+    
     tasks = mock_tasks
 
     if employee_id:
