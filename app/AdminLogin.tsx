@@ -3,7 +3,6 @@ import {
   Text,
   View,
   Image,
-  FlatList,
   TouchableOpacity,
   TextInput,
   Alert,
@@ -27,7 +26,7 @@ const AdminLogin = () => {
         return;
       }
 
-      const response = await fetch("http://192.168.137.1:8000/send-otp", {
+      const response = await fetch("http://10.0.2.2:8000/send-otp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -57,6 +56,32 @@ const AdminLogin = () => {
       Alert.alert("Error", "Could not send OTP");
     }
   };
+
+  const handleOtp = async() => {
+    try{
+      const [isCoolDown, setIsCoolDown] = useState(false);
+    const [timer, setTimer] = useState(30);
+    if (isCoolDown){
+      return
+    }
+    await sendOTP();
+
+    setIsCoolDown(true);
+    setTimer(30);
+    const interval = setInterval(() => {
+      setTimer((prev) => {
+        if(prev <= 1){
+          clearInterval(interval);
+          setIsCoolDown(false);
+          return 30;
+        }
+        return prev - 1;
+      })
+    }, 1000);
+    }catch(error){
+      alert(error);
+    }
+  }
   return (
     <SafeAreaView>
       <View style={styles.mainbar}>

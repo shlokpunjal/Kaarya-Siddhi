@@ -10,25 +10,23 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState } from "react";
 import { router } from "expo-router";
-import { useRef } from "react";
+
 const AdminLogin = () => {
   const [ph, setPh] = useState("");
   const [email, setEmail] = useState("");
   const sendOTP = async () => {
-  try {
-    if (!ph || ph.length !== 10) {
-      Alert.alert("Error", "Enter valid phone number");
-      return;
-    }
+    try {
+      if (!ph || ph.length !== 10) {
+        Alert.alert("Error", "Enter valid phone number");
+        return;
+      }
 
-    if (!email) {
-      Alert.alert("Error", "Enter email");
-      return;
-    }
+      if (!email) {
+        Alert.alert("Error", "Enter email");
+        return;
+      }
 
-    const response = await fetch(
-      "http://192.168.137.1:8000/send-otp",
-      {
+      const response = await fetch("http://10.0.2.2:8000/send-otp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -37,28 +35,27 @@ const AdminLogin = () => {
           phone: ph,
           email: email,
         }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (data.success) {
-      Alert.alert("Success", "OTP Sent");
-
-      router.push({
-        pathname: "/OtpVerify",
-        params: {
-          email,
-        },
       });
-    } else {
-      Alert.alert("Error", data.message);
+
+      const data = await response.json();
+
+      if (data.success) {
+        Alert.alert("Success", "OTP Sent");
+
+        router.push({
+          pathname: "/OtpVerify",
+          params: {
+            email,
+          },
+        });
+      } else {
+        Alert.alert("Error", data.message);
+      }
+    } catch (error) {
+      console.log(error);
+      Alert.alert("Error", "Could not send OTP");
     }
-  } catch (error) {
-    console.log(error);
-    Alert.alert("Error", "Could not send OTP");
-  }
-};
+  };
 
   return (
     <SafeAreaView>
@@ -84,30 +81,17 @@ const AdminLogin = () => {
               maxLength={10}
             />
           </View>
-          {/* 4155420.210.5663. */}
-
-          {/* <View style={styles.formatForgot}>
-            <Text style={styles.forgot}>Forgot Password</Text>
-          </View> */}
           <View>
             <TouchableOpacity style={styles.LoginStyle} onPress={sendOTP}>
               <Text style={styles.LoginText}>Send OTP</Text>
             </TouchableOpacity>
-            {/* <TouchableOpacity
-              style={styles.LoginStyle}
-              onPress={() => router.push("/(tabs)/profile")}
-            >
-              <Text style={styles.LoginText}>Login</Text>
-            </TouchableOpacity> */}
           </View>
         </View>
         <View>
           <Text style={styles.createStyle}>Create new Account?</Text>
         </View>
         <TouchableOpacity onPress={() => router.back()} style={styles.SetStyle}>
-          <Text style={styles.setText}>
-            Set Up Admin Account
-          </Text>
+          <Text style={styles.setText}>Set Up Admin Account</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -120,7 +104,7 @@ const styles = StyleSheet.create({
   setText: {
     color: "white",
     fontSize: 15,
-    fontFamily: 'Poppins_600SemiBold',
+    fontFamily: "Poppins_600SemiBold",
   },
   SetStyle: {
     alignItems: "center",
@@ -136,12 +120,12 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     top: 150,
     fontSize: 18,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: "Poppins_400Regular",
   },
   LoginText: {
     color: "white",
     fontSize: 15,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: "Poppins_400Regular",
   },
   LoginStyle: {
     alignItems: "center",
@@ -160,7 +144,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "red",
     textDecorationLine: "underline",
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: "Poppins_400Regular",
   },
   input: {
     backgroundColor: "#E5E7EB",
@@ -183,7 +167,7 @@ const styles = StyleSheet.create({
   maintext: {
     color: "white",
     fontSize: 20,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: "Poppins_400Regular",
   },
   imagestyle: {
     justifyContent: "center",
@@ -213,6 +197,6 @@ const styles = StyleSheet.create({
   divtext: {
     fontSize: 20,
     color: "#8B95A1",
-    fontFamily: 'Poppins_600SemiBold'
+    fontFamily: "Poppins_600SemiBold",
   },
 });

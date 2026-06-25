@@ -25,7 +25,7 @@ const AdminLogin = () => {
     }
 
     const response = await fetch(
-      "http://192.168.137.1:8000/verify-otp",
+      "http://10.0.2.2:8000/verify-otp",
       {
         method: "POST",
         headers: {
