@@ -4,8 +4,8 @@ from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from io import BytesIO
-from mock_data import mock_tasks
-
+# from mock_data import mock_tasks
+from backend.mock_data import mock_tasks
 router = APIRouter()
 
 @router.get("/reports/tasks/excel")

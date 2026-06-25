@@ -1,11 +1,10 @@
-// 
 import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   TextInput,
   Platform,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,6 +12,7 @@ import { useRouter } from "expo-router";
 import { lightTheme, typography } from "../../theme/theme";
 import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
+import { supabase } from "../../lib/supabase";
 
 const { colors } = lightTheme;
 
@@ -26,8 +26,14 @@ const PRIORITIES: { label: string; value: Priority; color: string; bg: string }[
 
 export default function Newtask() {
   const router = useRouter();
+
+  const [taskName, setTaskName] = useState("");
+  const [assignTo, setAssignTo] = useState("");
+  const [deadline, setDeadline] = useState("");
+  const [description, setDescription] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
   const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const pickFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -49,6 +55,91 @@ export default function Newtask() {
     setAttachedFiles((prev) => prev.filter((f) => f.name !== name));
   };
 
+  const uploadFile = async (file: any) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || "application/octet-stream",
+      } as any);
+
+      const response = await fetch("http://10.159.22.187:8000/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Upload error:", error);
+      throw error;
+    }
+  };
+
+  const handleAddTask = async () => {
+    if (!taskName.trim()) {
+      alert("Please enter a task name");
+      return;
+    }
+    if (!assignTo.trim()) {
+      alert("Please enter who to assign to");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // 1. Upload all attached files to backend/B2
+      const uploadedFiles = [];
+      for (const file of attachedFiles) {
+        const uploaded = await uploadFile(file);
+        if (uploaded) uploadedFiles.push(uploaded);
+      }
+
+      // 2. Insert into tasks table
+      const { data: task, error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          title: taskName,
+          assigned_to: assignTo,
+          deadline: deadline || null,
+          description: description || null,
+          priority: selectedPriority,
+          attachment_url: uploadedFiles[0]?.file_url ?? null,
+        })
+        .select()
+        .single();
+
+      if (taskError) throw taskError;
+
+      // 3. Insert each uploaded file into task_files table
+      if (task && uploadedFiles.length > 0) {
+        const fileRows = uploadedFiles.map((f) => ({
+          task_id: task.id,
+          file_url: f.file_url,
+          file_name: f.file_name,
+          file_type: f.file_type,
+          storage_service: "backblaze_b2",
+        }));
+
+        const { error: fileError } = await supabase
+          .from("task_files")
+          .insert(fileRows);
+
+        if (fileError) throw fileError;
+      }
+
+      alert("Task created successfully");
+      router.back();
+    } catch (error: any) {
+      console.error("Full error:", error);
+      alert("Error: " + (error?.message || JSON.stringify(error)));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
       {/* Header */}
@@ -58,7 +149,7 @@ export default function Newtask() {
           height: 70,
           flexDirection: "row",
           alignItems: "center",
-          paddingHorizontal: 18
+          paddingHorizontal: 18,
         }}
       >
         <Ionicons
@@ -90,7 +181,7 @@ export default function Newtask() {
           style={{
             backgroundColor: colors.base.surfaceL1,
             borderRadius: 16,
-             marginTop:30,
+            marginTop: 30,
             borderWidth: 1,
             borderColor: colors.base.border,
             padding: 20,
@@ -109,6 +200,8 @@ export default function Newtask() {
           <TextInput
             placeholder="Task Name"
             placeholderTextColor={colors.text.secondary}
+            value={taskName}
+            onChangeText={setTaskName}
             style={inputStyle}
           />
 
@@ -116,13 +209,17 @@ export default function Newtask() {
           <TextInput
             placeholder="Assign to"
             placeholderTextColor={colors.text.secondary}
+            value={assignTo}
+            onChangeText={setAssignTo}
             style={[inputStyle, { marginTop: 14 }]}
           />
 
           {/* Deadline */}
           <TextInput
-            placeholder="Deadline"
+            placeholder="Deadline (e.g. 2025-12-31)"
             placeholderTextColor={colors.text.secondary}
+            value={deadline}
+            onChangeText={setDeadline}
             style={[inputStyle, { marginTop: 14 }]}
           />
 
@@ -158,7 +255,6 @@ export default function Newtask() {
                       gap: 6,
                     }}
                   >
-                    {/* Dot indicator */}
                     <View
                       style={{
                         width: 8,
@@ -187,6 +283,8 @@ export default function Newtask() {
           <TextInput
             placeholder="Add Description"
             placeholderTextColor={colors.text.secondary}
+            value={description}
+            onChangeText={setDescription}
             multiline
             style={[inputStyle, { marginTop: 14, height: 100, paddingTop: 12 }]}
           />
@@ -232,27 +330,15 @@ export default function Newtask() {
                     gap: 10,
                   }}
                 >
-                  <Ionicons
-                    name="document-outline"
-                    size={20}
-                    color={colors.brand.accent}
-                  />
+                  <Ionicons name="document-outline" size={20} color={colors.brand.accent} />
                   <Text
-                    style={{
-                      ...typography.body,
-                      color: colors.text.primary,
-                      flex: 1,
-                    }}
+                    style={{ ...typography.body, color: colors.text.primary, flex: 1 }}
                     numberOfLines={1}
                   >
                     {file.name}
                   </Text>
                   <TouchableOpacity onPress={() => removeFile(file.name)}>
-                    <Ionicons
-                      name="close-circle"
-                      size={20}
-                      color={colors.status.overdue}
-                    />
+                    <Ionicons name="close-circle" size={20} color={colors.status.overdue} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -261,9 +347,10 @@ export default function Newtask() {
 
           {/* Add Task Button */}
           <TouchableOpacity
-            onPress={() => router.push("/taskadd")}
+            onPress={handleAddTask}
+            disabled={loading}
             style={{
-              backgroundColor: colors.brand.accent,
+              backgroundColor: loading ? colors.base.border : colors.brand.accent,
               height: 54,
               borderRadius: 14,
               marginTop: 24,
@@ -278,7 +365,7 @@ export default function Newtask() {
                 fontSize: 18,
               }}
             >
-              Add Task
+              {loading ? "Uploading..." : "Add task"}
             </Text>
           </TouchableOpacity>
         </View>
