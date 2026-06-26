@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useAuth } from "../../hooks/useAuth";
+import { useEffect } from "react";
+import { ActivityIndicator } from "react-native";
+
 
 export default function Dashboard() {
   const router = useRouter();
@@ -11,10 +15,21 @@ export default function Dashboard() {
   const [showPending, setShowPending] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
+  const { isLoggedIn, isLoading } = useAuth();
 
+  useEffect(() => {
+    if (!isLoading) {
+      if (isLoggedIn) {
+        router.replace("/dashboard");
+      } else {
+        router.replace("/AdminLogin");
+      }
+    }
+  }, [isLoading, isLoggedIn]);
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+        
 
         {/* Top section */}
         <View>
@@ -88,7 +103,7 @@ export default function Dashboard() {
         <View style={{ flexDirection: "row", gap: 20 }}>
           <View style={{ marginLeft: 48 }}>
             <TouchableOpacity
-            //   onPress={() => router.push("/newtask")}
+              //   onPress={() => router.push("/newtask")}
               style={{
                 backgroundColor: "rgb(252, 151, 0)", padding: 14,
                 width: 200, height: 60, borderRadius: 20,
@@ -129,7 +144,7 @@ export default function Dashboard() {
                 style={{ backgroundColor: "rgb(183, 4, 4)", borderRadius: 20, padding: 2 }}
               />
             </TouchableOpacity>
-          
+
           </View>
           {showOverdue && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>

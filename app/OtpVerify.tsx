@@ -8,65 +8,93 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import React, { useState } from "react";
-import { router } from "expo-router";
-import { useLocalSearchParams } from "expo-router";
+import React, { useState, useRef, useEffect } from "react";
+import { router, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "../hooks/useAuth";
 
-const AdminLogin = () => {
+
+const OtpVerify = () => {
   const [otp, setOtp] = useState("");
-  const { email } = useLocalSearchParams();
+  const [cooldown, setCooldown] = useState(30); // starts at 30 immediately
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { email, ph } = useLocalSearchParams();
+  const { saveSession } = useAuth();
+
+  // Auto-start the 30s cooldown when page loads
+  useEffect(() => {
+    startCooldown();
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  const startCooldown = () => {
+    setCooldown(30);
+    intervalRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const verifyOTP = async () => {
-  try {
-    if (!otp || otp.length !== 6) {
-      Alert.alert("Error", "Enter valid OTP");
-      return;
-    }
-
-    const response = await fetch(
-      "http://10.0.2.2:8000/verify-otp",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          otp,
-        }),
+    try {
+      if (!otp || otp.length !== 6) {
+        Alert.alert("Error", "Enter valid OTP");
+        return;
       }
-    );
 
-    const data = await response.json();
+      const response = await fetch("http://192.168.31.88:8000/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
 
-    if (data.success) {
-      await AsyncStorage.setItem(
-        "token",
-        data.token
-      );
+      const data = await response.json();
 
-      Alert.alert(
-        "Success",
-        "Login Successful"
-      );
 
-      router.replace("/Dashboard");
-    } else {
-      Alert.alert(
-        "Error",
-        data.message
-      );
+      if (data.success) {
+        await saveSession(data.token, data.phone, data.email);
+        Alert.alert("Success", "Login Successful");
+        router.replace("/dashboard");
+      } else {
+        Alert.alert("Error", data.message);
+      }
+    } catch (error) {
+      console.log(error);
+      Alert.alert("Error", "Verification failed");
     }
-  } catch (error) {
-    console.log(error);
-    Alert.alert(
-      "Error",
-      "Verification failed"
-    );
-  }
-};
-  
+  };
+
+  const resendOTP = async () => {
+    try {
+      const response = await fetch("http://192.168.31.88:8000/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: ph, email }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        Alert.alert("Success", "OTP Resent");
+        startCooldown(); // restart the 30s timer
+      } else {
+        Alert.alert("Error", data.message);
+      }
+    } catch (error) {
+      console.log(error);
+      Alert.alert("Error", "Could not resend OTP");
+    }
+  };
+
+  const isOnCooldown = cooldown > 0;
+
   return (
     <SafeAreaView>
       <View style={styles.mainbar}>
@@ -79,7 +107,9 @@ const AdminLogin = () => {
             style={styles.imageStyling}
           />
         </View>
-        <View style={styles.divi}>
+
+        {/* Card — grows when cooldown is active */}
+        <View style={[styles.divi, isOnCooldown && styles.diviExpanded]}>
           <Text style={styles.divtext}>Login to your workspace</Text>
           <View>
             <TextInput
@@ -91,23 +121,29 @@ const AdminLogin = () => {
               maxLength={6}
             />
           </View>
-          {/* 4155420.210.5663. */}
 
-          {/* <View style={styles.formatForgot}>
-            <Text style={styles.forgot}>Forgot Password</Text>
-          </View> */}
+          {/* Verify OTP button */}
           <View>
             <TouchableOpacity style={styles.LoginStyle} onPress={verifyOTP}>
               <Text style={styles.LoginText}>Verify OTP</Text>
             </TouchableOpacity>
-            {/* <TouchableOpacity
-              style={styles.LoginStyle}
-              onPress={() => router.push("/(tabs)/profile")}
-            >
-              <Text style={styles.LoginText}>Login</Text>
-            </TouchableOpacity> */}
           </View>
+
+          {/* Countdown text — visible during cooldown */}
+          {isOnCooldown && (
+            <Text style={styles.resendText}>
+              Resend in : {cooldown}
+            </Text>
+          )}
+
+          {/* Resend button — appears only after cooldown ends */}
+          {!isOnCooldown && (
+            <TouchableOpacity style={styles.resendButton} onPress={resendOTP}>
+              <Text style={styles.LoginText}>Resend OTP</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
         <View>
           <Text style={styles.createStyle}>Create new Account?</Text>
         </View>
@@ -121,7 +157,7 @@ const AdminLogin = () => {
   );
 };
 
-export default AdminLogin;
+export default OtpVerify;
 
 const styles = StyleSheet.create({
   setText: {
@@ -158,15 +194,23 @@ const styles = StyleSheet.create({
     width: 250,
     borderRadius: 10,
     elevation: 4,
+    top: 15,
+  },
+  resendButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1A2744",
+    height: 50,
+    width: 250,
+    borderRadius: 10,
+    elevation: 4,
     top: 30,
   },
-  formatForgot: {
-    top: 5,
-  },
-  forgot: {
-    fontSize: 11,
-    color: "red",
-    textDecorationLine: "underline",
+  resendText: {
+    marginTop: 30,
+    color: "#E8870A",
+    fontSize: 13,
+    fontFamily: "Poppins_400Regular",
   },
   input: {
     backgroundColor: "#E5E7EB",
@@ -206,14 +250,16 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   divi: {
-    // justifyContent: "center",
     alignItems: "center",
     backgroundColor: "white",
     padding: 20,
-    height: 230,
+    height: 280,       // default — input + verify button
     width: "75%",
     borderRadius: 25,
     top: 80,
+  },
+  diviExpanded: {
+    height: 250,       // taller during cooldown to fit the resend text
   },
   divtext: {
     fontSize: 20,

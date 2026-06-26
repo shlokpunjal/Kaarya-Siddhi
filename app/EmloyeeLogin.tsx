@@ -8,13 +8,32 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { router } from "expo-router";
 
-const AdminLogin = () => {
+const EmployeeLogin = () => {
   const [ph, setPh] = useState("");
   const [email, setEmail] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+  const [isSending, setIsSending] = useState(false); // prevent double tap
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCooldown = () => {
+    setCooldown(30);
+    intervalRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   const sendOTP = async () => {
+    if (isSending || isOnCooldown) return; // guard against double tap
+
     try {
       if (!ph || ph.length !== 10) {
         Alert.alert("Error", "Enter valid phone number");
@@ -26,7 +45,9 @@ const AdminLogin = () => {
         return;
       }
 
-      const response = await fetch("http://10.0.2.2:8000/send-otp", {
+      setIsSending(true); // disable immediately
+
+      const response = await fetch("http://192.168.31.88:8000/send-otp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -39,14 +60,18 @@ const AdminLogin = () => {
 
       const data = await response.json();
 
-      if (data.success) {
-        Alert.alert("Success", "OTP Sent");
+      // handle 429 and other HTTP errors
+      if (!response.ok) {
+        Alert.alert("Error", data.detail || "Something went wrong");
+        return;
+      }
 
+      if (data.success) {
+        startCooldown();
+        Alert.alert("Success", data.message); // shows attempt count e.g. "OTP sent (1/3 attempts used)"
         router.push({
           pathname: "/OtpVerify",
-          params: {
-            email,
-          },
+          params: { email, ph }, // pass both so resend works
         });
       } else {
         Alert.alert("Error", data.message);
@@ -54,13 +79,17 @@ const AdminLogin = () => {
     } catch (error) {
       console.log(error);
       Alert.alert("Error", "Could not send OTP");
+    } finally {
+      setIsSending(false); // re-enable after response
     }
   };
+
+  const isOnCooldown = cooldown > 0;
 
   return (
     <SafeAreaView>
       <View style={styles.mainbar}>
-        <Text style={styles.maintext}>AdminLogin</Text>
+        <Text style={styles.maintext}>EmployeeLogin</Text>
       </View>
       <View style={styles.mainStyle}>
         <View style={styles.imagestyle}>
@@ -69,7 +98,8 @@ const AdminLogin = () => {
             style={styles.imageStyling}
           />
         </View>
-        <View style={styles.divi}>
+
+        <View style={[styles.divi, isOnCooldown && styles.diviExpanded]}>
           <Text style={styles.divtext}>Login to your workspace</Text>
           <View>
             <TextInput
@@ -80,13 +110,36 @@ const AdminLogin = () => {
               keyboardType="phone-pad"
               maxLength={10}
             />
+            <TextInput
+              style={styles.input}
+              value={email}
+              placeholder="Enter Email"
+              onChangeText={setEmail}
+              keyboardType="email-address"
+            />
           </View>
           <View>
-            <TouchableOpacity style={styles.LoginStyle} onPress={sendOTP}>
-              <Text style={styles.LoginText}>Send OTP</Text>
+            <TouchableOpacity
+              style={[
+                styles.LoginStyle,
+                (isOnCooldown || isSending) && styles.LoginDisabled,
+              ]}
+              onPress={sendOTP}
+              disabled={isOnCooldown || isSending}
+            >
+              <Text style={styles.LoginText}>
+                {isSending ? "Sending..." : isOnCooldown ? "OTP Sent" : "Send OTP"}
+              </Text>
             </TouchableOpacity>
           </View>
+
+          {isOnCooldown && (
+            <Text style={styles.resendText}>
+              Resend in : {cooldown}.00 secs
+            </Text>
+          )}
         </View>
+
         <View>
           <Text style={styles.createStyle}>Create new Account?</Text>
         </View>
@@ -98,7 +151,7 @@ const AdminLogin = () => {
   );
 };
 
-export default AdminLogin;
+export default EmployeeLogin;
 
 const styles = StyleSheet.create({
   setText: {
@@ -111,14 +164,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#E8870A",
     height: 50,
-    width: "50%",
+    width: "60%",
     borderRadius: 10,
     elevation: 4,
-    top: 160,
+    // marginTop:40,
   },
   createStyle: {
     color: "#6B7280",
-    top: 150,
+    marginTop:70,
     fontSize: 18,
     fontFamily: "Poppins_400Regular",
   },
@@ -137,13 +190,13 @@ const styles = StyleSheet.create({
     elevation: 4,
     top: 20,
   },
-  formatForgot: {
-    top: 5,
+  LoginDisabled: {
+    backgroundColor: "#6B7280",
   },
-  forgot: {
-    fontSize: 11,
-    color: "red",
-    textDecorationLine: "underline",
+  resendText: {
+    marginTop: 30,
+    color: "#E8870A",
+    fontSize: 13,
     fontFamily: "Poppins_400Regular",
   },
   input: {
@@ -185,14 +238,16 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   divi: {
-    // justifyContent: "center",
     alignItems: "center",
     backgroundColor: "white",
     padding: 20,
-    height: 225,
+    height: 290,
     width: "80%",
     borderRadius: 25,
     marginTop: 110,
+  },
+  diviExpanded: {
+    height: 360,
   },
   divtext: {
     fontSize: 20,

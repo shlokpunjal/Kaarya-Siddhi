@@ -6,7 +6,7 @@ import { router } from "expo-router";
 export default function ModalScreen() {
   const logout = async () => {
   await AsyncStorage.removeItem("token");
-  router.replace("../index");
+  router.replace("/LoginChoice");
 };
   return (
     <SafeAreaView>

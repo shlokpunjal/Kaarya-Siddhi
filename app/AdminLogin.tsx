@@ -8,14 +8,36 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { router } from "expo-router";
 
 const AdminLogin = () => {
   const [ph, setPh] = useState("");
   const [email, setEmail] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isSending, setIsSending] = useState(false); // ADD THIS
+
+
+  const startCooldown = () => {
+    setCooldown(30);
+    intervalRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   const sendOTP = async () => {
+    if (isSending || isOnCooldown) return;
+
     try {
+      setIsSending(true);
+
       if (!ph || ph.length !== 10) {
         Alert.alert("Error", "Enter valid phone number");
         return;
@@ -26,27 +48,25 @@ const AdminLogin = () => {
         return;
       }
 
-      const response = await fetch("http://10.0.2.2:8000/send-otp", {
+      const response = await fetch("http://192.168.31.88:8000/send-otp", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          phone: ph,
-          email,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: ph, email }),
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        Alert.alert("Success", "OTP Sent");
+      if (!response.ok) {
+        Alert.alert("Error", data.detail || "Something went wrong");
+        return;
+      }
 
+      if (data.success) {
+        startCooldown();
+        Alert.alert("Success", data.message);
         router.push({
           pathname: "/OtpVerify",
-          params: {
-            email,
-          },
+          params: { email, ph },
         });
       } else {
         Alert.alert("Error", data.message);
@@ -54,34 +74,12 @@ const AdminLogin = () => {
     } catch (error) {
       console.log(error);
       Alert.alert("Error", "Could not send OTP");
+    } finally {
+      setIsSending(false); // RE-ENABLE after response
     }
   };
+  const isOnCooldown = cooldown > 0;
 
-  const handleOtp = async() => {
-    try{
-      const [isCoolDown, setIsCoolDown] = useState(false);
-    const [timer, setTimer] = useState(30);
-    if (isCoolDown){
-      return
-    }
-    await sendOTP();
-
-    setIsCoolDown(true);
-    setTimer(30);
-    const interval = setInterval(() => {
-      setTimer((prev) => {
-        if(prev <= 1){
-          clearInterval(interval);
-          setIsCoolDown(false);
-          return 30;
-        }
-        return prev - 1;
-      })
-    }, 1000);
-    }catch(error){
-      alert(error);
-    }
-  }
   return (
     <SafeAreaView>
       <View style={styles.mainbar}>
@@ -94,7 +92,9 @@ const AdminLogin = () => {
             style={styles.imageStyling}
           />
         </View>
-        <View style={styles.divi}>
+
+        {/* Card — grows taller during cooldown */}
+        <View style={[styles.divi, isOnCooldown && styles.diviExpanded]}>
           <Text style={styles.divtext}>Login to your workspace</Text>
           <View>
             <TextInput
@@ -113,29 +113,35 @@ const AdminLogin = () => {
               keyboardType="email-address"
             />
           </View>
-          {/* 4155420.210.5663. */}
-
-          {/* <View style={styles.formatForgot}>
-            <Text style={styles.forgot}>Forgot Password</Text>
-          </View> */}
           <View>
-            <TouchableOpacity style={styles.LoginStyle} onPress={sendOTP}>
-              <Text style={styles.LoginText}>Send OTP</Text>
-            </TouchableOpacity>
-            {/* <TouchableOpacity
-              style={styles.LoginStyle}
-              onPress={() => router.push("/(tabs)/profile")}
+            <TouchableOpacity
+              style={[
+                styles.LoginStyle,
+                (isOnCooldown || isSending) && styles.LoginDisabled // add isSending
+              ]}
+              onPress={sendOTP}
+              disabled={isOnCooldown || isSending} // add isSending
             >
-              <Text style={styles.LoginText}>Login</Text>
-            </TouchableOpacity> */}
+              <Text style={styles.LoginText}>
+                {isSending ? "Sending..." : isOnCooldown ? "OTP Sent" : "Send OTP"}
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Countdown text */}
+          {isOnCooldown && (
+            <Text style={styles.resendText}>
+              Resend in : {cooldown}.00 secs
+            </Text>
+          )}
         </View>
+
         <View>
           <Text style={styles.createStyle}>Create new Account?</Text>
         </View>
         <View style={styles.SetStyle}>
           <Text onPress={() => router.back()} style={styles.setText}>
-            Set Up Admin Account
+            Set Up Employee Account
           </Text>
         </View>
       </View>
@@ -156,16 +162,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#E8870A",
     height: 50,
-    width: "50%",
+    width: "60%",
     borderRadius: 10,
     elevation: 4,
-    top: 110,
   },
   createStyle: {
     color: "#6B7280",
-    top: 100,
     fontSize: 18,
     fontFamily: "Poppins_400Regular",
+    marginTop: 70,
+
   },
   LoginText: {
     color: "white",
@@ -181,6 +187,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     elevation: 4,
     top: 20,
+  },
+  LoginDisabled: {
+    backgroundColor: "#6B7280",
+  },
+  resendText: {
+    marginTop: 30,
+    color: "#E8870A",
+    fontSize: 13,
+    fontFamily: "Poppins_400Regular",
   },
   formatForgot: {
     top: 5,
@@ -230,7 +245,6 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   divi: {
-    // justifyContent: "center",
     alignItems: "center",
     backgroundColor: "white",
     padding: 20,
@@ -238,6 +252,9 @@ const styles = StyleSheet.create({
     width: "80%",
     borderRadius: 25,
     marginTop: 110,
+  },
+  diviExpanded: {
+    height: 360,
   },
   divtext: {
     fontSize: 20,
