@@ -49,7 +49,7 @@ const OtpVerify = () => {
         return;
       }
 
-      const response = await fetch("http://192.168.31.88:8000/verify-otp", {
+      const response = await fetch("https://karya-backend-m2ok.onrender.com/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),
@@ -73,7 +73,7 @@ const OtpVerify = () => {
 
   const resendOTP = async () => {
     try {
-      const response = await fetch("http://192.168.31.88:8000/send-otp", {
+      const response = await fetch("https://karya-backend-m2ok.onrender.com/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: ph, email }),
