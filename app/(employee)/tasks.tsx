@@ -11,4 +11,4 @@ const tasks = () => {
 
 export default tasks
 
-const styles = StyleSheet.create({})
+const styles = StyleSheet.create({})  

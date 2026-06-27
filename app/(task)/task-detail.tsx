@@ -3,6 +3,7 @@ import { useLocalSearchParams } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { Alert } from "react-native";
 import { lightTheme, typography } from "../../theme/theme";
 
@@ -23,7 +24,7 @@ export default function TaskDetail() {
   if (!task) return <Text style={{ ...typography.body, color: colors.text.primary }}>Task not found</Text>;
 
   const statusColor = statusColorMap[task.status] ?? colors.text.secondary;
-
+  const router = useRouter(); 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
       {/* Header */}
@@ -153,6 +154,23 @@ export default function TaskDetail() {
           </View>
         </View>
       </View>
+
+       <Ionicons
+          onPress={() => router.back()}
+          name="arrow-back"
+          size={30}
+          color={colors.base.surfaceL1}
+          style={{
+            margin: 20,
+            marginTop: 120,
+            marginLeft: -5,
+            backgroundColor: colors.brand.primary,
+            borderRadius: 20,
+            width: 40,
+            alignItems: "center",
+            textAlign: "center",
+          }}
+        />
     </SafeAreaView>
   );
 }
