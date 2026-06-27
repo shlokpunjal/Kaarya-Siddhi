@@ -1,0 +1,1 @@
+export const API_BASE_URL = "https://karya-backend-m2ok.onrender.com"
