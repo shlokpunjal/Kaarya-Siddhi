@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef } from "react";
 import { router } from "expo-router";
+import {API_BASE_URL} from "../constants/api"
 
 const AdminLogin = () => {
   const [ph, setPh] = useState("");
@@ -48,11 +49,17 @@ const AdminLogin = () => {
         return;
       }
 
-      const response = await fetch("https://karya-backend-m2ok.onrender.com/send-otp", {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90000);
+
+      const response = await fetch(`{API_BASE_URL}/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: ph, email }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
 
       const data = await response.json();
 
@@ -71,13 +78,18 @@ const AdminLogin = () => {
       } else {
         Alert.alert("Error", data.message);
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        Alert.alert("Timeout", "Server is waking up, please try again in 10 seconds");
+      } else {
+        Alert.alert("Error", "Could not send OTP. Check your internet connection.");
+      }
       console.log(error);
-      Alert.alert("Error", "Could not send OTP");
     } finally {
-      setIsSending(false); // RE-ENABLE after response
+      setIsSending(false);
     }
-  };
+  };  
+
   const isOnCooldown = cooldown > 0;
 
   return (

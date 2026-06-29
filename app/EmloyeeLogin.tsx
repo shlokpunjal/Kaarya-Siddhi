@@ -47,7 +47,7 @@ const EmployeeLogin = () => {
 
       setIsSending(true); // disable immediately
 
-      const response = await fetch("https://karya-backend-m2ok.onrender.com/send-otp", {
+      const response = await fetch(`{API_BASE_URL}/send-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
