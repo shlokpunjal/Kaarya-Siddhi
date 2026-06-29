@@ -152,6 +152,29 @@ export default function TaskDetail() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          <View style={{ marginBottom: 20 }}>
+            <TouchableOpacity
+              // onPress={() => Alert.alert("Success", "Task created successfully!")}
+              style={{
+                height: 53,
+                width: 200,
+                backgroundColor: "#0B1B3D",
+                borderRadius: 10,
+                alignItems: "center",
+                justifyContent: "center",
+                margin: 30,
+                marginLeft: 50,
+                marginTop:-25
+              }}
+            >
+              <Text style={{ ...typography.subheading, color: colors.base.surfaceL1 }}>
+                Extend Deadline
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+
         </View>
       </View>
 
