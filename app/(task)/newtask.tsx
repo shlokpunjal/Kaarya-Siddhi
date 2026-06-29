@@ -1,3 +1,4 @@
+// 
 import {
   View,
   Text,
@@ -15,19 +16,27 @@ import { useState } from "react";
 
 const { colors } = lightTheme;
 
+type Priority = "low" | "moderate" | "high";
+
+const PRIORITIES: { label: string; value: Priority; color: string; bg: string }[] = [
+  { label: "Low", value: "low", color: "#2E7D32", bg: "#E8F5E9" },
+  { label: "Moderate", value: "moderate", color: "#E65100", bg: "#FFF3E0" },
+  { label: "High", value: "high", color: "#B71C1C", bg: "#FFEBEE" },
+];
+
 export default function Newtask() {
   const router = useRouter();
   const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
+  const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
 
   const pickFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({
       type: "*/*",
       copyToCacheDirectory: true,
-      multiple: true, // enable multi-select
+      multiple: true,
     });
 
     if (!result.canceled) {
-      // Merge new files, avoid duplicates by name
       setAttachedFiles((prev) => {
         const existingNames = new Set(prev.map((f) => f.name));
         const newFiles = result.assets.filter((f) => !existingNames.has(f.name));
@@ -49,7 +58,7 @@ export default function Newtask() {
           height: 70,
           flexDirection: "row",
           alignItems: "center",
-          paddingHorizontal: 16,
+          paddingHorizontal: 18
         }}
       >
         <Ionicons
@@ -64,14 +73,13 @@ export default function Newtask() {
             color: colors.base.surfaceL1,
             flex: 1,
             textAlign: "center",
-            marginRight: 28, // offset for back icon so title stays centered
+            marginRight: 28,
           }}
         >
           Task Assignment
         </Text>
       </View>
 
-      {/* Scrollable content — avoids fixed height breaking layout */}
       <ScrollView
         contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
@@ -82,10 +90,10 @@ export default function Newtask() {
           style={{
             backgroundColor: colors.base.surfaceL1,
             borderRadius: 16,
+             marginTop:30,
             borderWidth: 1,
             borderColor: colors.base.border,
             padding: 20,
-            // Cross-platform shadow
             ...Platform.select({
               ios: {
                 shadowColor: "#000",
@@ -117,6 +125,63 @@ export default function Newtask() {
             placeholderTextColor={colors.text.secondary}
             style={[inputStyle, { marginTop: 14 }]}
           />
+
+          {/* Priority Selector */}
+          <View style={{ marginTop: 14 }}>
+            <Text
+              style={{
+                ...typography.body,
+                color: colors.text.secondary,
+                marginBottom: 8,
+                paddingLeft: 4,
+              }}
+            >
+              Priority
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              {PRIORITIES.map((p) => {
+                const isSelected = selectedPriority === p.value;
+                return (
+                  <TouchableOpacity
+                    key={p.value}
+                    onPress={() => setSelectedPriority(p.value)}
+                    style={{
+                      flex: 1,
+                      height: 44,
+                      borderRadius: 12,
+                      borderWidth: isSelected ? 2 : 1,
+                      borderColor: isSelected ? p.color : colors.base.border,
+                      backgroundColor: isSelected ? p.bg : colors.base.surfaceL2,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "row",
+                      gap: 6,
+                    }}
+                  >
+                    {/* Dot indicator */}
+                    <View
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: isSelected ? p.color : colors.text.secondary,
+                      }}
+                    />
+                    <Text
+                      style={{
+                        ...typography.body,
+                        fontSize: 14,
+                        fontWeight: isSelected ? "600" : "400",
+                        color: isSelected ? p.color : colors.text.secondary,
+                      }}
+                    >
+                      {p.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
           {/* Description */}
           <TextInput
@@ -222,7 +287,6 @@ export default function Newtask() {
   );
 }
 
-// Shared input style
 const inputStyle = {
   backgroundColor: lightTheme.colors.base.surfaceL2,
   height: 50,

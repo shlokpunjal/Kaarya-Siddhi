@@ -38,13 +38,16 @@ export default function Dashboard() {
           {/* Stats Box */}
           <View style={{
             backgroundColor:"#FFFFFF",
-            marginTop: 25, margin: 25, height: 140, borderRadius: 25,
+            marginTop: 25, margin: 20, height: 140, borderRadius: 25,
             flexDirection: "row", alignItems: "center", justifyContent: "space-around",
-            boxShadow: "0px 0px 5px gray"
+            borderColor:"#E2E2E6",
+            borderWidth:2.5
           }}>
             {/* Overdue */}
             <View style={{ alignItems: "center" }}>
               <View style={{
+                  marginLeft:12,
+                   
                 height: 63, width: 63, borderRadius: 40,
                 backgroundColor: "rgba(239,133,143,0.4)",
                 borderColor: colors.status.overdue,
@@ -52,7 +55,7 @@ export default function Dashboard() {
               }}>
                 <Text style={{ ...typography.heading, color: colors.status.overdue }}>2</Text>
               </View>
-              <Text style={{ ...typography.body, marginTop: 10, color: colors.status.overdue }}>Overdue</Text>
+              <Text style={{ ...typography.body, marginTop: 10, color: colors.status.overdue, marginLeft:13}}>Overdue</Text>
             </View>
 
             {/* Pending */}
@@ -97,27 +100,31 @@ export default function Dashboard() {
         </View>
 
         {/* Buttons Row */}
-        <View style={{ flexDirection: "row", gap: 20 }}>
-          <View style={{ marginLeft: 48 }}>
+        <View style={{ flexDirection: "row", gap: 20, 
+         }}>
+          <View style={{ marginLeft: 48}}>
             <TouchableOpacity
               onPress={() => router.push("/newtask")}
               style={{
                 backgroundColor: colors.brand.accent, padding: 14,
-                width: 200, height: 60, borderRadius: 20,
+                width: 200, height: 60, borderRadius: 32,
                 boxShadow: "0px 0px 5px gray", flexDirection: "row",
+                marginTop:-1
               }}
             >
-              <Ionicons name="add" size={35} color={colors.base.surfaceL1} />
+              <Ionicons style={{marginLeft:20,marginTop:-2}} name="add" size={35} color={colors.base.surfaceL1}/>
               <Text style={{
                 ...typography.subheading,
                 color: colors.base.surfaceL1,
-                textAlign: "center"
+                textAlign: "center",
+                marginTop:4,
+                margin:5
               }}> New Task</Text>
             </TouchableOpacity>
           </View>
 
           <View style={{
-            boxShadow: "0px 0px 5px gray", borderRadius: 30,
+            boxShadow: "0px 0px 5px gray", borderRadius: 32,
             backgroundColor: colors.base.surfaceL2,
             height: 58, width: 80, alignItems: "center", justifyContent: "center"
           }}>
