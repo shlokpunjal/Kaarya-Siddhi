@@ -5,6 +5,7 @@ import {
   TextInput,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,6 +14,7 @@ import { lightTheme, typography } from "../../theme/theme";
 import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "@env";
 
 const { colors } = lightTheme;
 
@@ -35,6 +37,7 @@ export default function Newtask() {
   const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // ── Pick files from device ──────────────────────────────────────────────────
   const pickFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({
       type: "*/*",
@@ -55,28 +58,37 @@ export default function Newtask() {
     setAttachedFiles((prev) => prev.filter((f) => f.name !== name));
   };
 
-  const uploadFile = async (file: any) => {
-    try {
-      const formData = new FormData();
-      formData.append("file", {
-        uri: file.uri,
-        name: file.name,
-        type: file.mimeType || "application/octet-stream",
-      } as any);
+  // ── Upload single file to Cloudinary ───────────────────────────────────────
+  // Cloudinary stores the actual file → returns a secure_url
+  // Only that URL is saved in Supabase (tasks.attachment_url & task_files.file_url)
+  const uploadSingleFile = async (file: any) => {
+    const formData = new FormData();
+    formData.append("file", {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType || "application/octet-stream",
+    } as any);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
-      const response = await fetch("http://10.159.22.187:8000/upload", {
-        method: "POST",
-        body: formData,
-      });
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+      { method: "POST", body: formData }
+    );
 
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error("Upload error:", error);
-      throw error;
+    const data = await response.json();
+
+    if (!data.secure_url) {
+      throw new Error(`Cloudinary upload failed: ${data.error?.message ?? "unknown error"}`);
     }
+
+    return {
+      file_url: data.secure_url,
+      file_name: file.name,
+      file_type: file.name.split(".").pop()?.toLowerCase() ?? "file",
+    };
   };
 
+  // ── Create task: upload files → insert tasks → insert task_files ────────────
   const handleAddTask = async () => {
     if (!taskName.trim()) {
       alert("Please enter a task name");
@@ -90,14 +102,15 @@ export default function Newtask() {
     try {
       setLoading(true);
 
-      // 1. Upload all attached files to backend/B2
-      const uploadedFiles = [];
-      for (const file of attachedFiles) {
-        const uploaded = await uploadFile(file);
-        if (uploaded) uploadedFiles.push(uploaded);
-      }
+      // 1. Upload all files to Cloudinary in parallel
+      const uploadedResults = await Promise.all(
+        attachedFiles.map((file) => uploadSingleFile(file))
+      );
 
-      // 2. Insert into tasks table
+      // First file URL stored directly on the task row for quick access
+      const mainFileUrl = uploadedResults.length > 0 ? uploadedResults[0].file_url : null;
+
+      // 2. Insert task row into Supabase
       const { data: task, error: taskError } = await supabase
         .from("tasks")
         .insert({
@@ -105,27 +118,30 @@ export default function Newtask() {
           assigned_to: assignTo,
           deadline: deadline || null,
           description: description || null,
-          priority: selectedPriority,
-          attachment_url: uploadedFiles[0]?.file_url ?? null,
+          attachment_url: mainFileUrl,
+          status: "pending",
+          priority: selectedPriority ?? "medium",
+          created_by: assignTo,
+          workspace_id: "44799b6c-50a1-42c1-9783-4105bc16a330",
         })
         .select()
         .single();
 
       if (taskError) throw taskError;
 
-      // 3. Insert each uploaded file into task_files table
-      if (task && uploadedFiles.length > 0) {
-        const fileRows = uploadedFiles.map((f) => ({
+      // 3. Insert one row per file into task_files
+      if (uploadedResults.length > 0 && task) {
+        const filesPayload = uploadedResults.map((res) => ({
           task_id: task.id,
-          file_url: f.file_url,
-          file_name: f.file_name,
-          file_type: f.file_type,
-          storage_service: "backblaze_b2",
+          file_url: res.file_url,
+          file_name: res.file_name,
+          file_type: res.file_type,
+          storage_service: "cloudinary",
         }));
 
         const { error: fileError } = await supabase
           .from("task_files")
-          .insert(fileRows);
+          .insert(filesPayload);
 
         if (fileError) throw fileError;
       }
@@ -138,6 +154,19 @@ export default function Newtask() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ── Shared input style ──────────────────────────────────────────────────────
+  const inputStyle = {
+    backgroundColor: colors.base.surfaceL2,
+    marginTop: 14,
+    height: 50,
+    borderRadius: 12,
+    borderColor: colors.base.border,
+    borderWidth: 1,
+    paddingLeft: 15,
+    color: colors.text.primary,
+    ...typography.body,
   };
 
   return (
@@ -171,6 +200,7 @@ export default function Newtask() {
         </Text>
       </View>
 
+      {/* Scrollable Form */}
       <ScrollView
         contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
@@ -345,7 +375,7 @@ export default function Newtask() {
             </View>
           )}
 
-          {/* Add Task Button */}
+          {/* Submit Button */}
           <TouchableOpacity
             onPress={handleAddTask}
             disabled={loading}
@@ -358,29 +388,22 @@ export default function Newtask() {
               justifyContent: "center",
             }}
           >
-            <Text
-              style={{
-                ...typography.subheading,
-                color: colors.base.surfaceL1,
-                fontSize: 18,
-              }}
-            >
-              {loading ? "Uploading..." : "Add task"}
-            </Text>
+            {loading ? (
+              <ActivityIndicator color={colors.base.surfaceL1} />
+            ) : (
+              <Text
+                style={{
+                  ...typography.subheading,
+                  color: colors.base.surfaceL1,
+                  fontSize: 18,
+                }}
+              >
+                Add task
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const inputStyle = {
-  backgroundColor: lightTheme.colors.base.surfaceL2,
-  height: 50,
-  borderRadius: 15,
-  borderColor: lightTheme.colors.base.border,
-  borderWidth: 1,
-  paddingLeft: 15,
-  color: lightTheme.colors.text.primary,
-  ...typography.body,
-};
