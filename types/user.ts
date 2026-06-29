@@ -5,4 +5,6 @@ export interface User {
   name: string;
   role: Role;
   phoneOrEmail: string;
+  department?: string;
+  managedEmployeeIds?: string[]; // admin-only: which employees report to this admin
 }

@@ -1,21 +1,36 @@
 import { mockTasks } from '../../data/mockTasks';
 import { useLocalSearchParams } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { Alert } from "react-native";
+import { lightTheme, typography } from "../../theme/theme";
+
+const { colors } = lightTheme;
+
+// Map task status to theme status colors
+const statusColorMap: Record<string, string> = {
+  overdue: colors.status.overdue,
+  pending: colors.status.pending,
+  inReview: colors.status.inReview,
+  completed: colors.status.completed,
+};
 
 export default function TaskDetail() {
   const { taskId } = useLocalSearchParams();
   const task = mockTasks.find((t) => t.id === taskId);
 
-  if (!task) return <Text>Task not found</Text>;
+  if (!task) return <Text style={{ ...typography.body, color: colors.text.primary }}>Task not found</Text>;
 
+  const statusColor = statusColorMap[task.status] ?? colors.text.secondary;
+  const router = useRouter(); 
   return (
-    <SafeAreaView>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
+      {/* Header */}
       <View
         style={{
-          backgroundColor: "#0B1B3D",
+          backgroundColor: colors.brand.primary,
           height: 60,
           alignItems: "center",
           justifyContent: "center",
@@ -23,108 +38,72 @@ export default function TaskDetail() {
       >
         <Text
           style={{
-            color: "white",
-            fontSize: 30,
-            fontWeight: "semibold",
-            // textAlign:"center"
+            ...typography.heading,
+            color: colors.base.surfaceL1,
           }}
         >
           Task Details
-        </Text>{" "}
+        </Text>
       </View>
 
+      {/* Card */}
       <View
         style={{
+          backgroundColor: colors.base.surfaceL1,
           boxShadow: "0px 0px 5px gray",
           borderRadius: 20,
+          borderWidth: 1,
+          borderColor: colors.base.border,
           margin: 40,
-          marginLeft: 40,
           marginTop: 80,
           width: 300,
         }}
       >
+        {/* Task Title */}
         <Text
           style={{
-            marginLeft: 20,
-            fontSize: 25,
+            ...typography.heading,
             marginTop: 15,
-            fontWeight: "bold",
             textAlign: "center",
+            color: colors.text.primary,
           }}
         >
           {task.title}
         </Text>
 
-        <View style={{}}>
-          <View
-            style={{
-              marginLeft: 20,
-              marginTop: 20,
-            }}
-          >
-            <Text style={{ fontWeight: "bold", lineHeight: 20, fontSize: 17 }}>
+        <View>
+          {/* Description */}
+          <View style={{ marginLeft: 20, marginTop: 20 }}>
+            <Text style={{ ...typography.heading3, color: colors.text.primary }}>
               Description:
             </Text>
-            :
-            <Text
-              style={{
-                marginTop: 8,
-              }}
-            >
+            <Text style={{ ...typography.body, marginTop: 8, color: colors.text.secondary }}>
               {task.label}
             </Text>
           </View>
 
-          <Text
-            style={{
-              marginLeft: 20,
-              marginTop: 25,
-            }}
-          >
-            <Text style={{ fontWeight: "bold", lineHeight: 20, fontSize: 17 }}>
-              Status:{" "}
+          {/* Status */}
+          <View style={{ marginLeft: 20, marginTop: 25, flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={{ ...typography.heading3, color: colors.text.primary }}>
+              Status:
             </Text>
-
-            <Text
-              style={{
-                color: "rgb(218, 4, 4)",
-                fontSize: 17,
-                fontWeight: "semibold",
-              }}
-            >
+            <Text style={{ ...typography.heading3, color: statusColor }}>
               {task.status}
             </Text>
-          </Text>
+          </View>
 
-          <Text
-            style={{
-              marginLeft: 20,
-              marginTop: 25,
-            }}
-          >
-            <Text style={{ fontWeight: "bold", lineHeight: 20, fontSize: 17 }}>
-              Duedate:{" "}
+          {/* Due Date */}
+          <View style={{ marginLeft: 20, marginTop: 25, flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={{ ...typography.heading3, color: colors.text.primary }}>
+              Due Date:
             </Text>
-
-            <Text
-              style={{
-                color: "rgb(218, 4, 4)",
-                fontSize: 17,
-                fontWeight: "semibold",
-              }}
-            >
+            <Text style={{ ...typography.heading3, color: statusColor }}>
               {task.dueDate}
             </Text>
-          </Text>
+          </View>
 
-          <Text
-            style={{
-              marginLeft: 20,
-              fontSize: 17,
-              fontWeight: "bold",
-              marginTop: 25,
-            }}
-          >
+          {/* Files Attached */}
+          <Text style={{ ...typography.heading3, marginLeft: 20, marginTop: 25, color: colors.text.primary }}>
             Files Attached:
           </Text>
 
@@ -132,66 +111,66 @@ export default function TaskDetail() {
             style={{
               height: 45,
               borderWidth: 1,
+              borderColor: colors.base.border,
               width: 220,
-              display: "flex",
               margin: 20,
               borderRadius: 15,
-              backgroundColor: "rgba(237, 233, 237, 0.47)",
-              // alignItems:"center",
-              // justifyContent:"center",
+              backgroundColor: colors.base.surfaceL2,
               flexDirection: "row",
+              alignItems: "center",
               gap: 30,
             }}
           >
             <Ionicons
-              style={{
-                marginTop: 10,
-                marginLeft: 14,
-              }}
+              style={{ marginLeft: 14 }}
               name="document"
               size={24}
-              color="gray"
+              color={colors.text.secondary}
             />
-
-            <Text
-              style={{
-                marginTop: 12,
-                color: "rgba(23, 22, 23, 0.84)",
-              }}
-            >
+            <Text style={{ ...typography.body, color: colors.text.primary }}>
               ABC.pdf
             </Text>
           </View>
 
-          <View
-            style={{
-              marginBottom: 20,
-            }}
-          >
+          {/* Submit Button */}
+          <View style={{ marginBottom: 20 }}>
             <TouchableOpacity
-              onPress={() =>
-                Alert.alert("Success", "Task created successfully!")
-              }
+              onPress={() => Alert.alert("Success", "Task created successfully!")}
               style={{
-                padding: 10,
                 height: 53,
                 width: 200,
-                backgroundColor: "#E8870A",
+                backgroundColor: colors.brand.accent,
                 borderRadius: 10,
                 alignItems: "center",
+                justifyContent: "center",
                 margin: 30,
                 marginLeft: 50,
               }}
             >
-              <Text
-                style={{ color: "white", fontWeight: "bold", fontSize: 25 }}
-              >
+              <Text style={{ ...typography.subheading, color: colors.base.surfaceL1 }}>
                 Submit Task
               </Text>
             </TouchableOpacity>
           </View>
         </View>
       </View>
+
+       <Ionicons
+          onPress={() => router.back()}
+          name="arrow-back"
+          size={30}
+          color={colors.base.surfaceL1}
+          style={{
+            margin: 20,
+            marginTop: 120,
+            marginLeft: -5,
+            backgroundColor: colors.brand.primary,
+            borderRadius: 20,
+            width: 40,
+            alignItems: "center",
+            textAlign: "center",
+          }}
+        />
     </SafeAreaView>
   );
 }
