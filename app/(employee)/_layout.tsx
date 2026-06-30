@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Image } from 'react-native';
-import { useTheme } from '../../theme/useTheme';
+import { useTheme } from '../../context/ThemeContext';
 
 const icons = {
   home: {

@@ -7,7 +7,7 @@ import {
   Text,
   Platform,
 } from "react-native";
-import { useTheme } from "../../theme/useTheme";
+import { useTheme } from "../../context/ThemeContext";
 
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
 interface Task { title: string; descp: string; category: TaskCategory; }

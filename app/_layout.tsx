@@ -9,6 +9,7 @@ import { Slot } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase'
 import { useEffect } from 'react'
+import { ThemeProvider } from '../context/ThemeContext';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -40,5 +41,9 @@ export default function RootLayout() {
 
   
 
-  return <Slot />;
+  return (
+    <ThemeProvider>
+      <Slot />
+    </ThemeProvider>
+  );
 }
