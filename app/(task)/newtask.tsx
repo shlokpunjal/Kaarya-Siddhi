@@ -15,6 +15,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "@env";
+import { useTheme } from '../../context/ThemeContext';
 
 const { colors } = lightTheme;
 

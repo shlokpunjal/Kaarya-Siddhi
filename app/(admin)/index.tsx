@@ -168,11 +168,10 @@ export default function Dashboard() {
 
           {/* Stats Box */}
           <View style={{
-            backgroundColor:"#FFFFFF",
+           backgroundColor: colors.base.surfaceL1,
             marginTop: 25, margin: 20, height: 140, borderRadius: 25,
             flexDirection: "row", alignItems: "center", justifyContent: "space-around",
-            borderColor:"#E2E2E6",
-            borderWidth:2.5
+            borderColor: colors.base.border, borderWidth: 2.5, 
           }}>
             {/* Overdue */}
             <View style={{ alignItems: "center" }}>
@@ -238,7 +237,7 @@ export default function Dashboard() {
               style={{
                 backgroundColor: colors.brand.accent, padding: 14,
                 width: 200, height: 60, borderRadius: 32,
-                boxShadow: "0px 0px 5px gray", flexDirection: "row",
+                flexDirection: "row",
                 marginTop:-1
               }}
             >
@@ -266,7 +265,7 @@ export default function Dashboard() {
         <View style={{
           width: 320, marginTop: 30, marginLeft: 33,
           borderColor: colors.base.border, borderWidth: 1, borderRadius: 19,
-          backgroundColor:"#FFFFFF",
+          backgroundColor:colors.base.surfaceL1,
         }}>
           <View style={{
             height: 60, borderRadius: 20, flexDirection: "row",
