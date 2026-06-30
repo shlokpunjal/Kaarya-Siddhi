@@ -123,5 +123,5 @@ export const darkTheme = {
 } as const;
 
 // Global TypeScript mappings derived directly from your token blueprints
-export type Theme = typeof lightTheme;
+export type Theme = typeof lightTheme | typeof darkTheme;
 export type TypographyStyle = keyof typeof typography;
