@@ -14,7 +14,7 @@ export default function Index() {
   }, []);
 
   async function checkRole() {
-    const testEmail = 'rahul@karyasiddhi.com'; // Change this
+    const testEmail = 'priya@karyasiddhi.com'; // Change this
 
     const { data, error } = await supabase
       .from('users')
