@@ -113,7 +113,7 @@ export const darkTheme = {
                               // size before sign-off.
     },
     status: {
-      completed: '#1B4D3E',
+      completed: '#11815f',
       inReview: '#3182CE',
       pending: '#ED8936',
       overdue: '#E53E3E',
