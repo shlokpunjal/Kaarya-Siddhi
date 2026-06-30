@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Linking, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../theme/useTheme';
+import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 import { TaskPriority, TaskStatus } from '../../types/task';
 

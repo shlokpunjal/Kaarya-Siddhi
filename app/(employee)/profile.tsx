@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { mockEmployeeUser } from '../../data/mockCurrentUser';
 import { typography } from '../../theme/theme';
-import { useTheme } from '../../theme/useTheme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function EmployeeProfile() {
   const { colors } = useTheme();

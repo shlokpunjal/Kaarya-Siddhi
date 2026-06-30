@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../theme/useTheme';
+import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 
 const API_BASE = 'http://10.203.77.110:8000';
