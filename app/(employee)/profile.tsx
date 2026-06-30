@@ -6,11 +6,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { mockEmployeeUser } from '../../data/mockCurrentUser';
 import { typography } from '../../theme/theme';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
 
 export default function EmployeeProfile() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { mode, setMode } = useThemeMode();
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(mockEmployeeUser.name);
@@ -19,6 +20,12 @@ export default function EmployeeProfile() {
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
+
+  const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { value: 'light', label: 'Light', icon: 'sunny-outline' },
+    { value: 'dark', label: 'Dark', icon: 'moon-outline' },
+    { value: 'system', label: 'System', icon: 'phone-portrait-outline' },
+  ];
 
   const handleSave = () => {
     // TEMPORARY — no backend yet, this only updates local state for now
@@ -198,6 +205,47 @@ export default function EmployeeProfile() {
         >
           <Text style={[typography.heading3, { color: colors.status.overdue }]}>Log Out</Text>
         </Pressable>
+
+        <View style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
+          <Text style={[typography.subheading, { color: colors.text.primary, marginBottom: 14 }]}>
+            Appearance
+          </Text>
+          <View style={styles.themeRow}>
+            {THEME_OPTIONS.map((option) => {
+              const selected = mode === option.value;
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => setMode(option.value)}
+                  style={[
+                    styles.themeOption,
+                    {
+                      backgroundColor: selected ? colors.brand.accent : colors.base.surfaceL2,
+                      borderColor: selected ? colors.brand.accent : colors.base.border,
+                    },
+                  ]}
+                >
+                  <Ionicons name={option.icon} size={22} color={selected ? '#FFFFFF' : colors.text.primary} />
+                  <Text style={[typography.label, { color: selected ? '#FFFFFF' : colors.text.primary, marginTop: 4 }]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={[typography.subheading, { color: colors.text.primary, marginTop: 20, marginBottom: 10 }]}>
+            Language
+          </Text>
+          <Pressable
+            style={[styles.languageButton, { backgroundColor: colors.base.surfaceL2, borderColor: colors.base.border }]}
+            onPress={() => { }}
+          >
+            <Ionicons name="language-outline" size={20} color={colors.text.primary} />
+            <Text style={[typography.body, { color: colors.text.primary, marginLeft: 8 }]}>English</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} style={{ marginLeft: 'auto' }} />
+          </Pressable>
+        </View>
       </ScrollView>
       <Modal
         visible={showImage}
@@ -232,6 +280,16 @@ const AVATAR_SIZE = 64;
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   scrollContent: { padding: 20 },
+  themeRow: { flexDirection: 'row', gap: 10 },
+  themeOption: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 14, alignItems: 'center' },
+  languageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   avatarPressable: { position: 'relative' },
   avatarImage: {
