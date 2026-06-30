@@ -2,17 +2,25 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { mockAdminUser } from '../../data/mockCurrentUser';
 import { typography } from '../../theme/theme';
-import { useTheme } from '../../theme/useTheme';
+import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
 
 const EMPLOYEE_NAMES: Record<string, string> = {
   emp1: 'Ravi Kumar',
   emp2: 'Sita Devi',
 };
 
+const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: 'light', label: 'Light', icon: 'sunny-outline' },
+  { value: 'dark', label: 'Dark', icon: 'moon-outline' },
+  { value: 'system', label: 'System', icon: 'phone-portrait-outline' },
+];
+
 export default function AdminProfile() {
   const { colors } = useTheme();
+  const { mode, setMode } = useThemeMode();
   const router = useRouter();
 
   const [editing, setEditing] = useState(false);
@@ -97,6 +105,47 @@ export default function AdminProfile() {
           ))}
         </View>
 
+        <View style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
+          <Text style={[typography.subheading, { color: colors.text.primary, marginBottom: 14 }]}>
+            Appearance
+          </Text>
+          <View style={styles.themeRow}>
+            {THEME_OPTIONS.map((option) => {
+              const selected = mode === option.value;
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => setMode(option.value)}
+                  style={[
+                    styles.themeOption,
+                    {
+                      backgroundColor: selected ? colors.brand.accent : colors.base.surfaceL2,
+                      borderColor: selected ? colors.brand.accent : colors.base.border,
+                    },
+                  ]}
+                >
+                  <Ionicons name={option.icon} size={22} color={selected ? '#FFFFFF' : colors.text.primary} />
+                  <Text style={[typography.label, { color: selected ? '#FFFFFF' : colors.text.primary, marginTop: 4 }]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={[typography.subheading, { color: colors.text.primary, marginTop: 20, marginBottom: 10 }]}>
+            Language
+          </Text>
+          <Pressable
+            style={[styles.languageButton, { backgroundColor: colors.base.surfaceL2, borderColor: colors.base.border }]}
+            onPress={() => {}}
+          >
+            <Ionicons name="language-outline" size={20} color={colors.text.primary} />
+            <Text style={[typography.body, { color: colors.text.primary, marginLeft: 8 }]}>English</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} style={{ marginLeft: 'auto' }} />
+          </Pressable>
+        </View>
+
         <Pressable
           style={[styles.actionButton, { backgroundColor: colors.brand.accent }]}
           onPress={editing ? handleSave : () => setEditing(true)}
@@ -122,6 +171,16 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20 },
   card: { borderRadius: 16, borderWidth: 1, padding: 18, marginBottom: 20 },
   input: { borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 },
+  themeRow: { flexDirection: 'row', gap: 10 },
+  themeOption: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 14, alignItems: 'center' },
+  languageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
   actionButton: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 12 },
   logoutButton: { backgroundColor: 'transparent', borderWidth: 1.5 },
 });

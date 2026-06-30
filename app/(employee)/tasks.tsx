@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { mockTasks } from '../../data/mockTasks';
 import { TaskStatus, TaskPriority } from '../../types/task';
 import { typography } from '../../theme/theme';
-import { useTheme } from '../../theme/useTheme';
+import { useTheme } from '../../context/ThemeContext';
 
 type FilterType = 'all' | 'status' | 'priority' | 'label' | 'deadlineAsc' | 'deadlineDesc' | 'priorityHighLow' | 'priorityLowHigh';
 
