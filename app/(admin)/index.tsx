@@ -1,13 +1,12 @@
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { supabase } from '../../lib/supabase';
-import { lightTheme, typography } from '../../theme/theme';
+import { useTheme } from "../../context/ThemeContext";
+import { typography } from '../../theme/theme';
 import { Task } from '../../types/task';
-
-const { colors } = lightTheme;
 
 // Raw shape returned by Postgres (snake_case)
 type TaskRow = {
@@ -38,6 +37,7 @@ function mapRowToTask(row: TaskRow): Task {
 }
 
 export default function Dashboard() {
+  const { colors } = useTheme();
   const router = useRouter();
   const [showOverdue, setShowOverdue] = useState(false);
   const [showPending, setShowPending] = useState(false);
@@ -46,10 +46,19 @@ export default function Dashboard() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
 
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  // Refresh the notification badge every time this screen regains focus
+  // (e.g. coming back from the notifications page after accept/reject).
+  useFocusEffect(
+    useCallback(() => {
+      fetchPendingRequestCount();
+    }, [])
+  );
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -64,6 +73,19 @@ export default function Dashboard() {
       setTasks((data ?? []).map(mapRowToTask));
     }
     setLoading(false);
+  };
+
+  const fetchPendingRequestCount = async () => {
+    const { count, error } = await supabase
+      .from('extension_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+
+    if (error) {
+      console.error('Error fetching pending request count:', error.message);
+      return;
+    }
+    setPendingRequestCount(count ?? 0);
   };
 
   if (loading) {
@@ -85,17 +107,64 @@ export default function Dashboard() {
 
         {/* Top section */}
         <View>
-          <Text style={{
-            ...typography.subheading,
-            marginTop: 20, marginLeft: 15,
-            color: colors.text.secondary,
-          }}>Good Morning!</Text>
+          <View style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            paddingRight: 15,
+          }}>
+            <View>
+              <Text style={{
+                ...typography.subheading,
+                marginTop: 20, marginLeft: 15,
+                color: colors.text.secondary,
+              }}>Good Morning!</Text>
 
-          <Text style={{
-            ...typography.heading,
-            marginTop: 5, marginLeft: 15,
-            color: colors.text.primary,
-          }}>Your Task Overview</Text>
+              <Text style={{
+                ...typography.heading,
+                marginTop: 5, marginLeft: 15,
+                color: colors.text.primary,
+              }}>Your Task Overview</Text>
+            </View>
+
+            {/* Notification bell */}
+            <TouchableOpacity
+              onPress={() => router.push("/(admin)/notifications")}
+              style={{
+                position: "relative",
+                marginTop: 22,
+                height: 48,
+                width: 48,
+                borderRadius: 24,
+                backgroundColor: colors.base.surfaceL2,
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0px 0px 5px gray",
+              }}
+            >
+              <Ionicons name="notifications-outline" size={24} color={colors.brand.accent} />
+              {pendingRequestCount > 0 && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 2,
+                    right: 2,
+                    minWidth: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    backgroundColor: colors.status.overdue,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingHorizontal: 3,
+                  }}
+                >
+                  <Text style={{ color: colors.base.surfaceL1, fontSize: 10, fontFamily: "Poppins-SemiBold" }}>
+                    {pendingRequestCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
 
           {/* Stats Box */}
           <View style={{
