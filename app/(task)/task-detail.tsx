@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState, useCallback } from "react";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import {
   Text,
   TouchableOpacity,
@@ -11,26 +11,27 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme, typography } from "../../theme/theme";
+import { useTheme } from "../../context/ThemeContext";
+import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 
-const { colors } = lightTheme;
-
-const statusColorMap: Record<string, string> = {
-  overdue: colors.status.overdue,
-  pending: colors.status.pending,
-  in_review: colors.status.inReview,
-  completed: colors.status.completed,
-};
-
 export default function TaskDetail() {
+  const { colors } = useTheme();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
   const router = useRouter();
+
+  const statusColorMap: Record<string, string> = {
+    overdue: colors.status.overdue,
+    pending: colors.status.pending,
+    in_review: colors.status.inReview,
+    completed: colors.status.completed,
+  };
 
   const [task, setTask] = useState<any>(null);
   const [taskFiles, setTaskFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [hasPendingExtension, setHasPendingExtension] = useState(false);
 
   // ── Fetch task + its files from Supabase ────────────────────────────────────
   useEffect(() => {
@@ -65,6 +66,29 @@ export default function TaskDetail() {
 
     fetchTask();
   }, [taskId]);
+
+  // ── Check for an existing pending extension request, refreshed on focus ─────
+  const checkPendingExtension = useCallback(async () => {
+    if (!taskId) return;
+    const { data, error } = await supabase
+      .from("extension_requests")
+      .select("id")
+      .eq("task_id", taskId)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (error) {
+      console.error("Extension request check error:", error);
+      return;
+    }
+    setHasPendingExtension(!!data);
+  }, [taskId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      checkPendingExtension();
+    }, [checkPendingExtension])
+  );
 
   // ── Submit task → inserts into task_submissions + updates status ────────────
   const handleSubmit = async () => {
@@ -368,11 +392,20 @@ export default function TaskDetail() {
 
           {/* Extend Deadline Button */}
           <TouchableOpacity
-            // onPress={() => { /* TODO: hook up deadline extension flow */ }}
+            disabled={hasPendingExtension || task.status === "completed"}
+            onPress={() =>
+              router.push({
+                pathname: "/(task)/extend-deadline",
+                params: { taskId: task.id },
+              })
+            }
             style={{
               height: 50,
               borderRadius: 12,
-              backgroundColor: "#0B1B3D",
+              backgroundColor:
+                hasPendingExtension || task.status === "completed"
+                  ? colors.base.border
+                  : colors.brand.primary,
               alignItems: "center",
               justifyContent: "center",
               marginTop: 12,
@@ -385,7 +418,7 @@ export default function TaskDetail() {
                 ...typography.body,
               }}
             >
-              Extend Deadline
+              {hasPendingExtension ? "Extension Requested" : "Extend Deadline"}
             </Text>
           </TouchableOpacity>
         </View>
