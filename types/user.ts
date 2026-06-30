@@ -3,8 +3,10 @@ export type Role = 'employee' | 'admin';
 export interface User {
   id: string;
   name: string;
+  designation:string,
   role: Role;
-  phoneOrEmail: string;
+  email: string;
+  phone:string;
   department?: string;
   managedEmployeeIds?: string[]; // admin-only: which employees report to this admin
 }
