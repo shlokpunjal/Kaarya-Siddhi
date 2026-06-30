@@ -1,14 +1,41 @@
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import React from 'react';
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-// import { mockTasks } from '../(data)/mocktasks';
-import { mockTasks } from '../../data/mockTasks';
+import { supabase } from '../../lib/supabase';
 import { lightTheme, typography } from '../../theme/theme';
+import { Task } from '../../types/task';
 
 const { colors } = lightTheme;
+
+// Raw shape returned by Postgres (snake_case)
+type TaskRow = {
+  id: string;
+  title: string;
+  status: 'overdue' | 'pending' | 'in_review' | 'completed';
+  priority: 'low' | 'medium' | 'high';
+  label: string;
+  assigned_to: string;
+  created_by: string;
+  deadline: string;
+  suggestion: string | null;
+};
+
+// Maps a DB row (snake_case, status: 'in_review') to the app's Task type (camelCase, status: 'inReview')
+function mapRowToTask(row: TaskRow): Task {
+  return {
+    id: row.id,
+    title: row.title,
+    status: row.status === 'in_review' ? 'inReview' : row.status,
+    priority: row.priority,
+    label: row.label,
+    assignedTo: row.assigned_to,
+    createdBy: row.created_by,
+    dueDate: row.deadline,
+    suggestion: row.suggestion ?? undefined,
+  };
+}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -16,6 +43,41 @@ export default function Dashboard() {
   const [showPending, setShowPending] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
+
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('deadline', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching tasks:', error.message);
+    } else {
+      setTasks((data ?? []).map(mapRowToTask));
+    }
+    setLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={typography.body}>Loading tasks...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  const overdueTasks = tasks.filter(task => task.status === "overdue");
+  const pendingTasks = tasks.filter(task => task.status === "pending");
+  const reviewTasks = tasks.filter(task => task.status === "inReview");
+  const completedTasks = tasks.filter(task => task.status === "completed");
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
@@ -47,13 +109,12 @@ export default function Dashboard() {
             <View style={{ alignItems: "center" }}>
               <View style={{
                   marginLeft:12,
-                   
                 height: 63, width: 63, borderRadius: 40,
                 backgroundColor: "rgba(239,133,143,0.4)",
                 borderColor: colors.status.overdue,
                 borderWidth: 2, alignItems: "center", justifyContent: "center",
               }}>
-                <Text style={{ ...typography.heading, color: colors.status.overdue }}>2</Text>
+                <Text style={{ ...typography.heading, color: colors.status.overdue }}>{overdueTasks.length}</Text>
               </View>
               <Text style={{ ...typography.body, marginTop: 10, color: colors.status.overdue, marginLeft:13}}>Overdue</Text>
             </View>
@@ -66,7 +127,7 @@ export default function Dashboard() {
                 borderColor: colors.status.pending,
                 borderWidth: 2, alignItems: "center", justifyContent: "center",
               }}>
-                <Text style={{ ...typography.heading, color: colors.status.pending }}>10</Text>
+                <Text style={{ ...typography.heading, color: colors.status.pending }}>{pendingTasks.length}</Text>
               </View>
               <Text style={{ ...typography.body, marginTop: 10, color: colors.status.pending }}>Pending</Text>
             </View>
@@ -79,7 +140,7 @@ export default function Dashboard() {
                 borderColor: colors.status.inReview,
                 borderWidth: 2, alignItems: "center", justifyContent: "center",
               }}>
-                <Text style={{ ...typography.heading, color: colors.status.inReview }}>5</Text>
+                <Text style={{ ...typography.heading, color: colors.status.inReview }}>{reviewTasks.length}</Text>
               </View>
               <Text style={{ ...typography.body, marginTop: 10, color: colors.status.inReview }}>In Review</Text>
             </View>
@@ -92,7 +153,7 @@ export default function Dashboard() {
                 borderColor: colors.status.completed,
                 borderWidth: 2, alignItems: "center", justifyContent: "center",
               }}>
-                <Text style={{ ...typography.heading, color: colors.status.completed }}>0</Text>
+                <Text style={{ ...typography.heading, color: colors.status.completed }}>{completedTasks.length}</Text>
               </View>
               <Text style={{ ...typography.body, marginTop: 10, color: colors.status.completed }}>Completed</Text>
             </View>
@@ -100,7 +161,7 @@ export default function Dashboard() {
         </View>
 
         {/* Buttons Row */}
-        <View style={{ flexDirection: "row", gap: 20, 
+        <View style={{ flexDirection: "row", gap: 20,
          }}>
           <View style={{ marginLeft: 48}}>
             <TouchableOpacity
@@ -153,32 +214,29 @@ export default function Dashboard() {
           </View>
           {showOverdue && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
-              {mockTasks
-                .filter(task => task.status === "overdue")
-                .map((task) => (
-                  <TouchableOpacity
-                    key={task.id}
-                    onPress={() => router.push({
-                      pathname: '/(task)/task-detail',
-                      params: { taskId: task.id }
-                    })}
-                    style={{
-                      flexDirection: "row", alignItems: "center",
-                      backgroundColor: colors.base.surfaceL2,
-                      borderRadius: 12, padding: 12, marginBottom: 8,
-                      gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10
-                    }}
-                  >
-                    <View style={{
-                      height: 24, width: 24, borderRadius: 12, borderWidth: 2,
-                      borderColor: colors.status.overdue, alignItems: "center", justifyContent: "center",
-                    }}>
-                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.overdue }} />
-                    </View>
-                    <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title }</Text>
-                  </TouchableOpacity>
-                ))
-              }
+              {overdueTasks.map((task) => (
+                <TouchableOpacity
+                  key={task.id}
+                  onPress={() => router.push({
+                    pathname: '/(task)/task-detail',
+                    params: { taskId: task.id }
+                  })}
+                  style={{
+                    flexDirection: "row", alignItems: "center",
+                    backgroundColor: colors.base.surfaceL2,
+                    borderRadius: 12, padding: 12, marginBottom: 8,
+                    gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10
+                  }}
+                >
+                  <View style={{
+                    height: 24, width: 24, borderRadius: 12, borderWidth: 2,
+                    borderColor: colors.status.overdue, alignItems: "center", justifyContent: "center",
+                  }}>
+                    <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.overdue }} />
+                  </View>
+                  <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
         </View>
@@ -204,32 +262,29 @@ export default function Dashboard() {
           </View>
           {showPending && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
-              {mockTasks
-                .filter(task => task.status === "pending")
-                .map((task) => (
-                  <TouchableOpacity
-                    key={task.id}
-                    onPress={() => router.push({
-                      pathname: '/(task)/task-detail',
-                      params: { taskId: task.id }
-                    })}
-                    style={{
-                      flexDirection: "row", alignItems: "center",
-                      backgroundColor: colors.base.surfaceL2,
-                      borderRadius: 12, padding: 12, marginBottom: 8,
-                      gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10
-                    }}
-                  >
-                    <View style={{
-                      height: 24, width: 24, borderRadius: 12, borderWidth: 2,
-                      borderColor: colors.status.pending, alignItems: "center", justifyContent: "center",
-                    }}>
-                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.pending }} />
-                    </View>
-                    <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
-                  </TouchableOpacity>
-                ))
-              }
+              {pendingTasks.map((task) => (
+                <TouchableOpacity
+                  key={task.id}
+                  onPress={() => router.push({
+                    pathname: '/(task)/task-detail',
+                    params: { taskId: task.id }
+                  })}
+                  style={{
+                    flexDirection: "row", alignItems: "center",
+                    backgroundColor: colors.base.surfaceL2,
+                    borderRadius: 12, padding: 12, marginBottom: 8,
+                    gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10
+                  }}
+                >
+                  <View style={{
+                    height: 24, width: 24, borderRadius: 12, borderWidth: 2,
+                    borderColor: colors.status.pending, alignItems: "center", justifyContent: "center",
+                  }}>
+                    <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.pending }} />
+                  </View>
+                  <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
         </View>
@@ -255,32 +310,29 @@ export default function Dashboard() {
           </View>
           {showReview && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
-              {mockTasks
-                .filter(task => task.status === "inReview")
-                .map((task) => (
-                  <TouchableOpacity
-                    key={task.id}
-                    onPress={() => router.push({
-                      pathname: '/(task)/task-detail',
-                      params: { taskId: task.id }
-                    })}
-                    style={{
-                      flexDirection: "row", alignItems: "center",
-                      backgroundColor: colors.base.surfaceL2,
-                      borderRadius: 12, padding: 12, marginBottom: 8,
-                      gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10
-                    }}
-                  >
-                    <View style={{
-                      height: 24, width: 24, borderRadius: 12, borderWidth: 2,
-                      borderColor: colors.status.inReview, alignItems: "center", justifyContent: "center",
-                    }}>
-                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.inReview }} />
-                    </View>
-                    <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
-                  </TouchableOpacity>
-                ))
-              }
+              {reviewTasks.map((task) => (
+                <TouchableOpacity
+                  key={task.id}
+                  onPress={() => router.push({
+                    pathname: '/(task)/task-detail',
+                    params: { taskId: task.id }
+                  })}
+                  style={{
+                    flexDirection: "row", alignItems: "center",
+                    backgroundColor: colors.base.surfaceL2,
+                    borderRadius: 12, padding: 12, marginBottom: 8,
+                    gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10
+                  }}
+                >
+                  <View style={{
+                    height: 24, width: 24, borderRadius: 12, borderWidth: 2,
+                    borderColor: colors.status.inReview, alignItems: "center", justifyContent: "center",
+                  }}>
+                    <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.inReview }} />
+                  </View>
+                  <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
         </View>
@@ -306,32 +358,29 @@ export default function Dashboard() {
           </View>
           {showCompleted && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
-              {mockTasks
-                .filter(task => task.status === "completed")
-                .map((task) => (
-                  <TouchableOpacity
-                    key={task.id}
-                    onPress={() => router.push({
-                      pathname: '/(task)/task-detail',
-                      params: { taskId: task.id }
-                    })}
-                    style={{
-                      flexDirection: "row", alignItems: "center",
-                      backgroundColor: colors.base.surfaceL2,
-                      borderRadius: 12, padding: 12, marginBottom: 8,
-                      gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10
-                    }}
-                  >
-                    <View style={{
-                      height: 24, width: 24, borderRadius: 12, borderWidth: 2,
-                      borderColor: colors.status.completed, alignItems: "center", justifyContent: "center",
-                    }}>
-                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.completed }} />
-                    </View>
-                    <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
-                  </TouchableOpacity>
-                ))
-              }
+              {completedTasks.map((task) => (
+                <TouchableOpacity
+                  key={task.id}
+                  onPress={() => router.push({
+                    pathname: '/(task)/task-detail',
+                    params: { taskId: task.id }
+                  })}
+                  style={{
+                    flexDirection: "row", alignItems: "center",
+                    backgroundColor: colors.base.surfaceL2,
+                    borderRadius: 12, padding: 12, marginBottom: 8,
+                    gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10
+                  }}
+                >
+                  <View style={{
+                    height: 24, width: 24, borderRadius: 12, borderWidth: 2,
+                    borderColor: colors.status.completed, alignItems: "center", justifyContent: "center",
+                  }}>
+                    <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.completed }} />
+                  </View>
+                  <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
         </View>
