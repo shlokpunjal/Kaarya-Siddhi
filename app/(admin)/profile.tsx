@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Image, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +32,8 @@ export default function AdminProfile() {
   const [contact, setContact] = useState(mockAdminUser.phone);
   const [email, setemail] = useState(mockAdminUser.email);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [showImage, setShowImage] = useState(false);
+
 
   const handleSave = () => {
     setEditing(false);
@@ -57,6 +59,7 @@ export default function AdminProfile() {
   };
 
   const pickAvatar = async () => {
+    if (!editing) return;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permission needed', 'Please allow photo library access to set a profile picture.');
@@ -92,9 +95,21 @@ export default function AdminProfile() {
         <View style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
           {/* Avatar + Name row */}
           <View style={styles.headerRow}>
-            <Pressable onPress={pickAvatar} style={styles.avatarPressable}>
+            <Pressable
+              style={styles.avatarPressable}
+              onPress={() => {
+                if (editing) {
+                  pickAvatar();            // Change profile picture
+                } else if (avatarUri) {
+                  setShowImage(true);      // View full image
+                }
+              }}
+            >
               {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                <Image
+                  source={{ uri: avatarUri }}
+                  style={styles.avatarImage}
+                />
               ) : (
                 <View
                   style={[
@@ -103,17 +118,30 @@ export default function AdminProfile() {
                     { backgroundColor: colors.brand.accent },
                   ]}
                 >
-                  <Text style={[typography.subheading, { color: '#FFFFFF' }]}>{initials}</Text>
+                  <Text
+                    style={[
+                      typography.subheading,
+                      { color: '#FFFFFF' },
+                    ]}
+                  >
+                    {initials}
+                  </Text>
                 </View>
               )}
-              <View
-                style={[
-                  styles.editBadge,
-                  { backgroundColor: colors.brand.primary, borderColor: colors.base.background },
-                ]}
-              >
-                <Ionicons name="camera" size={12} color="#FFFFFF" />
-              </View>
+
+              {editing && (
+                <View
+                  style={[
+                    styles.editBadge,
+                    {
+                      backgroundColor: colors.brand.primary,
+                      borderColor: colors.base.background,
+                    },
+                  ]}
+                >
+                  <Ionicons name="camera" size={12} color="#FFFFFF" />
+                </View>
+              )}
             </Pressable>
 
             <View style={styles.nameColumn}>
@@ -239,6 +267,30 @@ export default function AdminProfile() {
           <Text style={[typography.heading3, { color: colors.status.overdue }]}>Log Out</Text>
         </Pressable>
       </ScrollView>
+      <Modal
+        visible={showImage}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowImage(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.9)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+          onPress={() => setShowImage(false)}
+        >
+          {avatarUri && (
+            <Image
+              source={{ uri: avatarUri }}
+              style={{ width: '90%', height: '80%' }}
+              resizeMode="contain"
+            />
+          )}
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }

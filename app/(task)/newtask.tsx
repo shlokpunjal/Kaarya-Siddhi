@@ -18,11 +18,11 @@ import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "@env";
 
 const { colors } = lightTheme;
 
-type Priority = "low" | "moderate" | "high";
+type Priority = "low" | "medium" | "high";
 
 const PRIORITIES: { label: string; value: Priority; color: string; bg: string }[] = [
   { label: "Low", value: "low", color: "#2E7D32", bg: "#E8F5E9" },
-  { label: "Moderate", value: "moderate", color: "#E65100", bg: "#FFF3E0" },
+  { label: "Medium", value: "medium", color: "#E65100", bg: "#FFF3E0" },
   { label: "High", value: "high", color: "#B71C1C", bg: "#FFEBEE" },
 ];
 
