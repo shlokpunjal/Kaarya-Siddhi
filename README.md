@@ -100,11 +100,6 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 > **Note:** When testing on a physical device via Expo Go, replace `localhost` with your machine's LAN IP address (run `ipconfig` on Windows / `ifconfig` on Mac). Both devices must be on the same Wi-Fi network.
 
-Test the Excel endpoint directly in a browser:
-```
-http://<your-lan-ip>:8000/reports/tasks/excel?employee_id=emp1
-```
-
 ---
 
 ## Contributing
