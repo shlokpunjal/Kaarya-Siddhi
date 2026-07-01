@@ -12,7 +12,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../../hooks/useAuth";
 import { API_BASE_URL } from "../../constants/api"
-import { sendLoginNotification } from "../../utils/notifications";
+// import { sendLoginNotification } from "../../utils/notifications";
 
 
 
@@ -62,15 +62,15 @@ const OtpVerify = () => {
 
       if (data.success) {
         await saveSession(data.token, data.phone, data.email);
-        await sendLoginNotification(data.email);
+        // await sendLoginNotification(data.email);
 
         if (data.role === "employee" && !data.workspace_id) {
           router.replace({
-            pathname: "/RequestAdmin",
+            pathname: "/(auth)/RequestAdmin",
             params: { email: data.email },
           });
         } else {
-          router.replace("../dashboard");
+          router.replace("/(employee)");
         }
       }
     } catch (error) {
@@ -111,7 +111,7 @@ const OtpVerify = () => {
       <View style={styles.mainStyle}>
         <View style={styles.imagestyle}>
           <Image
-            source={require("../assets/images/logo.jpeg")}
+            source={require("../../assets/images/logo.jpeg")}
             style={styles.imageStyling}
           />
         </View>

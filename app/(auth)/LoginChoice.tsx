@@ -25,7 +25,7 @@ export default function HomeScreen() {
       </View>
       <View style={styles.imagecontainer}>
         <Image
-          source={require("../assets/images/logo.jpeg")}
+          source={require("../../assets/images/logo.jpeg")}
           style={styles.image}
         />
         <Text style={styles.contain}>Welcome to KaaryaSiddhi</Text>

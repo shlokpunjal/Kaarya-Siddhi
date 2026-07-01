@@ -34,7 +34,7 @@ const WaitingApproval = () => {
 
             if (data.status === "accepted") {
                 if (pollRef.current) clearInterval(pollRef.current);
-                router.replace("/dashboard");
+                router.replace("/(employee)");
             } else if (data.status === "rejected") {
                 if (pollRef.current) clearInterval(pollRef.current);
                 setStatus("rejected");
@@ -46,7 +46,7 @@ const WaitingApproval = () => {
 
     const tryAgain = () => {
         router.replace({
-            pathname: "/RequestAdmin",
+            pathname: "/(auth)/RequestAdmin",
             params: { email: employeeEmail },
         });
     };
@@ -55,7 +55,7 @@ const WaitingApproval = () => {
         <SafeAreaView style={styles.container}>
             <View style={styles.imagestyle}>
                 <Image
-                    source={require("../assets/images/logo.jpeg")}
+                    source={require("../../assets/images/logo.jpeg")}
                     style={styles.imageStyling}
                 />
             </View>
