@@ -46,4 +46,4 @@ backend/venv/
 backend/__pycache__/
 backend/**/__pycache__/
 backend/*.pyc
-backend/.env".env" 
+backend/.env
