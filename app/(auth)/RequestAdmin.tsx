@@ -44,7 +44,7 @@ const RequestAdmin = () => {
 
       if (data.success) {
         router.push({
-          pathname: "/WaitingApproval",
+          pathname: "/(auth)/WaitingApproval",
           params: { employeeEmail: email, adminEmail },
         });
       }
@@ -64,7 +64,7 @@ const RequestAdmin = () => {
       <View style={styles.mainStyle}>
         <View style={styles.imagestyle}>
           <Image
-            source={require("../assets/images/logo.jpeg")}
+            source={require("../../assets/images/logo.jpeg")}
             style={styles.imageStyling}
           />
         </View>
