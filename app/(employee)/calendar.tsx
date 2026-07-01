@@ -116,7 +116,7 @@ export default function CalendarScreen() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={[s.header, { backgroundColor: brand.primary }]}>
-        <Text style={[s.headerText, { color: base.surfaceL1 }]}>Calendar</Text>
+        <Text style={[s.headerText, { color: "#fff" }]}>Calendar</Text>
       </View>
 
       {/* ── Calendar card ──────────────────────────────────────────────── */}
