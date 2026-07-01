@@ -13,12 +13,8 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
     "@supabase/supabase-js": "^2.108.2",
-<<<<<<< HEAD
     "babel-preset-expo": "~54.0.10",
     "expo": "~54.0.35",
-=======
-    "expo": "~54.0.34",
->>>>>>> main
     "expo-constants": "~18.0.13",
     "expo-device": "~8.0.10",
     "expo-document-picker": "~14.0.8",
@@ -28,10 +24,7 @@
     "expo-router": "~6.0.24",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
-<<<<<<< HEAD
     "react-dom": "19.1.0",
-=======
->>>>>>> main
     "react-native": "0.81.5",
     "react-native-calendars": "^1.1314.0",
     "react-native-dotenv": "^3.4.11",
