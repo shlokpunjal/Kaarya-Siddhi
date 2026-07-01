@@ -5,7 +5,7 @@
     "scheme": "kaaryasiddhi",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/Kaarya-Siddhi-Logo.jpeg",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
@@ -22,7 +22,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      "@react-native-community/datetimepicker"
     ]
   }
 }
