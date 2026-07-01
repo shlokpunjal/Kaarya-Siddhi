@@ -10,10 +10,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef, useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useAuth } from "../hooks/useAuth";
-import { API_BASE_URL } from "../constants/api"
-import { sendLoginNotification } from "../utils/notifications";
+import { useAuth } from "../../hooks/useAuth";
+import { API_BASE_URL } from "../../constants/api"
+import { sendLoginNotification } from "../../utils/notifications";
 
 
 

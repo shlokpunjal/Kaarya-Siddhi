@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef } from "react";
 import { router } from "expo-router";
-import { API_BASE_URL } from "../constants/api"
+import { API_BASE_URL } from "../../constants/api"
 
 const EmployeeLogin = () => {
   const [ph, setPh] = useState("");

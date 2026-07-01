@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useEffect, useState, useRef } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { API_BASE_URL } from "@/constants/api";
+import { API_BASE_URL } from "../../constants/api";
 
 const WaitingApproval = () => {
     const { employeeEmail, adminEmail } = useLocalSearchParams();
