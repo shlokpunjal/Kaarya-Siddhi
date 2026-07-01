@@ -220,13 +220,35 @@ async def connection_respond(data: ConnectionRespond):
         .eq("employee_email", employee_email).eq("admin_email", admin_email).execute()
 
     if data.accept:
-        admin_user = supabase.table("users").select("*").eq("email", admin_email).eq("role", "admin").execute()
-        new_workspace_id = admin_user.data[0]["workspace_id"]
+        admin_user = supabase.table("users") \
+    .select("*") \
+    .eq("email", admin_email) \
+    .eq("role", "admin") \
+    .execute()
 
-        employee = supabase.table("users").select("*").eq("email", employee_email).execute().data[0]
-        old_workspace_id = employee.get("workspace_id")
+    admin = admin_user.data[0]
 
-        if old_workspace_id and old_workspace_id != new_workspace_id:
+    new_workspace_id = admin.get("workspace_id")
+
+    # Admin created before workspace feature?
+    if not new_workspace_id:
+        workspace = supabase.table("workspaces").insert({
+        "name": f"{admin_email}'s Workspace",
+        "owner_email": admin_email
+    }).execute()
+
+    new_workspace_id = workspace.data[0]["id"]
+
+    supabase.table("users").update({
+        "workspace_id": new_workspace_id
+    }).eq("email", admin_email).execute()
+
+    print(f"Created workspace {new_workspace_id} for {admin_email}")
+
+    employee = supabase.table("users").select("*").eq("email", employee_email).execute().data[0]
+    old_workspace_id = employee.get("workspace_id")
+
+    if old_workspace_id and old_workspace_id != new_workspace_id:
             old_workspace = supabase.table("workspaces").select("*").eq("id", old_workspace_id).execute()
             if old_workspace.data:
                 old_admin_email = old_workspace.data[0]["owner_email"]
@@ -236,7 +258,7 @@ async def connection_respond(data: ConnectionRespond):
 
                 send_employee_left_email(old_admin_email, employee_email)
 
-        supabase.table("users").update({"workspace_id": new_workspace_id}).eq("email", employee_email).execute()
+    supabase.table("users").update({"workspace_id": new_workspace_id}).eq("email", employee_email).execute()
 
     send_connection_response_email(employee_email, admin_email, new_status)
 
