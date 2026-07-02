@@ -10,6 +10,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef } from "react";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
+import { typography } from '../../theme/theme';
+
 
 const EmployeeLogin = () => {
   const [ph, setPh] = useState("");
@@ -153,7 +155,7 @@ const EmployeeLogin = () => {
   return (
     <SafeAreaView>
       <View style={styles.mainbar}>
-        <Text style={styles.maintext}>EmployeeLogin</Text>
+        <Text style={[styles.maintext, typography.heading]}>EmployeeLogin</Text>
       </View>
       <View style={styles.mainStyle}>
         <View style={styles.imagestyle}>

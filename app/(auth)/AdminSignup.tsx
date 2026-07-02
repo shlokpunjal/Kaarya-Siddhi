@@ -11,6 +11,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
+import { typography } from '../../theme/theme';
+
 
 export default function AdminSignup() {
   const [name, setName] = useState("");
@@ -143,7 +145,7 @@ export default function AdminSignup() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>Admin Signup</Text>
+        <Text style={[styles.headerText, typography.heading]}>Admin Signup</Text>
       </View>
 
       <View style={styles.logoContainer}>

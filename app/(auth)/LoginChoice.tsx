@@ -9,6 +9,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { typography } from '../../theme/theme';
+
 
 export default function LoginChoice() {
   useEffect(() => {
