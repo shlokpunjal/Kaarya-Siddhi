@@ -5,7 +5,6 @@ import {
   Image,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef, useEffect } from "react";
@@ -25,6 +24,9 @@ const OtpVerify = () => {
     mode: string;
   }>();
   const { saveSession } = useAuth();
+
+  const [otpError, setOtpError] = useState("");
+  const [resendMessage, setResendMessage] = useState("");
 
   // Auto-start the 30s cooldown when page loads
   useEffect(() => {
@@ -49,11 +51,13 @@ const OtpVerify = () => {
 
   const verifyOTP = async () => {
     if (otp.length !== 6) {
-      Alert.alert("Error", "Enter a valid OTP");
+      setOtpError("Enter a valid 6-digit OTP");
       return;
     }
 
     try {
+      setOtpError("");
+
       const response = await fetch(`${API_BASE_URL}/verify-otp`, {
         method: "POST",
         headers: {
@@ -68,11 +72,10 @@ const OtpVerify = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        Alert.alert("Error", data.detail);
+        setOtpError(data.detail || "Invalid OTP");
         return;
       }
 
-      // await saveSession(data.token, ph?.toString() ?? "", data.email);
       await saveSession(data.token, ph?.toString() ?? "", data.email, data.role, data.workspace_id);
 
       // ---------- ADMIN ----------
@@ -106,12 +109,15 @@ const OtpVerify = () => {
       router.replace("/(employee)");
     } catch (error) {
       console.log(error);
-      Alert.alert("Error", "Verification failed.");
+      setOtpError("Verification failed. Please try again.");
     }
   };
 
   const resendOTP = async () => {
     try {
+      setOtpError("");
+      setResendMessage("");
+
       const response = await fetch(`${API_BASE_URL}/send-otp`, {
         method: "POST",
         headers: {
@@ -126,16 +132,15 @@ const OtpVerify = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        Alert.alert("Error", data.detail);
+        setOtpError(data.detail || "Unable to resend OTP");
         return;
       }
 
-      Alert.alert("Success", "OTP Sent Successfully");
-
+      setResendMessage("OTP sent successfully");
       startCooldown();
     } catch (error) {
       console.log(error);
-      Alert.alert("Error", "Unable to resend OTP.");
+      setOtpError("Unable to resend OTP.");
     }
   };
   const isOnCooldown = cooldown > 0;
@@ -153,18 +158,33 @@ const OtpVerify = () => {
           />
         </View>
 
-        {/* Card — grows when cooldown is active */}
-        <View style={[styles.divi, isOnCooldown && styles.diviExpanded]}>
+        {/* Card — grows when cooldown or messages are active */}
+        <View
+          style={[
+            styles.divi,
+            (isOnCooldown || otpError || resendMessage) &&
+              styles.diviExpanded,
+          ]}
+        >
           <Text style={styles.divtext}>Login to your workspace</Text>
           <View>
             <TextInput
-              style={styles.input}
+              style={[styles.input, otpError ? styles.inputError : null]}
               value={otp}
               placeholder="6-digit OTP "
-              onChangeText={setOtp}
+              onChangeText={(text) => {
+                setOtp(text);
+                if (otpError) setOtpError("");
+              }}
               keyboardType="number-pad"
               maxLength={6}
             />
+            {otpError ? (
+              <Text style={styles.errorText}>{otpError}</Text>
+            ) : null}
+            {resendMessage ? (
+              <Text style={styles.successText}>{resendMessage}</Text>
+            ) : null}
           </View>
 
           {/* Verify OTP button */}
@@ -202,6 +222,9 @@ const OtpVerify = () => {
 
 export default OtpVerify;
 
+const ERROR = "#D32F2F";
+const SUCCESS = "#2E7D32";
+
 const styles = StyleSheet.create({
   setText: {
     color: "white",
@@ -234,7 +257,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#1A2744",
     height: 50,
-    width: 250,
+    width: 300,
     borderRadius: 10,
     elevation: 4,
     top: 15,
@@ -244,7 +267,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#1A2744",
     height: 50,
-    width: 250,
+    width: 300,
     borderRadius: 10,
     elevation: 4,
     top: 30,
@@ -252,18 +275,37 @@ const styles = StyleSheet.create({
   resendText: {
     marginTop: 30,
     color: "#E8870A",
-    fontSize: 13,
+    fontSize: 15,
     fontFamily: "Poppins_400Regular",
   },
   input: {
     backgroundColor: "#E5E7EB",
     height: 50,
-    width: 250,
+    width: 300,
     justifyContent: "center",
     paddingLeft: 20,
     borderRadius: 10,
     marginTop: 20,
     borderColor: "#6B7280",
+    borderWidth: 1,
+  },
+  inputError: {
+    borderColor: ERROR,
+    backgroundColor: "#FDECEC",
+  },
+  errorText: {
+    color: ERROR,
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    marginTop: 6,
+    marginLeft: 4,
+  },
+  successText: {
+    color: SUCCESS,
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    marginTop: 6,
+    marginLeft: 4,
   },
   mainStyle: {
     alignItems: "center",
@@ -296,13 +338,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "white",
     padding: 20,
-    height: 280, // default — input + verify button
-    width: "75%",
+    height: 280,
+    width: "85%",
     borderRadius: 25,
     top: 80,
   },
   diviExpanded: {
-    height: 250, // taller during cooldown to fit the resend text
+    height: 300,
   },
   divtext: {
     fontSize: 20,
