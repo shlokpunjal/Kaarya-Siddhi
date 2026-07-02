@@ -165,25 +165,18 @@ export default function Dashboard() {
 
         {/* Action Buttons Row */}
         <View style={{ flexDirection: "row", gap: 20 }}>
-          <View style={{ marginLeft: 48 }}>
+          <View style={{ marginLeft: 33, flex: 1, marginRight: 33 }}>
             <TouchableOpacity
               onPress={() => router.push("/newtask")}
               style={{
                 backgroundColor: colors.brand.accent, padding: 14,
-                width: 200, height: 60, borderRadius: 32,
+                width: "100%", height: 60, borderRadius: 32,
                 flexDirection: "row", marginTop: -1, justifyContent: 'center', alignItems: 'center'
               }}
             >
-              <Ionicons name="add" size={28} color={colors.base.surfaceL1} />
-              <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, textAlign: "center" }}> New Task</Text>
+              <Ionicons style={{ marginRight: 10 }} name="add" size={28} color={colors.base.surfaceL1} />
+              <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, textAlign: "center" }}>Add a New Task</Text>
             </TouchableOpacity>
-          </View>
-
-          <View style={{
-            borderRadius: 32, backgroundColor: colors.base.surfaceL2,
-            height: 58, width: 80, alignItems: "center", justifyContent: "center"
-          }}>
-            <Ionicons name="search" size={30} color={colors.brand.accent} />
           </View>
         </View>
 
