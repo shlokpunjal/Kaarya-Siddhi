@@ -11,6 +11,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../../hooks/useAuth";
 import { API_BASE_URL } from "../../constants/api";
+import { typography } from '../../theme/theme';
+
 // import { sendLoginNotification } from "../../utils/notifications";
 
 const OtpVerify = () => {
@@ -148,7 +150,7 @@ const OtpVerify = () => {
   return (
     <SafeAreaView>
       <View style={styles.mainbar}>
-        <Text style={styles.maintext}>OTP Verification</Text>
+        <Text style={[styles.maintext, typography.heading]}>OTP Verification</Text>
       </View>
       <View style={styles.mainStyle}>
         <View style={styles.imagestyle}>

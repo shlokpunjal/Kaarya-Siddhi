@@ -11,6 +11,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
+import { typography } from '../../theme/theme';
+
 
 export default function RequestAdmin() {
   const { email } = useLocalSearchParams<{ email: string }>();
@@ -81,7 +83,7 @@ export default function RequestAdmin() {
     <SafeAreaView style={styles.container}>
 
       <View style={styles.header}>
-        <Text style={styles.headerText}>
+        <Text style={[styles.headerText, typography.heading]}>
           Connect to Admin
         </Text>
       </View>

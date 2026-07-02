@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
+import { typography } from '../../theme/theme';
+
 
 export default function EmployeeSignup() {
   const [name, setName] = useState("");
@@ -178,7 +180,7 @@ export default function EmployeeSignup() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>Employee Signup</Text>
+        <Text style={[styles.headerText, typography.heading]}>Employee Signup</Text>
       </View>
 
       <View style={styles.logoContainer}>

@@ -9,6 +9,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
+import { typography } from '../../theme/theme';
+
 
 export default function WaitingApproval() {
   const { employee_email, admin_email } =
