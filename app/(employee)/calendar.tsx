@@ -44,9 +44,9 @@ function buildGrid(year: number, month: number): string[] {
 }
 
 export default function CalendarScreen() {
-  const { colors } = useTheme();
-  const { brand, base, text, status } = colors;
-
+const { colors, isDark } = useTheme();
+const { brand, base, text, status } = colors;
+const headingColor = isDark ? text.primary : brand.primary;
   const todayISO = new Date().toISOString().split("T")[0];
   const todayY   = parseInt(todayISO.slice(0, 4), 10);
   const todayM   = parseInt(todayISO.slice(5, 7), 10);
@@ -128,7 +128,7 @@ export default function CalendarScreen() {
             <Pressable onPress={goPrev} hitSlop={12}>
               <Text style={[s.arrow, { color: brand.accent }]}>‹</Text>
             </Pressable>
-            <Text style={s.monthTitle}>
+           <Text style={[s.monthTitle, { color: headingColor }]}>
               {MONTH_NAMES[viewMonth - 1]} {viewYear}
             </Text>
             <Pressable onPress={goNext} hitSlop={12}>
@@ -258,7 +258,7 @@ export default function CalendarScreen() {
 
       {/* ── Task section ───────────────────────────────────────────────── */}
       <View style={s.taskSection}>
-        <Text style={[s.taskHeading, { color: brand.primary }]}>
+        <Text style={[s.taskHeading, { color: headingColor }]}>
           {selected === todayISO ? "Today" : selected}
         </Text>
 
@@ -315,7 +315,7 @@ const s = StyleSheet.create({
   headerText: { fontSize: 22, fontFamily: "Poppins-SemiBold" },
 
   /* Calendar card */
-  calendarBlock: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
+  calendarBlock: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4 },
   calendarCard: {
     borderRadius: 16,
     borderWidth: 1,
@@ -336,7 +336,7 @@ const s = StyleSheet.create({
     paddingBottom: 4,
   },
   arrow:      { fontSize: 26, lineHeight: 28, fontFamily: "Poppins-Regular" },
-  monthTitle: { fontSize: 28, fontFamily: "Poppins-SemiBold" , color:'#233969' },
+  monthTitle: { fontSize: 28, fontFamily: "Poppins-SemiBold" },
 
   /* Weekday header */
   weekRow: {
