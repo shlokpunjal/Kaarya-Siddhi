@@ -55,7 +55,7 @@ class SignupRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-
+    phone: str
     email: str
     role: str
 
@@ -111,27 +111,47 @@ def send_email_otp(receiver_email: str, otp: str):
     message["Subject"] = "Kaarya Siddhi Verification Code"
 
     html = f"""
-    <html><body style="margin:0; padding:0; font-family: Arial, sans-serif; background-color:#f4f4f4;">
-      <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding: 40px 0;">
-        <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:8px; overflow:hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <tr><td style="background-color:#1A2744; padding:28px 32px;">
-            <h1 style="color:#ffffff; margin:0; font-size:22px; font-weight:600;">Kaarya Siddhi - Verification Code</h1>
-          </td></tr>
-          <tr><td style="padding:32px;">
-            <p style="color:#333; font-size:15px; margin:0 0 16px;">Dear Kaarya Siddhi User,</p>
-            <p style="color:#333; font-size:15px; margin:0 0 24px;">We received a login request for <strong>{receiver_email}</strong>. Your verification code is:</p>
-            <div style="text-align:center; margin:0 0 28px;">
-              <span style="display:inline-block; font-size:36px; font-weight:700; letter-spacing:8px; color:#1a1a1a; background:#f0f4ff; padding:16px 32px; border-radius:8px; border:1px solid #d0d9f0;">{otp}</span>
-            </div>
-            <p style="color:#555; font-size:14px; margin:0 0 12px;">This code is valid for <strong>10 minutes</strong>. Do not share it with anyone.</p>
-            <p style="color:#555; font-size:14px; margin:0;">If you did not request this, please ignore this email.</p>
-          </td></tr>
-          <tr><td style="background:#f9f9f9; padding:20px 32px; border-top:1px solid #eeeeee;">
-            <p style="color:#999; font-size:12px; margin:0;">Sincerely,<br><strong style="color:#555;">The Kaarya Siddhi Team</strong></p>
-          </td></tr>
-        </table>
-      </td></tr></table>
-    </body></html>
+    <html>
+
+    <body style="font-family:Arial;background:#F5F5F5;padding:20px;">
+
+    <div style="
+        max-width:500px;
+        margin:auto;
+        background:white;
+        border-radius:10px;
+        overflow:hidden;
+        ">
+
+        <div style="
+            background:#1A2744;
+            color:white;
+            padding:20px;
+            ">
+
+            <h2>Kaarya Siddhi</h2>
+
+        </div>
+
+        <div style="padding:25px;">
+
+            <h3>Your OTP</h3>
+
+            <h1
+            style="
+            letter-spacing:8px;
+            color:#E8870A;
+            ">{otp}</h1>
+
+            <p>This OTP is valid for 10 minutes.</p>
+
+        </div>
+
+    </div>
+
+    </body>
+
+    </html>
     """
 
     message.attach(MIMEText(html, "html"))
@@ -176,7 +196,7 @@ async def signup(data: SignupRequest):
             "email": data.email,
             "mobile_number": data.phone,
             "role": data.role,
-            "password_hash": "otp_login",
+            # "password_hash": "otp_login",
             "is_profile_setup": False
         })
         .execute()
@@ -216,6 +236,11 @@ async def signup(data: SignupRequest):
 
 @app.post("/login")
 async def login(data: LoginRequest):
+    print("========== LOGIN ==========")
+    print(data)
+    print(data.email)
+    print(data.phone)
+    print(data.role)
 
     data.email = normalize_email(data.email)
 
@@ -223,9 +248,11 @@ async def login(data: LoginRequest):
         supabase.table("users")
         .select("*")
         .eq("email", data.email)
+        .eq("mobile_number", data.phone)
         .eq("role", data.role)
         .execute()
     )
+    print(user.data)
 
     if not user.data:
 
@@ -527,5 +554,108 @@ async def pending_requests(admin_email: str):
         "success": True,
 
         "requests": requests.data
+
+    }
+
+@app.post("/connection-respond")
+async def connection_respond(data: ConnectionRespond):
+
+    employee_email = normalize_email(data.employee_email)
+    admin_email = normalize_email(data.admin_email)
+
+    new_status = "accepted" if data.accept else "rejected"
+
+    connection = (
+        supabase.table("connections")
+        .select("*")
+        .eq("employee_email", employee_email)
+        .eq("admin_email", admin_email)
+        .execute()
+    )
+
+    if not connection.data:
+        raise HTTPException(
+            status_code=404,
+            detail="Connection request not found."
+        )
+
+    supabase.table("connections").update({
+        "status": new_status
+    }).eq(
+        "employee_email",
+        employee_email
+    ).eq(
+        "admin_email",
+        admin_email
+    ).execute()
+
+    if not data.accept:
+
+        return {
+            "success": True,
+            "message": "Request Rejected"
+        }
+
+    admin = (
+        supabase.table("users")
+        .select("*")
+        .eq("email", admin_email)
+        .execute()
+    )
+
+    admin = admin.data[0]
+
+    workspace_id = admin.get("workspace_id")
+    if not workspace_id:
+
+        workspace = (
+            supabase.table("workspaces")
+            .insert({
+                "name": f"{admin_email}'s Workspace",
+                "owner_email": admin_email
+            })
+            .execute()
+        )
+
+        workspace_id = workspace.data[0]["id"]
+
+        supabase.table("users").update({
+
+            "workspace_id": workspace_id
+
+        }).eq(
+
+            "email",
+            admin_email
+
+        ).execute()
+    employee = (
+        supabase.table("users")
+        .select("*")
+        .eq("email", employee_email)
+        .execute()
+    )
+
+    employee = employee.data[0]
+
+    old_workspace = employee.get("workspace_id")
+    supabase.table("users").update({
+        
+
+        "workspace_id": workspace_id
+
+    }).eq(
+
+        "email",
+        employee_email
+
+    ).execute()
+    return {
+
+        "success": True,
+
+        "message": "Employee Connected Successfully",
+
+        "workspace_id": workspace_id
 
     }
