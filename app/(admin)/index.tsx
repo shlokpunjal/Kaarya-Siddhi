@@ -232,33 +232,24 @@ export default function Dashboard() {
         {/* Buttons Row */}
         <View style={{ flexDirection: "row", gap: 20,
          }}>
-          <View style={{ marginLeft: 48}}>
+          <View style={{ marginLeft: 33, flex: 1, marginRight: 33 }}>
             <TouchableOpacity
               onPress={() => router.push("/newtask")}
               style={{
                 backgroundColor: colors.brand.accent, padding: 14,
-                width: 200, height: 60, borderRadius: 32,
+                width: "100%", height: 60, borderRadius: 32,
                 boxShadow: "0px 0px 5px gray", flexDirection: "row",
+                alignItems: "center", justifyContent: "center",
                 marginTop:-1
               }}
             >
-              <Ionicons style={{marginLeft:20,marginTop:-2}} name="add" size={35} color={colors.base.surfaceL1}/>
+              <Ionicons style={{marginRight: 10}} name="add" size={35} color={colors.base.surfaceL1}/>
               <Text style={{
                 ...typography.subheading,
                 color: colors.base.surfaceL1,
                 textAlign: "center",
-                marginTop:4,
-                margin:5
-              }}> New Task</Text>
+              }}>Add a New Task</Text>
             </TouchableOpacity>
-          </View>
-
-          <View style={{
-            boxShadow: "0px 0px 5px gray", borderRadius: 32,
-            backgroundColor: colors.base.surfaceL2,
-            height: 58, width: 80, alignItems: "center", justifyContent: "center"
-          }}>
-            <Ionicons name="search" size={30} color={colors.brand.accent} />
           </View>
         </View>
 
