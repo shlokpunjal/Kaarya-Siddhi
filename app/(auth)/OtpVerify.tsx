@@ -11,16 +11,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef, useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../../hooks/useAuth";
-import { API_BASE_URL } from "../../constants/api"
+import { API_BASE_URL } from "../../constants/api";
 // import { sendLoginNotification } from "../../utils/notifications";
-
-
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState("");
   const [cooldown, setCooldown] = useState(30); // starts at 30 immediately
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { email, ph } = useLocalSearchParams();
+  const { email, ph, role, mode } = useLocalSearchParams<{
+    email: string;
+    ph?: string;
+    role: string;
+    mode: string;
+  }>();
   const { saveSession } = useAuth();
 
   // Auto-start the 30s cooldown when page loads
@@ -45,37 +48,65 @@ const OtpVerify = () => {
   };
 
   const verifyOTP = async () => {
-    try {
-      if (!otp || otp.length !== 6) {
-        Alert.alert("Error", "Enter valid OTP");
-        return;
-      }
+    if (otp.length !== 6) {
+      Alert.alert("Error", "Enter a valid OTP");
+      return;
+    }
 
+    try {
       const response = await fetch(`${API_BASE_URL}/verify-otp`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          otp,
+        }),
       });
 
       const data = await response.json();
 
-
-      if (data.success) {
-        await saveSession(data.token, data.phone, data.email);
-        // await sendLoginNotification(data.email);
-
-        if (data.role === "employee" && !data.workspace_id) {
-          router.replace({
-            pathname: "/(auth)/RequestAdmin",
-            params: { email: data.email },
-          });
-        } else {
-          router.replace("/(employee)");
-        }
+      if (!response.ok) {
+        Alert.alert("Error", data.detail);
+        return;
       }
+
+      // await saveSession(data.token, ph?.toString() ?? "", data.email);
+      await saveSession(data.token, ph?.toString() ?? "", data.email, data.role, data.workspace_id);
+
+      // ---------- ADMIN ----------
+      if (data.role === "admin") {
+        router.replace("/(admin)");
+        return;
+      }
+
+      // ---------- EMPLOYEE SIGNUP ----------
+      if (data.role === "employee" && mode === "signup") {
+        router.replace({
+          pathname: "/(auth)/RequestAdmin",
+          params: {
+            email: data.email,
+          },
+        });
+        return;
+      }
+
+      // ---------- EMPLOYEE LOGIN ----------
+      if (data.role === "employee" && !data.workspace_id) {
+        router.replace({
+          pathname: "/(auth)/RequestAdmin",
+          params: {
+            email: data.email,
+          },
+        });
+        return;
+      }
+
+      router.replace("/(employee)");
     } catch (error) {
       console.log(error);
-      Alert.alert("Error", "Verification failed");
+      Alert.alert("Error", "Verification failed.");
     }
   };
 
@@ -83,30 +114,36 @@ const OtpVerify = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/send-otp`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: ph, email }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          role,
+        }),
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        Alert.alert("Success", "OTP Resent");
-        startCooldown(); // restart the 30s timer
-      } else {
-        Alert.alert("Error", data.message);
+      if (!response.ok) {
+        Alert.alert("Error", data.detail);
+        return;
       }
+
+      Alert.alert("Success", "OTP Sent Successfully");
+
+      startCooldown();
     } catch (error) {
       console.log(error);
-      Alert.alert("Error", "Could not resend OTP");
+      Alert.alert("Error", "Unable to resend OTP.");
     }
   };
-
   const isOnCooldown = cooldown > 0;
 
   return (
     <SafeAreaView>
       <View style={styles.mainbar}>
-        <Text style={styles.maintext}>AdminLogin</Text>
+        <Text style={styles.maintext}>OTP Verification</Text>
       </View>
       <View style={styles.mainStyle}>
         <View style={styles.imagestyle}>
@@ -123,9 +160,9 @@ const OtpVerify = () => {
             <TextInput
               style={styles.input}
               value={otp}
-              placeholder="Enter OTP"
+              placeholder="6-digit OTP "
               onChangeText={setOtp}
-              keyboardType="phone-pad"
+              keyboardType="number-pad"
               maxLength={6}
             />
           </View>
@@ -139,9 +176,7 @@ const OtpVerify = () => {
 
           {/* Countdown text — visible during cooldown */}
           {isOnCooldown && (
-            <Text style={styles.resendText}>
-              Resend in : {cooldown}
-            </Text>
+            <Text style={styles.resendText}>Resend in : {cooldown}</Text>
           )}
 
           {/* Resend button — appears only after cooldown ends */}
@@ -152,14 +187,14 @@ const OtpVerify = () => {
           )}
         </View>
 
-        <View>
+        {/* <View>
           <Text style={styles.createStyle}>Create new Account?</Text>
         </View>
         <View style={styles.SetStyle}>
           <Text onPress={() => router.back()} style={styles.setText}>
             Set Up Admin Account
           </Text>
-        </View>
+        </View> */}
       </View>
     </SafeAreaView>
   );
@@ -261,13 +296,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "white",
     padding: 20,
-    height: 280,       // default — input + verify button
+    height: 280, // default — input + verify button
     width: "75%",
     borderRadius: 25,
     top: 80,
   },
   diviExpanded: {
-    height: 250,       // taller during cooldown to fit the resend text
+    height: 250, // taller during cooldown to fit the resend text
   },
   divtext: {
     fontSize: 20,

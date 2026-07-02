@@ -55,83 +55,6 @@ def normalize_email(email: str) -> str:
         email = email + "@gmail.com"
     return email.lower()
 
-@app.post("/signup")
-async def signup(data: SignupRequest):
-    data.email = normalize_email(data.email)
-
-    existing = (
-        supabase.table("users")
-        .select("*")
-        .eq("email", data.email)
-        .execute()
-    )
-
-    if existing.data:
-        raise HTTPException(
-            status_code=400,
-            detail="Account already exists. Please login."
-        )
-
-    user = (
-        supabase.table("users")
-        .insert({
-            "name": data.name,
-            "email": data.email,
-            "mobile_number": data.phone,
-            "role": data.role,
-            "department": data.department,
-            "employee_id": data.employee_id,
-            "password_hash": "otp_login",
-            "is_profile_setup": False
-        })
-        .execute()
-    )
-
-    if data.role == "admin":
-        workspace = (
-            supabase.table("workspaces")
-            .insert({
-                "name": f"{data.name}'s Workspace",
-                "owner_email": data.email
-            })
-            .execute()
-        )
-
-        workspace_id = workspace.data[0]["id"]
-
-        supabase.table("users").update({
-            "workspace_id": workspace_id
-        }).eq("email", data.email).execute()
-
-    return {
-        "success": True,
-        "message": "Account created successfully."
-    }
-
-@app.post("/login")
-async def login(data: LoginRequest):
-
-    data.email = normalize_email(data.email)
-
-    user = (
-        supabase.table("users")
-        .select("*")
-        .eq("email", data.email)
-        .eq("role", data.role)
-        .execute()
-    )
-
-    if not user.data:
-        raise HTTPException(
-            status_code=404,
-            detail="Account doesn't exist."
-        )
-
-    return {
-        "success": True,
-        "message": "Account found."
-    }
-
 
 @app.post("/send-otp")
 async def send_otp(data: SendOTPRequest):
@@ -200,7 +123,7 @@ async def verify_otp(data: VerifyOTPRequest):
             "mobile_number": phone,
             "role": role,
             "name": email.split("@")[0],
-            "password_hash": "otp_login",
+            # "password_hash": "otp_login",
             "is_profile_setup": False
         }).execute()
 
@@ -291,56 +214,53 @@ async def connection_status(employee_email: str, admin_email: str):
 async def connection_respond(data: ConnectionRespond):
     employee_email = normalize_email(data.employee_email)
     admin_email = normalize_email(data.admin_email)
+
     new_status = "accepted" if data.accept else "rejected"
 
-    supabase.table("connections").update({"status": new_status})\
-        .eq("employee_email", employee_email).eq("admin_email", admin_email).execute()
+    supabase.table("connections").update({
+        "status": new_status
+    }).eq("employee_email", employee_email).eq("admin_email", admin_email).execute()
 
     if data.accept:
-        admin_user = supabase.table("users") \
-    .select("*") \
-    .eq("email", admin_email) \
-    .eq("role", "admin") \
-    .execute()
+        # Get admin
+        admin = supabase.table("users") \
+            .select("*") \
+            .eq("email", admin_email) \
+            .eq("role", "admin") \
+            .execute().data[0]
 
-    admin = admin_user.data[0]
+        workspace_id = admin.get("workspace_id")
 
-    new_workspace_id = admin.get("workspace_id")
+        # Create workspace if admin doesn't have one
+        if not workspace_id:
+            workspace = supabase.table("workspaces").insert({
+                "name": f"{admin_email}'s Workspace",
+                "owner_email": admin_email
+            }).execute()
 
-    # Admin created before workspace feature?
-    if not new_workspace_id:
-        workspace = supabase.table("workspaces").insert({
-        "name": f"{admin_email}'s Workspace",
-        "owner_email": admin_email
-    }).execute()
+            workspace_id = workspace.data[0]["id"]
 
-    new_workspace_id = workspace.data[0]["id"]
+            supabase.table("users").update({
+                "workspace_id": workspace_id
+            }).eq("email", admin_email).execute()
 
-    supabase.table("users").update({
-        "workspace_id": new_workspace_id
-    }).eq("email", admin_email).execute()
+        # ⭐ Assign employee to the admin's workspace
+        supabase.table("users").update({
+            "workspace_id": workspace_id
+        }).eq("email", employee_email).execute()
 
-    print(f"Created workspace {new_workspace_id} for {admin_email}")
+        print(f"{employee_email} assigned to workspace {workspace_id}")
 
-    employee = supabase.table("users").select("*").eq("email", employee_email).execute().data[0]
-    old_workspace_id = employee.get("workspace_id")
+    send_connection_response_email(
+        employee_email,
+        admin_email,
+        new_status
+    )
 
-    if old_workspace_id and old_workspace_id != new_workspace_id:
-            old_workspace = supabase.table("workspaces").select("*").eq("id", old_workspace_id).execute()
-            if old_workspace.data:
-                old_admin_email = old_workspace.data[0]["owner_email"]
-
-                supabase.table("connections").update({"status": "switched"})\
-                    .eq("employee_email", employee_email).eq("admin_email", old_admin_email).execute()
-
-                send_employee_left_email(old_admin_email, employee_email)
-
-    supabase.table("users").update({"workspace_id": new_workspace_id}).eq("email", employee_email).execute()
-
-    send_connection_response_email(employee_email, admin_email, new_status)
-
-    return {"success": True, "message": f"Connection {new_status}"}
-
+    return {
+        "success": True,
+        "message": f"Connection {new_status}"
+    }
 
 def send_email_otp(receiver_email, otp):
     sender_email = os.getenv("EMAIL_ADDRESS")
@@ -492,16 +412,3 @@ def send_push_notification(push_token, title, body):
     app = FastAPI()
     app.include_router(excel_report_router)
     # app.include_router(upload_router)
-
-class SignupRequest(BaseModel):
-    name: str
-    email: str
-    phone: str
-    role: str
-    department: str | None = None
-    employee_id: str | None = None
-
-
-class LoginRequest(BaseModel):
-    email: str
-    role: str

@@ -1,44 +1,8 @@
-// // import { Redirect } from 'expo-router';
 
-// // export default function Index() {
-// //   return <Redirect href="/(employee)" />;
-// // }
-
-// import { useEffect } from 'react';
-// import { router } from 'expo-router';
-// import { supabase } from '../lib/supabase';
-
-// export default function Index() {
-//   useEffect(() => {
-//     checkRole();
-//   }, []);
-
-//   async function checkRole() {
-//     const testEmail = 'sneha@karyasiddhi.com'; // Change this
-
-//     const { data, error } = await supabase
-//       .from('users')
-//       .select('role')
-//       .eq('email', testEmail)
-//       .single();
-
-//     if (error) {
-//       console.log(error);
-//       return;
-//     }
-
-//     if (data.role === 'admin') {
-//       router.replace('/(admin)');
-//     } else {
-//       router.replace('/(employee)');
-//     }
-//   }
-
-//   return null;
-// }
 import { useEffect } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
 
 export default function Index() {
@@ -48,18 +12,30 @@ export default function Index() {
 
   async function checkSession() {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      // This app uses a custom OTP login (see hooks/useAuth.ts), not
+      // Supabase Auth, so the session lives in AsyncStorage — not
+      // supabase.auth.getSession(), which will always be empty here.
+      const token = await AsyncStorage.getItem("token");
+      const email = await AsyncStorage.getItem("userEmail");
+      const savedRole = await AsyncStorage.getItem("userRole");
 
-      // No user logged in → Show Login Choice
-      if (!session || !session.user) {
+      // No saved session → show Login Choice
+      if (!token || !email) {
         router.replace("/(auth)/LoginChoice");
         return;
       }
 
-      const email = session.user.email;
+      // Fast path: role already known from login, skip the DB round-trip
+      if (savedRole === "admin") {
+        router.replace("/(admin)");
+        return;
+      }
+      if (savedRole === "employee") {
+        router.replace("/(employee)");
+        return;
+      }
 
+      // Fallback for older sessions saved before role was persisted
       const { data, error } = await supabase
         .from("users")
         .select("role")
