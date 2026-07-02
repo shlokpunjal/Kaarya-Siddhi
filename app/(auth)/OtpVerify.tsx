@@ -72,7 +72,8 @@ const OtpVerify = () => {
         return;
       }
 
-      await saveSession(data.token, ph?.toString() ?? "", data.email);
+      // await saveSession(data.token, ph?.toString() ?? "", data.email);
+      await saveSession(data.token, ph?.toString() ?? "", data.email, data.role, data.workspace_id);
 
       // ---------- ADMIN ----------
       if (data.role === "admin") {
