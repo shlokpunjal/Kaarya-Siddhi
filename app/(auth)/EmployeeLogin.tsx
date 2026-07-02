@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef } from "react";
 import { router } from "expo-router";
-import { API_BASE_URL } from "../../constants/api"
+import { API_BASE_URL } from "../../constants/api";
 
 const EmployeeLogin = () => {
   const [ph, setPh] = useState("");
@@ -33,7 +33,7 @@ const EmployeeLogin = () => {
   };
 
   const sendOTP = async () => {
-    if (isSending || isOnCooldown) return; // guard against double tap
+    if (isSending || isOnCooldown) return;
 
     try {
       if (!ph || ph.length !== 10) {
@@ -46,39 +46,63 @@ const EmployeeLogin = () => {
         return;
       }
 
-      setIsSending(true); // disable immediately
+      setIsSending(true);
 
-      const response = await fetch(`${API_BASE_URL}/send-otp`, {
+      // STEP 1 : Check account exists
+      const loginResponse = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phone: ph, email, role: "employee" }),
+        body: JSON.stringify({
+          email,
+          phone: ph,
+          role: "employee",
+        }),
       });
 
-      const data = await response.json();
+      const loginData = await loginResponse.json();
 
-      // handle 429 and other HTTP errors
-      if (!response.ok) {
-        Alert.alert("Error", data.detail || "Something went wrong");
+      if (!loginResponse.ok) {
+        Alert.alert("Error", loginData.detail);
         return;
       }
 
-      if (data.success) {
-        startCooldown();
-        Alert.alert("Success", data.message); // shows attempt count e.g. "OTP sent (1/3 attempts used)"
-        router.push({
-          pathname: "/OtpVerify",
-          params: { email, ph }, // pass both so resend works
-        });
-      } else {
-        Alert.alert("Error", data.message);
+      // STEP 2 : Send OTP
+      const otpResponse = await fetch(`${API_BASE_URL}/send-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          role: "employee",
+        }),
+      });
+
+      const otpData = await otpResponse.json();
+
+      if (!otpResponse.ok) {
+        Alert.alert("Error", otpData.detail);
+        return;
       }
+
+      startCooldown();
+
+      router.push({
+        pathname: "/OtpVerify",
+        params: {
+          email,
+          ph,
+          role: "employee",
+          mode: "login",
+        },
+      });
     } catch (error) {
       console.log(error);
-      Alert.alert("Error", "Could not send OTP");
+      Alert.alert("Error", "Could not connect to server");
     } finally {
-      setIsSending(false); // re-enable after response
+      setIsSending(false);
     }
   };
 
@@ -126,7 +150,11 @@ const EmployeeLogin = () => {
               disabled={isOnCooldown || isSending}
             >
               <Text style={styles.LoginText}>
-                {isSending ? "Sending..." : isOnCooldown ? "OTP Sent" : "Send OTP"}
+                {isSending
+                  ? "Sending..."
+                  : isOnCooldown
+                    ? "OTP Sent"
+                    : "Send OTP"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -141,8 +169,11 @@ const EmployeeLogin = () => {
         <View>
           <Text style={styles.createStyle}>Create new Account?</Text>
         </View>
-        <TouchableOpacity onPress={() => router.back()} style={styles.SetStyle}>
-          <Text style={styles.setText}>Set Up Admin Account</Text>
+        <TouchableOpacity
+          onPress={() => router.push("/EmployeeSignup")}
+          style={styles.SetStyle}
+        >
+          <Text style={styles.setText}>Create Employee Account</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

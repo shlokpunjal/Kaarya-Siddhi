@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef } from "react";
 import { router } from "expo-router";
-import { API_BASE_URL } from "../../constants/api"
+import { API_BASE_URL } from "../../constants/api";
 
 const AdminLogin = () => {
   const [ph, setPh] = useState("");
@@ -18,7 +18,6 @@ const AdminLogin = () => {
   const [cooldown, setCooldown] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isSending, setIsSending] = useState(false); // ADD THIS
-
 
   const startCooldown = () => {
     setCooldown(30);
@@ -34,57 +33,68 @@ const AdminLogin = () => {
   };
 
   const sendOTP = async () => {
-    if (isSending || isOnCooldown) return;
+    if (!email.trim()) {
+      Alert.alert("Error", "Enter your email");
+      return;
+    }
 
     try {
       setIsSending(true);
 
-      if (!ph || ph.length !== 10) {
-        Alert.alert("Error", "Enter valid phone number");
-        return;
-      }
-
-      if (!email) {
-        Alert.alert("Error", "Enter email");
-        return;
-      }
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 90000);
-
-      const response = await fetch(`${API_BASE_URL}/send-otp`, {
+      // Check account exists
+      const loginResponse = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: ph, email, role: "admin" }),
-        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          // phone: ph,
+          role: "admin",
+        }),
       });
 
-      clearTimeout(timeout);
+      const loginData = await loginResponse.json();
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        Alert.alert("Error", data.detail || "Something went wrong");
+      if (!loginResponse.ok) {
+        Alert.alert("Account Not Found", loginData.detail);
         return;
       }
 
-      if (data.success) {
-        startCooldown();
-        Alert.alert("Success", data.message);
-        router.push({
-          pathname: "/OtpVerify",
-          params: { email, ph },
-        });
-      } else {
-        Alert.alert("Error", data.message);
+      // Send OTP
+      const otpResponse = await fetch(`${API_BASE_URL}/send-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          phone: ph,
+          role: "admin",
+        }),
+      });
+
+      const otpData = await otpResponse.json();
+
+      if (!otpResponse.ok) {
+        Alert.alert("Error", otpData.detail);
+        return;
       }
-    } catch (error: any) {
-      if (error.name === "AbortError") {
-        Alert.alert("Timeout", "Server is waking up, please try again in 10 seconds");
-      } else {
-        Alert.alert("Error", "Could not send OTP. Check your internet connection.");
-      }
+
+      startCooldown();
+
+      router.push({
+        pathname: "/(auth)/OtpVerify",
+        params: {
+          email,
+          ph,
+          role: "admin",
+          mode: "login",
+        },
+      });
+    } catch (error) {
       console.log(error);
+      Alert.alert("Error", "Could not connect to server.");
     } finally {
       setIsSending(false);
     }
@@ -129,13 +139,17 @@ const AdminLogin = () => {
             <TouchableOpacity
               style={[
                 styles.LoginStyle,
-                (isOnCooldown || isSending) && styles.LoginDisabled // add isSending
+                (isOnCooldown || isSending) && styles.LoginDisabled, // add isSending
               ]}
               onPress={sendOTP}
               disabled={isOnCooldown || isSending} // add isSending
             >
               <Text style={styles.LoginText}>
-                {isSending ? "Sending..." : isOnCooldown ? "OTP Sent" : "Send OTP"}
+                {isSending
+                  ? "Sending..."
+                  : isOnCooldown
+                    ? "OTP Sent"
+                    : "Send OTP"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -152,8 +166,11 @@ const AdminLogin = () => {
           <Text style={styles.createStyle}>Create new Account?</Text>
         </View>
         <View style={styles.SetStyle}>
-          <Text onPress={() => router.back()} style={styles.setText}>
-            Set Up Employee Account
+          <Text
+            onPress={() => router.push("/(auth)/AdminSignup")}
+            style={styles.setText}
+          >
+            Create Admin Account
           </Text>
         </View>
       </View>
@@ -183,7 +200,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: "Poppins_400Regular",
     marginTop: 70,
-
   },
   LoginText: {
     color: "white",
