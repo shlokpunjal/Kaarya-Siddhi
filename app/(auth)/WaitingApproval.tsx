@@ -1,143 +1,174 @@
+import React, { useEffect, useState } from "react";
 import {
-    StyleSheet,
-    Text,
-    View,
-    Image,
-    ActivityIndicator,
-    TouchableOpacity,
+  View,
+ Text,
+  StyleSheet,
+  ActivityIndicator,
+  Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import React, { useEffect, useState, useRef } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 
-const WaitingApproval = () => {
-    const { employeeEmail, adminEmail } = useLocalSearchParams();
-    const [status, setStatus] = useState("pending");
-    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+export default function WaitingApproval() {
+  const { employee_email, admin_email } =
+    useLocalSearchParams<{
+      employee_email: string;
+      admin_email: string;
+    }>();
 
-    useEffect(() => {
-        checkStatus();
-        pollRef.current = setInterval(checkStatus, 5000);
+  const [status, setStatus] = useState("pending");
 
-        return () => {
-            if (pollRef.current) clearInterval(pollRef.current);
-        };
-    }, []);
+  useEffect(() => {
+    checkStatus();
 
-    const checkStatus = async () => {
-        try {
-            const response = await fetch(
-                `${API_BASE_URL}/connection-status/${employeeEmail}/${adminEmail}`
-            );
-            const data = await response.json();
+    const interval = setInterval(() => {
+      checkStatus();
+    }, 5000);
 
-            if (data.status === "accepted") {
-                if (pollRef.current) clearInterval(pollRef.current);
-                router.replace("/(employee)");
-            } else if (data.status === "rejected") {
-                if (pollRef.current) clearInterval(pollRef.current);
-                setStatus("rejected");
-            }
-        } catch (error) {
-            console.log("Status check error:", error);
-        }
-    };
+    return () => clearInterval(interval);
+  }, []);
 
-    const tryAgain = () => {
+  const checkStatus = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/connection-status/${employee_email}/${admin_email}`
+      );
+
+      const data = await response.json();
+
+      setStatus(data.status);
+
+      if (data.status === "accepted") {
+        Alert.alert(
+          "Approved",
+          "Your admin has accepted your request."
+        );
+
+        router.replace("/(employee)");
+      }
+
+      if (data.status === "rejected") {
+        Alert.alert(
+          "Rejected",
+          "Your request was rejected."
+        );
+
         router.replace({
-            pathname: "/(auth)/RequestAdmin",
-            params: { email: employeeEmail },
+          pathname: "/(auth)/RequestAdmin",
+          params: {
+            email: employee_email,
+          },
         });
-    };
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.imagestyle}>
-                <Image
-                    source={require("../../assets/images/logo.jpeg")}
-                    style={styles.imageStyling}
-                />
-            </View>
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerText}>
+          Waiting for Approval
+        </Text>
+      </View>
 
-            {status === "pending" ? (
-                <>
-                    <ActivityIndicator size="large" color="#1A2744" style={{ marginTop: 40 }} />
-                    <Text style={styles.title}>Waiting for Approval</Text>
-                    <Text style={styles.subText}>
-                        We've notified {adminEmail}. This page will update automatically once they respond.
-                    </Text>
-                </>
-            ) : (
-                <>
-                    <Text style={styles.rejectedTitle}>Request Rejected</Text>
-                    <Text style={styles.subText}>
-                        {adminEmail} did not accept your request. You can try connecting to another admin.
-                    </Text>
-                    <TouchableOpacity style={styles.button} onPress={tryAgain}>
-                        <Text style={styles.buttonText}>Try Another Admin</Text>
-                    </TouchableOpacity>
-                </>
-            )}
-        </SafeAreaView>
-    );
-};
+      <View style={styles.logoContainer}>
+        <Image
+          source={require("../../assets/images/logo.jpeg")}
+          style={styles.logo}
+        />
+      </View>
 
-export default WaitingApproval;
+      <View style={styles.card}>
+        <ActivityIndicator
+          size="large"
+          color="#E8870A"
+        />
+
+        <Text style={styles.title}>
+          Connection Request Sent
+        </Text>
+
+        <Text style={styles.message}>
+          Your request has been sent to your administrator.
+        </Text>
+
+        <Text style={styles.message}>
+          This page automatically checks every 5 seconds.
+        </Text>
+
+        <Text style={styles.status}>
+          Status : {status}
+        </Text>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const PRIMARY = "#1A2744";
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 30,
-    },
-    imagestyle: {
-        justifyContent: "center",
-        alignItems: "center",
-        height: 120,
-        width: 120,
-        borderRadius: 120,
-        backgroundColor: "#E8870A",
-    },
-    imageStyling: {
-        height: 115,
-        width: 115,
-        borderRadius: 120,
-    },
-    title: {
-        fontSize: 20,
-        color: "#1A2744",
-        fontFamily: "Poppins_600SemiBold",
-        marginTop: 20,
-    },
-    rejectedTitle: {
-        fontSize: 20,
-        color: "#DC2626",
-        fontFamily: "Poppins_600SemiBold",
-        marginTop: 30,
-    },
-    subText: {
-        fontSize: 13,
-        color: "#6B7280",
-        textAlign: "center",
-        marginTop: 12,
-        fontFamily: "Poppins_400Regular",
-        lineHeight: 20,
-    },
-    button: {
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#1A2744",
-        height: 50,
-        width: 250,
-        borderRadius: 10,
-        elevation: 4,
-        marginTop: 30,
-    },
-    buttonText: {
-        color: "white",
-        fontSize: 15,
-        fontFamily: "Poppins_400Regular",
-    },
+  container: {
+    flex: 1,
+    backgroundColor: "#F7F8FC",
+    alignItems: "center",
+  },
+
+  header: {
+    width: "100%",
+    backgroundColor: PRIMARY,
+    padding: 20,
+  },
+
+  headerText: {
+    color: "white",
+    fontSize: 22,
+    fontFamily: "Poppins_600SemiBold",
+  },
+
+  logoContainer: {
+    marginTop: 40,
+  },
+
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+
+  card: {
+    marginTop: 35,
+    width: "88%",
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 30,
+    alignItems: "center",
+    elevation: 5,
+  },
+
+  title: {
+    marginTop: 20,
+    fontSize: 22,
+    color: PRIMARY,
+    fontFamily: "Poppins_600SemiBold",
+    textAlign: "center",
+  },
+
+  message: {
+    marginTop: 15,
+    textAlign: "center",
+    color: "#6B7280",
+    fontFamily: "Poppins_400Regular",
+    lineHeight: 22,
+  },
+
+  status: {
+    marginTop: 25,
+    color: "#E8870A",
+    fontSize: 18,
+    fontFamily: "Poppins_600SemiBold",
+  },
 });
