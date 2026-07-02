@@ -7,6 +7,8 @@ import {
 } from '@expo-google-fonts/poppins';
 import { Slot } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
+import { supabase } from '../lib/supabase'
+import { useEffect } from 'react'
 import { ThemeProvider } from '../context/ThemeContext';
 
 export default function RootLayout() {
@@ -17,13 +19,27 @@ export default function RootLayout() {
     'Poppins-Bold': Poppins_700Bold,
   });
 
+  useEffect(() => {
+  async function test() {
+    console.log('🔄 Testing Supabase...')
+    
+    const { data, error } = await supabase.from('users').select('*')
+    
+    console.log('DATA:', JSON.stringify(data))
+    console.log('ERROR:', JSON.stringify(error))
+  }
+  test()
+}, [])
+
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#1A214F" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
       </View>
     );
   }
+
+  
 
   return (
     <ThemeProvider>
