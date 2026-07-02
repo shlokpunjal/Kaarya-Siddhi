@@ -13,8 +13,7 @@ from supabase_client import supabase
 import requests as http_requests
 
 load_dotenv()
-print("DEBUG EMAIL_ADDRESS:", os.getenv("EMAIL_ADDRESS"))
-print("DEBUG EMAIL_PASSWORD:", "SET" if os.getenv("EMAIL_PASSWORD") else "MISSING")
+
 app = FastAPI()
 
 app.add_middleware(
@@ -124,7 +123,7 @@ async def verify_otp(data: VerifyOTPRequest):
             "mobile_number": phone,
             "role": role,
             "name": email.split("@")[0],
-            #"password_hash": "otp_login",
+            "password_hash": "otp_login",
             "is_profile_setup": False
         }).execute()
 
