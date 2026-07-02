@@ -53,7 +53,7 @@ export default function AdminProfile() {
       {
         text: 'Log out',
         style: 'destructive',
-        onPress: () => router.replace('/(auth)/clientLogin'),
+        onPress: () => router.replace('/(auth)/AdminLogin'),
       },
     ]);
   };
