@@ -123,7 +123,7 @@ async def verify_otp(data: VerifyOTPRequest):
             "mobile_number": phone,
             "role": role,
             "name": email.split("@")[0],
-            "password_hash": "otp_login",
+            # "password_hash": "otp_login",
             "is_profile_setup": False
         }).execute()
 
