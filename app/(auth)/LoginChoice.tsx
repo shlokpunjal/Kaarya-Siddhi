@@ -1,131 +1,193 @@
-import { Image } from "react-native";
-import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
+import React, { useEffect } from "react";
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect } from "react";
 
-
-export default function HomeScreen() {
+export default function LoginChoice() {
   useEffect(() => {
-  const checkLogin = async () => {
-    const loggedIn = await AsyncStorage.getItem("loggedIn");
+    checkSession();
+  }, []);
 
-    if (loggedIn === "true") {
-      router.replace("/(tabs)/dashboard");
+  const checkSession = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const role = await AsyncStorage.getItem("role");
+
+      if (!token) return;
+
+      if (role === "admin") {
+        router.replace("/(admin)");
+      } else if (role === "employee") {
+        router.replace("/(employee)");
+      }
+    } catch (error) {
+      console.log(error);
     }
   };
 
-  checkLogin();
-}, []);
   return (
-    <SafeAreaView>
-      <View style={styles.container}>
-        <Text style={styles.textContainer}>KaaryaSiddhi</Text>
+    <SafeAreaView style={styles.safeArea}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Kaarya Siddhi</Text>
       </View>
-      <View style={styles.imagecontainer}>
+
+      {/* Logo */}
+      <View style={styles.logoContainer}>
         <Image
           source={require("../../assets/images/logo.jpeg")}
-          style={styles.image}
+          style={styles.logo}
         />
-        <Text style={styles.contain}>Welcome to KaaryaSiddhi</Text>
+
+        <Text style={styles.welcome}>Welcome to Kaarya Siddhi</Text>
+
+        <Text style={styles.subtitle}>
+          Organize your workspace, assign tasks and
+          {"\n"}
+          manage your team efficiently.
+        </Text>
       </View>
-      <View style={styles.screen}>
+
+      {/* Buttons */}
+      <View style={styles.cardsContainer}>
         <View style={styles.card}>
           <TouchableOpacity
-            style={styles.buttonContainer}
-            onPress={() => router.push("/AdminLogin")}
+            style={[styles.button, styles.adminButton]}
+            onPress={() => router.push("/(auth)/AdminLogin")}
           >
-            <Text style={styles.adminText}>Admin Login</Text>
+            <Text style={styles.buttonText}>Admin Login</Text>
           </TouchableOpacity>
-          <Text style={styles.cardtext}>Manage tasks and teams</Text>
+
+          <Text style={styles.cardText}>
+            Create workspaces and manage employees
+          </Text>
         </View>
+
         <View style={styles.card}>
-          <TouchableOpacity style={styles.button1Container} onPress={()=> router.push("/EmloyeeLogin")}>
-            <Text style={styles.adminText} >Employee Login</Text>
+          <TouchableOpacity
+            style={[styles.button, styles.employeeButton]}
+            onPress={() => router.push("/EmployeeLogin")}
+          >
+            <Text style={styles.buttonText}>Employee Login</Text>
           </TouchableOpacity>
-          <Text style={styles.cardtext}>View and update your tasks</Text>
+
+          <Text style={styles.cardText}>
+            View assigned tasks and update progress
+          </Text>
         </View>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  cardtext: {},
-  button1Container: {
-    backgroundColor: "#1A2744",
-    width: 270,
-    height: 60,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 15,
-    elevation: 4,
-  },
-  adminText: {
-    color: "white",
-    fontWeight: "700",
-  },
-  buttonContainer: {
-    backgroundColor: "#E8870A",
-    width: 270,
-    height: 60,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 15,
-    elevation: 4,
-  },
-  textContainer: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  container: {
-    backgroundColor: "#1A2744",
-    padding: "5%",
-  },
-  image: {
-    position: "absolute",
-    resizeMode: "contain",
-    width: 150,
-    height: 150,
-    borderRadius: 100,
+const PRIMARY = "#1A2744";
+const ACCENT = "#E8870A";
 
-    top: 60,
-  },
-  imagecontainer: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  contain: {
-    top: 220,
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  card: {
-    backgroundColor: "white",
-    padding: 20,
-    elevation: 4,
-    borderRadius: 12,
-    height: 140,
-    width: "80%",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 20,
-    boxShadow: "0px 4px 50px 0px rgba(187, 164, 186, 0.5)",
-  },
-  screen: {
-    justifyContent: "center",
-    alignItems: "center",
+const styles = StyleSheet.create({
+  safeArea: {
     flex: 1,
-    marginTop: 385,
+    backgroundColor: "#F8F9FC",
+  },
+
+  header: {
+    backgroundColor: PRIMARY,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+  },
+
+  headerTitle: {
+    color: "#fff",
+    fontSize: 22,
+    fontFamily: "Poppins_600SemiBold",
+  },
+
+  logoContainer: {
+    alignItems: "center",
+    marginTop: 35,
+  },
+
+  logo: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+  },
+
+  welcome: {
+    marginTop: 18,
+    fontSize: 20,
+    fontFamily: "Poppins_600SemiBold",
+    color: PRIMARY,
+  },
+
+  subtitle: {
+    marginTop: 8,
+    textAlign: "center",
+    color: "#6B7280",
+    fontFamily: "Poppins_400Regular",
+    lineHeight: 22,
+    paddingHorizontal: 30,
+  },
+
+  cardsContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 10,
+  },
+
+  card: {
+    width: "85%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+
+    elevation: 5,
+
+    alignItems: "center",
+  },
+
+  button: {
+    width: "100%",
+    height: 55,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  adminButton: {
+    backgroundColor: ACCENT,
+  },
+
+  employeeButton: {
+    backgroundColor: PRIMARY,
+  },
+
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "Poppins_600SemiBold",
+  },
+
+  cardText: {
+    marginTop: 14,
+    textAlign: "center",
+    color: "#6B7280",
+    fontFamily: "Poppins_400Regular",
   },
 });
-
-// import AdminLogin from "../AdminLogin";
-
-// export default function HomeScreen() {
-//   return <AdminLogin />;
-// }
