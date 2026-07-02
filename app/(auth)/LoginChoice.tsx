@@ -47,12 +47,6 @@ export default function LoginChoice() {
         />
 
         <Text style={styles.welcome}>Welcome to Kaarya Siddhi</Text>
-
-        <Text style={styles.subtitle}>
-          Organize your workspace, assign tasks and
-          {"\n"}
-          manage your team efficiently.
-        </Text>
       </View>
 
       {/* Buttons */}
@@ -70,7 +64,7 @@ export default function LoginChoice() {
           </Text>
         </View>
 
-        <View style={styles.card}>
+        <View style={styles.carde}>
           <TouchableOpacity
             style={[styles.button, styles.employeeButton]}
             onPress={() => router.push("/EmployeeLogin")}
@@ -110,7 +104,7 @@ const styles = StyleSheet.create({
 
   logoContainer: {
     alignItems: "center",
-    marginTop: 35,
+    marginTop: 50,
   },
 
   logo: {
@@ -120,7 +114,7 @@ const styles = StyleSheet.create({
   },
 
   welcome: {
-    marginTop: 18,
+    marginTop: 40,
     fontSize: 20,
     fontFamily: "Poppins_600SemiBold",
     color: PRIMARY,
@@ -139,7 +133,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 0,
   },
 
   card: {
@@ -147,7 +141,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
+    marginBottom:20,
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+
+    elevation: 5,
+
+    alignItems: "center",
+  },
+  carde: {
+    width: "85%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom:100,
 
     shadowColor: "#000",
     shadowOffset: {
