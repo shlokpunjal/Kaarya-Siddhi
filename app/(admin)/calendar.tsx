@@ -8,6 +8,7 @@ import {
   Platform,
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
+import { typography } from "../../theme/theme";
 
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
 interface Task { title: string; descp: string; category: TaskCategory; }
@@ -116,7 +117,7 @@ export default function CalendarScreen() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={[s.header, { backgroundColor: brand.primary }]}>
-        <Text style={[s.headerText, { color: base.surfaceL1 }]}>Calendar</Text>
+          <Text style={[typography.heading, { color: text.primary }]}>Calendar</Text>
       </View>
 
       {/* ── Calendar card ──────────────────────────────────────────────── */}
@@ -128,7 +129,7 @@ export default function CalendarScreen() {
             <Pressable onPress={goPrev} hitSlop={12}>
               <Text style={[s.arrow, { color: brand.accent }]}>‹</Text>
             </Pressable>
-            <Text style={s.monthTitle}>
+            <Text style={[s.monthTitle, { color: text.primary }]}>
               {MONTH_NAMES[viewMonth - 1]} {viewYear}
             </Text>
             <Pressable onPress={goNext} hitSlop={12}>
@@ -336,7 +337,7 @@ const s = StyleSheet.create({
     paddingBottom: 4,
   },
   arrow:      { fontSize: 26, lineHeight: 28, fontFamily: "Poppins-Regular" },
-  monthTitle: { fontSize: 28, fontFamily: "Poppins-SemiBold" , color:'#233969' },
+  monthTitle: { fontSize: 28, fontFamily: "Poppins-SemiBold" },
 
   /* Weekday header */
   weekRow: {
