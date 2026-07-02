@@ -15,6 +15,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "@env";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // add this import
 
 const { colors } = lightTheme;
 
@@ -88,7 +89,6 @@ export default function Newtask() {
     };
   };
 
-  // ── Create task: upload files → insert tasks → insert task_files ────────────
   const handleAddTask = async () => {
     if (!taskName.trim()) {
       alert("Please enter a task name");
@@ -102,26 +102,51 @@ export default function Newtask() {
     try {
       setLoading(true);
 
-      // 1. Upload all files to Cloudinary in parallel
+      const creatorEmail = await AsyncStorage.getItem("userEmail");
+
+      // 1. Look up the assignee by name, restricted to employees only
+      const { data: matches, error: userLookupError } = await supabase
+        .from("users")
+        .select("id, name, email, role")
+        .eq("name", assignTo.trim())
+        .eq("role", "employee");
+
+      if (userLookupError) throw userLookupError;
+
+      if (!matches || matches.length === 0) {
+        alert(`No employee named "${assignTo.trim()}" was found. Please check the name.`);
+        return;
+      }
+
+      if (matches.length > 1) {
+        const list = matches.map((u) => `• ${u.name} — ${u.email}`).join("\n");
+        alert(
+          `Multiple employees are named "${assignTo.trim()}":\n\n${list}\n\nPlease re-enter using their email instead so the right person gets the task.`
+        );
+        return;
+      }
+
+      const assignedEmployee = matches[0]; // exactly one match
+
+      // 2. Upload all files to Cloudinary in parallel
       const uploadedResults = await Promise.all(
         attachedFiles.map((file) => uploadSingleFile(file))
       );
 
-      // First file URL stored directly on the task row for quick access
       const mainFileUrl = uploadedResults.length > 0 ? uploadedResults[0].file_url : null;
 
-      // 2. Insert task row into Supabase
+      // 3. Insert task row — assigned_to stores the resolved email, created_by is the logged-in user
       const { data: task, error: taskError } = await supabase
         .from("tasks")
         .insert({
           title: taskName,
-          assigned_to: assignTo,
+          assigned_to: assignedEmployee.email,
           deadline: deadline || null,
           description: description || null,
           attachment_url: mainFileUrl,
           status: "pending",
           priority: selectedPriority ?? "medium",
-          created_by: assignTo,
+          created_by: creatorEmail,
           workspace_id: "44799b6c-50a1-42c1-9783-4105bc16a330",
         })
         .select()
@@ -129,7 +154,7 @@ export default function Newtask() {
 
       if (taskError) throw taskError;
 
-      // 3. Insert one row per file into task_files
+      // 4. Insert one row per file into task_files
       if (uploadedResults.length > 0 && task) {
         const filesPayload = uploadedResults.map((res) => ({
           task_id: task.id,
@@ -139,10 +164,7 @@ export default function Newtask() {
           storage_service: "cloudinary",
         }));
 
-        const { error: fileError } = await supabase
-          .from("task_files")
-          .insert(filesPayload);
-
+        const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
         if (fileError) throw fileError;
       }
 
@@ -155,7 +177,6 @@ export default function Newtask() {
       setLoading(false);
     }
   };
-
   // ── Shared input style ──────────────────────────────────────────────────────
   const inputStyle = {
     backgroundColor: colors.base.surfaceL2,
@@ -237,7 +258,7 @@ export default function Newtask() {
 
           {/* Assign To */}
           <TextInput
-            placeholder="Assign to"
+            placeholder="Assign to (employee's name)"
             placeholderTextColor={colors.text.secondary}
             value={assignTo}
             onChangeText={setAssignTo}
