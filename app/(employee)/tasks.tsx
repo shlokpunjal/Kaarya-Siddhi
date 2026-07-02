@@ -1,7 +1,7 @@
-
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator, TextInput, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
@@ -51,6 +51,8 @@ export default function EmployeeTasks() {
   const [modalVisible, setModalVisible] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const [draftType, setDraftType] = useState<FilterType>('all');
   const [draftValue, setDraftValue] = useState<string | null>(null);
@@ -132,10 +134,23 @@ export default function EmployeeTasks() {
       list.sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
     }
 
+    const query = searchQuery.trim().toLowerCase();
+    if (query.length > 0) {
+      list = list.filter((t) => {
+        return (
+          t.title.toLowerCase().includes(query) ||
+          (t.label ?? '').toLowerCase().includes(query) ||
+          t.priority.toLowerCase().includes(query) ||
+          STATUS_LABELS[t.status].toLowerCase().includes(query)
+        );
+      });
+    }
+
     return list;
   };
 
   const visibleTasks = getVisibleTasks();
+  const isSearching = searchQuery.trim().length > 0;
   const isSelected = (type: FilterType, value: string | null) => draftType === type && draftValue === value;
 
   const Chip = ({ label, type, value }: { label: string; type: FilterType; value: string | null }) => {
@@ -178,10 +193,49 @@ export default function EmployeeTasks() {
         </Pressable>
       </View>
 
+      <View style={styles.searchRow}>
+        <View
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: colors.base.surfaceL1,
+              borderColor: searchFocused ? colors.brand.accent : colors.base.border,
+              borderWidth: searchFocused ? 1.5 : 1,
+            },
+            searchFocused && styles.searchBarFocused,
+          ]}
+        >
+          <Ionicons
+            name="search"
+            size={18}
+            color={searchFocused ? colors.brand.accent : colors.text.secondary}
+            style={styles.searchIcon}
+          />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder="Search tasks..."
+            placeholderTextColor={colors.text.secondary}
+            style={[typography.body, styles.searchInput, { color: colors.text.primary }]}
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery('')} hitSlop={10} style={styles.clearButton}>
+              <Ionicons name="close-circle" size={18} color={colors.text.secondary} />
+            </Pressable>
+          )}
+        </View>
+      </View>
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {visibleTasks.length === 0 ? (
           <Text style={[typography.body, { color: colors.text.secondary, marginTop: 20 }]}>
-            No tasks match this filter.
+            {isSearching
+              ? `No tasks found for "${searchQuery.trim()}".`
+              : 'No tasks match this filter.'}
           </Text>
         ) : (
           visibleTasks.map((task) => (
@@ -270,6 +324,49 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
   filterButton: { borderRadius: 10, borderWidth: 1, paddingVertical: 8, paddingHorizontal: 14 },
+  searchRow: {
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  searchBarFocused: {
+    ...Platform.select({
+      ios: {
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    padding: 0,
+  },
+  clearButton: {
+    marginLeft: 8,
+  },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 32 },
   taskCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
   taskCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
