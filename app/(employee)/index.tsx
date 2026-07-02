@@ -160,38 +160,68 @@ export default function Dashboard() {
           </View>
         </View>
 
-        {/* Buttons Row */}
-        <View style={{ flexDirection: "row", gap: 20,
-         }}>
-          <View style={{ marginLeft: 48}}>
-            <TouchableOpacity
-              onPress={() => router.push("/newtask")}
-              style={{
-                backgroundColor: colors.brand.accent, padding: 14,
-                width: 200, height: 60, borderRadius: 32,
-                boxShadow: "0px 0px 5px gray", flexDirection: "row",
-                marginTop:-1
-              }}
-            >
-              <Ionicons style={{marginLeft:20,marginTop:-2}} name="add" size={35} color={colors.base.surfaceL1}/>
-              <Text style={{
-                ...typography.subheading,
-                color: colors.base.surfaceL1,
-                textAlign: "center",
-                marginTop:4,
-                margin:5
-              }}> New Task</Text>
-            </TouchableOpacity>
+     {/* New Task Button */}
+      <View
+        style={{
+          alignItems: "center",
+          marginTop: 10,
+          marginBottom: 10,
+        }}
+      >
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push("/newtask")}
+          style={{
+            backgroundColor: colors.brand.accent,
+            width:290, // slightly wider so the text fits
+            height: 60,
+            borderRadius: 36,
+            justifyContent: "center",
+            alignItems: "center",
+
+            // React Native
+            elevation: 5,
+
+            // iOS
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.2,
+            shadowRadius: 5,
+          }}
+        >
+          {/* Icon */}
+          <View
+            style={{
+              position: "absolute",
+              left: 16,
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: "rgba(255,255,255,0.2)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Ionicons
+              name="add"
+              size={24}
+              color={colors.base.surfaceL1}
+            />
           </View>
 
-          <View style={{
-            boxShadow: "0px 0px 5px gray", borderRadius: 32,
-            backgroundColor: colors.base.surfaceL2,
-            height: 58, width: 80, alignItems: "center", justifyContent: "center"
-          }}>
-            <Ionicons name="search" size={30} color={colors.brand.accent} />
-          </View>
-        </View>
+          {/* Text */}
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            style={{
+              ...typography.subheading,
+              color: colors.base.surfaceL1,
+            }}
+          >
+            Add a New Task
+          </Text>
+        </TouchableOpacity>
+      </View>
 
         {/* ---- Overdue Section ---- */}
         <View style={{
