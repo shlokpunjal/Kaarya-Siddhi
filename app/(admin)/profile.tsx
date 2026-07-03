@@ -1,18 +1,30 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Image, Modal } from 'react-native';
+
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Image, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { mockAdminUser } from '../../data/mockCurrentUser';
-import { typography } from '../../theme/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../../lib/supabase';
+import { typography } from '../../theme/theme';
 import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
 
-const EMPLOYEE_NAMES: Record<string, string> = {
-  emp1: 'Ravi Kumar',
-  emp2: 'Sita Devi',
+type UserRow = {
+  id: string;
+  name: string;
+  email: string;
+  mobile_number: string | null;
+  department: string | null;
+  designation: string | null;
+  profile_pic_url: string | null;
+  workspace_id: string | null;
 };
 
+type ManagedEmployee = {
+  id: string;
+  name: string;
+};
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { value: 'light', label: 'Light', icon: 'sunny-outline' },
@@ -20,32 +32,113 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionic
   { value: 'system', label: 'System', icon: 'phone-portrait-outline' },
 ];
 
-
-
 export default function AdminProfile() {
   const { colors } = useTheme();
   const { mode, setMode } = useThemeMode();
   const router = useRouter();
 
+  const [currentUser, setCurrentUser] = useState<UserRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(mockAdminUser.name);
-  const [contact, setContact] = useState(mockAdminUser.phone);
-  const [email, setemail] = useState(mockAdminUser.email);
+  const [name, setName] = useState('');
+  const [contact, setContact] = useState('');
+  const [email, setemail] = useState('');
+
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
 
+  const [managedEmployees, setManagedEmployees] = useState<ManagedEmployee[]>([]);
 
-  const handleSave = () => {
-    setEditing(false);
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
+
+  // ── Fetch the logged-in admin's own row from Supabase ────────────────────
+  const fetchCurrentUser = async () => {
+    setLoading(true);
+
+    const savedEmail = await AsyncStorage.getItem('userEmail');
+
+    if (!savedEmail) {
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email, mobile_number, department, designation, profile_pic_url, workspace_id')
+      .eq('email', savedEmail)
+      .single();
+
+    if (error) {
+      console.error('Profile fetch error:', error.message);
+      setLoading(false);
+      return;
+    }
+
+    setCurrentUser(data);
+    setName(data.name ?? '');
+    setContact(data.mobile_number ?? '');
+    setemail(data.email ?? '');
+    setAvatarUri(data.profile_pic_url ?? null);
+
+    // Fetch employees under this admin's workspace
+    if (data.workspace_id) {
+      const { data: employees, error: empError } = await supabase
+        .from('users')
+        .select('id, name')
+        .eq('workspace_id', data.workspace_id)
+        .eq('role', 'employee');
+
+      if (!empError && employees) {
+        setManagedEmployees(employees);
+      }
+    }
+
+    setLoading(false);
   };
 
-  const initials = name
+  // ── Save edited fields back to Supabase ─────────────────────────────────────
+  const handleSave = async () => {
+    if (!currentUser) {
+      setEditing(false);
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const { error } = await supabase
+        .from('users')
+        .update({
+          name: name.trim(),
+          mobile_number: contact.trim(),
+          email: email.trim(),
+        })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+
+      await AsyncStorage.setItem('userEmail', email.trim());
+
+      setCurrentUser((prev) => (prev ? { ...prev, name, mobile_number: contact, email } : prev));
+      setEditing(false);
+    } catch (error: any) {
+      Alert.alert('Could not save', error?.message || 'Something went wrong.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const initials = (name || currentUser?.name || '')
     .split(' ')
+    .filter(Boolean)
     .map((part) => part[0])
     .join('')
     .slice(0, 2)
     .toUpperCase();
-
 
   const handleLogout = () => {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -67,7 +160,7 @@ export default function AdminProfile() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -80,7 +173,23 @@ export default function AdminProfile() {
     }
   };
 
-  const managedNames = mockAdminUser.managedEmployeeIds?.map((id) => EMPLOYEE_NAMES[id] ?? id) ?? [];
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.brand.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }]}>
+        <Text style={[typography.body, { color: colors.text.primary }]}>
+          Could not load your profile. Please try logging in again.
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background }]}>
@@ -99,46 +208,24 @@ export default function AdminProfile() {
               style={styles.avatarPressable}
               onPress={() => {
                 if (editing) {
-                  pickAvatar();            // Change profile picture
+                  pickAvatar();
                 } else if (avatarUri) {
-                  setShowImage(true);      // View full image
+                  setShowImage(true);
                 }
               }}
             >
               {avatarUri ? (
-                <Image
-                  source={{ uri: avatarUri }}
-                  style={styles.avatarImage}
-                />
+                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
               ) : (
-                <View
-                  style={[
-                    styles.avatarImage,
-                    styles.avatarFallback,
-                    { backgroundColor: colors.brand.accent },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      typography.subheading,
-                      { color: '#FFFFFF' },
-                    ]}
-                  >
+                <View style={[styles.avatarImage, styles.avatarFallback, { backgroundColor: colors.brand.accent }]}>
+                  <Text style={[typography.subheading, { color: '#FFFFFF' }]}>
                     {initials}
                   </Text>
                 </View>
               )}
 
               {editing && (
-                <View
-                  style={[
-                    styles.editBadge,
-                    {
-                      backgroundColor: colors.brand.primary,
-                      borderColor: colors.base.background,
-                    },
-                  ]}
-                >
+                <View style={[styles.editBadge, { backgroundColor: colors.brand.primary, borderColor: colors.base.background }]}>
                   <Ionicons name="camera" size={12} color="#FFFFFF" />
                 </View>
               )}
@@ -157,7 +244,7 @@ export default function AdminProfile() {
                 </Text>
               )}
               <Text style={[typography.body, { color: colors.text.secondary, marginTop: 2 }]}>
-                {mockAdminUser.designation}
+                {currentUser.designation ?? '—'}
               </Text>
             </View>
           </View>
@@ -192,7 +279,7 @@ export default function AdminProfile() {
             Department
           </Text>
           <Text style={[typography.body, { color: colors.text.primary }]}>
-            {mockAdminUser.department}
+            {currentUser.department ?? '—'}
           </Text>
         </View>
 
@@ -201,11 +288,11 @@ export default function AdminProfile() {
             Team
           </Text>
           <Text style={[typography.label, { color: colors.text.secondary, marginBottom: 10 }]}>
-            {managedNames.length} {managedNames.length === 1 ? 'employee' : 'employees'} managed
+            {managedEmployees.length} {managedEmployees.length === 1 ? 'employee' : 'employees'} managed
           </Text>
-          {managedNames.map((empName) => (
-            <Text key={empName} style={[typography.body, { color: colors.text.primary, marginBottom: 4 }]}>
-              · {empName}
+          {managedEmployees.map((emp) => (
+            <Text key={emp.id} style={[typography.body, { color: colors.text.primary, marginBottom: 4 }]}>
+              · {emp.name}
             </Text>
           ))}
         </View>
@@ -252,12 +339,17 @@ export default function AdminProfile() {
         </View>
 
         <Pressable
-          style={[styles.actionButton, { backgroundColor: colors.brand.accent }]}
+          style={[styles.actionButton, { backgroundColor: colors.brand.accent, opacity: saving ? 0.7 : 1 }]}
           onPress={editing ? handleSave : () => setEditing(true)}
+          disabled={saving}
         >
-          <Text style={[typography.heading3, { color: '#FFFFFF' }]}>
-            {editing ? 'Save Changes' : 'Edit Profile'}
-          </Text>
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={[typography.heading3, { color: '#FFFFFF' }]}>
+              {editing ? 'Save Changes' : 'Edit Profile'}
+            </Text>
+          )}
         </Pressable>
 
         <Pressable
@@ -267,33 +359,24 @@ export default function AdminProfile() {
           <Text style={[typography.heading3, { color: colors.status.overdue }]}>Log Out</Text>
         </Pressable>
       </ScrollView>
+
       <Modal
         visible={showImage}
         transparent
         animationType="fade"
         onRequestClose={() => setShowImage(false)}
       >
-        <Pressable
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.9)',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-          onPress={() => setShowImage(false)}
-        >
+        <Pressable style={styles.modalBackground} onPress={() => setShowImage(false)}>
+          <Ionicons name="close" size={30} color="#FFFFFF" style={styles.closeModalButton} />
           {avatarUri && (
-            <Image
-              source={{ uri: avatarUri }}
-              style={{ width: '90%', height: '80%' }}
-              resizeMode="contain"
-            />
+            <Image source={{ uri: avatarUri }} style={styles.fullscreenImage} resizeMode="contain" />
           )}
         </Pressable>
       </Modal>
     </SafeAreaView>
   );
 }
+
 const AVATAR_SIZE = 64;
 
 const styles = StyleSheet.create({
@@ -313,10 +396,8 @@ const styles = StyleSheet.create({
   },
   actionButton: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 12 },
   logoutButton: { backgroundColor: 'transparent', borderWidth: 1.5 },
-
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   avatarPressable: { position: 'relative' },
-
   avatarImage: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
@@ -335,4 +416,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   nameColumn: { marginLeft: 14, flex: 1 },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeModalButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+  },
+  fullscreenImage: {
+    width: '90%',
+    height: '70%',
+  },
 });

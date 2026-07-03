@@ -42,6 +42,7 @@ export default function LoginChoice() {
         />
       </View>
       <Text style={styles.welcome}>Welcome to Kaarya Siddhi</Text>
+
       {/* Buttons */}
       <View style={styles.cardsContainer}>
         <View style={styles.card}>
@@ -60,13 +61,13 @@ export default function LoginChoice() {
         <View style={styles.carde}>
           <TouchableOpacity
             style={[styles.button, styles.employeeButton]}
-            onPress={() => router.push("/EmployeeLogin")}
+            onPress={() => router.push("/(auth)/EmployeeLogin")}
           >
             <Text style={styles.buttonText}>Employee Login</Text>
           </TouchableOpacity>
 
           <Text style={styles.cardText}>
-            View assigned tasks and update progress
+            View assigned tasks and update     progress
           </Text>
         </View>
       </View>
@@ -149,6 +150,7 @@ const styles = StyleSheet.create({
 
     alignItems: "center",
   },
+
   carde: {
     width: "85%",
     backgroundColor: "#FFFFFF",
