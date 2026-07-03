@@ -106,7 +106,7 @@ export default function ProfileSetup1() {
             {submitting ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={[styles.doneBtnText, typography.heading3]}>Done!</Text>
+              <Text style={[styles.doneBtnText, typography.subheading]}>Done!</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.base.background },
   header: { backgroundColor: colors.brand.primary, paddingVertical: 18, paddingHorizontal: 20,height:72},
   headerText: { color: "#fff" },
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 40 },
+  container: { flex: 1, paddingHorizontal: 30, paddingTop: 40,marginTop:50 },
   greeting: { textAlign: "center", color: colors.brand.primary, marginBottom: 4},
   title: { textAlign: "center", color: colors.text.secondary, marginBottom: 20 },
   card: {
@@ -169,8 +169,8 @@ const styles = StyleSheet.create({
   },
   doneBtn: {
     backgroundColor: colors.brand.primary,
-    borderRadius: 8,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     width: "100%",
     alignItems: "center",
     marginTop: 10,

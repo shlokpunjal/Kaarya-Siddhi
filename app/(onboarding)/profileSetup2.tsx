@@ -1,11 +1,9 @@
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Notifications from "expo-notifications";
-import { Ionicons } from "@expo/vector-icons";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
-
 const { colors } = lightTheme;
 
 export default function ProfileSetup2() {
@@ -24,15 +22,15 @@ export default function ProfileSetup2() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={goBack} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={28} color="#fff" />
-        </TouchableOpacity>
         <Text style={[styles.headerText, typography.heading]}>Profile Setup</Text>
       </View>
 
       <View style={styles.container}>
         <View style={styles.bellCircle}>
-          <Ionicons name="notifications" size={48} color={colors.brand.accent} />
+          <Image
+                    source={require("../../assets/icons/notification.png")}
+                    style={styles.logo}
+         />
         </View>
         <Text style={[styles.title, typography.heading3]}>Allow Kaarya Siddhi to Notify</Text>
 
@@ -41,10 +39,13 @@ export default function ProfileSetup2() {
             Get notified about task deadlines and updates instantly.
           </Text>
           <TouchableOpacity style={styles.allowBtn} onPress={handleAllow}>
-            <Text style={[styles.allowBtnText, typography.heading3]}>Allow</Text>
+            <Text style={[styles.allowBtnText, typography.subheading]}>Allow</Text>
           </TouchableOpacity>
         </View>
 
+        <TouchableOpacity onPress={goBack} style={styles.skipWrap}>
+          <Text style={[styles.back, typography.label]}>Back</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={goNext} style={styles.skipWrap}>
           <Text style={[styles.skip, typography.label]}>Skip</Text>
         </TouchableOpacity>
@@ -68,7 +69,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 6, marginRight: 4 },
   headerText: { color: "#fff" },
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 60, alignItems: "center" },
+  container: { flex: 1, paddingHorizontal: 30, paddingTop: 60, alignItems: "center",marginTop:60 },
   bellCircle: { marginBottom: 12 },
   title: { color: colors.text.primary, marginBottom: 24, textAlign: "center" },
   card: {
@@ -83,13 +84,17 @@ const styles = StyleSheet.create({
   desc: { textAlign: "center", color: colors.text.secondary, marginBottom: 18 },
   allowBtn: {
     backgroundColor: colors.brand.primary,
-    borderRadius: 8,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     width: "100%",
     alignItems: "center",
   },
   allowBtnText: { color: "#fff" },
   skipWrap: { alignSelf: "flex-end", marginTop: 14 },
-  skip: { textDecorationLine: "underline", color: colors.text.primary },
+  skip: { textDecorationLine: "underline", color: colors.text.primary,marginRight:5,marginTop:-28},
   dotsWrap: { marginTop: "auto", marginBottom: 40, alignItems: "center" },
+  logo:{height:80,width:80},
+  back:{
+    textDecorationLine: "underline", color: colors.text.primary,marginLeft:-320,
+  }
 });

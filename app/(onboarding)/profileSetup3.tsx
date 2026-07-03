@@ -3,7 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
-import { Ionicons } from "@expo/vector-icons";
+
 const { colors } = lightTheme;
 
 export default function ProfileSetup3() {
@@ -21,9 +21,6 @@ export default function ProfileSetup3() {
   return (
     <SafeAreaView style={styles.safe}>
     <View style={styles.header}>
-            <TouchableOpacity onPress={goBack} style={styles.backBtn}>
-              <Ionicons name="chevron-back" size={28} color="#fff" />
-            </TouchableOpacity>
             <Text style={[styles.headerText, typography.heading]}>Profile Setup</Text>
     </View>
 
@@ -37,13 +34,19 @@ export default function ProfileSetup3() {
         <View style={styles.card}>
           <Text style={[styles.desc, typography.body]}>Your workspace is ready.</Text>
           <TouchableOpacity style={styles.goBtn} onPress={handleLetsGo}>
-            <Text style={[styles.goBtnText, typography.heading3]}>Let's go!</Text>
+            <Text style={[styles.goBtnText, typography.subheading]}>Let's go!</Text>
           </TouchableOpacity>
         </View>
+        
+        <TouchableOpacity onPress={goBack} style={styles.back}>
+            <Text style={[styles.back, typography.label]}>Back</Text>
+        </TouchableOpacity>
 
         <View style={styles.dotsWrap}>
           <ProgressDots total={3} current={3} />
         </View>
+
+       
       </View>
     </SafeAreaView>
   );
@@ -61,8 +64,8 @@ const styles = StyleSheet.create({
 },
   headerText: { color: "#fff" },
   backBtn: { padding: 6, marginRight: 4 },
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 60, alignItems: "center" },
-  logo: { width: 70, height: 70, borderRadius: 35, marginBottom: 10 },
+  container: { flex: 1, paddingHorizontal: 30, paddingTop: 60, alignItems: "center",marginTop:50 },
+  logo: { width: 100, height: 100, borderRadius: 35, marginBottom: 10 },
   title: { color: colors.text.primary, marginBottom: 24 },
   card: {
     backgroundColor: colors.base.surfaceL1,
@@ -71,16 +74,20 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     borderWidth: 1,
+   
     borderColor: colors.base.border,
+    
   },
   desc: { color: colors.text.secondary, marginBottom: 18 },
   goBtn: {
     backgroundColor: colors.brand.accent,
-    borderRadius: 8,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     width: "100%",
     alignItems: "center",
+   
   },
   goBtnText: { color: "#fff" },
   dotsWrap: { marginTop: "auto", marginBottom: 40, alignItems: "center" },
+  back:{ textDecorationLine: "underline", color: colors.text.primary,marginTop:5,marginLeft:-100}
 });
