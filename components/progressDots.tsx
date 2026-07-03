@@ -1,5 +1,7 @@
-// components/ProgressDots.tsx
 import { View, StyleSheet } from "react-native";
+import { lightTheme } from "../theme/theme";
+
+const { colors } = lightTheme;
 
 export default function ProgressDots({ total, current }: { total: number; current: number }) {
   return (
@@ -13,6 +15,13 @@ export default function ProgressDots({ total, current }: { total: number; curren
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "center", gap: 8 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#E5E5E5" },
-  active: { backgroundColor: "#F5A623" },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.brand.accent,
+    backgroundColor: "transparent",
+  },
+  active: { backgroundColor: colors.brand.accent },
 });

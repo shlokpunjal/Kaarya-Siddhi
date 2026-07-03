@@ -19,11 +19,12 @@ const OtpVerify = () => {
   const [otp, setOtp] = useState("");
   const [cooldown, setCooldown] = useState(30); // starts at 30 immediately
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { email, ph, role, mode } = useLocalSearchParams<{
+  const { email, ph, role, mode, name } = useLocalSearchParams<{
     email: string;
     ph?: string;
     role: string;
     mode: string;
+    name?: string;
   }>();
   const { saveSession } = useAuth();
 
@@ -51,7 +52,7 @@ const OtpVerify = () => {
     }, 1000);
   };
 
-  const verifyOTP = async () => {
+    const verifyOTP = async () => {
     if (otp.length !== 6) {
       setOtpError("Enter a valid 6-digit OTP");
       return;
@@ -80,24 +81,33 @@ const OtpVerify = () => {
 
       await saveSession(data.token, ph?.toString() ?? "", data.email, data.role, data.workspace_id);
 
-      // ---------- ADMIN ----------
+      // ---------- SIGNUP FLOW → go through onboarding first ----------
+     // ---------- SIGNUP FLOW ----------
+      if (mode === "signup") {
+        if (data.role === "admin") {
+          router.replace({
+            pathname: "/(onboarding)/profileSetup1",
+            params: { role: "admin", name },   // ← forward name here
+          });
+          return;
+        }
+
+        if (data.role === "employee") {
+          // Onboarding happens later, after RequestAdmin flow completes
+          router.replace({
+            pathname: "/(auth)/RequestAdmin",
+            params: { email: data.email },
+          });
+          return;
+        }
+      }
+
+      // ---------- LOGIN FLOW (existing behavior) ----------
       if (data.role === "admin") {
         router.replace("/(admin)");
         return;
       }
 
-      // ---------- EMPLOYEE SIGNUP ----------
-      if (data.role === "employee" && mode === "signup") {
-        router.replace({
-          pathname: "/(auth)/RequestAdmin",
-          params: {
-            email: data.email,
-          },
-        });
-        return;
-      }
-
-      // ---------- EMPLOYEE LOGIN ----------
       if (data.role === "employee" && !data.workspace_id) {
         router.replace({
           pathname: "/(auth)/RequestAdmin",
