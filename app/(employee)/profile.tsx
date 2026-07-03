@@ -390,10 +390,10 @@ export default function EmployeeProfile() {
     label: string;
     icon: keyof typeof Ionicons.glyphMap;
   }[] = [
-    { value: "light", label: "Light", icon: "sunny-outline" },
-    { value: "dark", label: "Dark", icon: "moon-outline" },
-    { value: "system", label: "System", icon: "phone-portrait-outline" },
-  ];
+      { value: "light", label: "Light", icon: "sunny-outline" },
+      { value: "dark", label: "Dark", icon: "moon-outline" },
+      { value: "system", label: "System", icon: "phone-portrait-outline" },
+    ];
 
   // ── Save edited fields back to Supabase ─────────────────────────────────────
   const handleSave = async () => {
@@ -791,7 +791,7 @@ export default function EmployeeProfile() {
                 borderColor: colors.base.border,
               },
             ]}
-            onPress={() => {}}
+            onPress={() => { }}
           >
             <Ionicons
               name="language-outline"
@@ -844,10 +844,11 @@ export default function EmployeeProfile() {
       </Modal>
       <ConfirmModal
         visible={logoutVisible}
-        title="Log Out"
+        title="Logout"
         message="Are you sure you want to log out?"
-        confirmText="Log Out"
+        confirmText="Logout"
         cancelText="Cancel"
+        confirmColor="#E8870A"
         destructive
         onCancel={() => setLogoutVisible(false)}
         onConfirm={() => {

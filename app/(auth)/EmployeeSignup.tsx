@@ -247,9 +247,16 @@ export default function EmployeeSignup() {
 
       {cardError ? <Text style={styles.cardErrorText}>{cardError}</Text> : null}
 
-      <TouchableOpacity onPress={() => router.replace("/(auth)/EmployeeLogin")}>
-        <Text style={styles.bottomText}>Already have an account? Login</Text>
-      </TouchableOpacity>
+      <View style={styles.login}>
+        <Text style={styles.bottomText}>Already have an account?</Text>
+        <TouchableOpacity
+          onPress={() => router.replace("/(auth)/EmployeeLogin")}
+        >
+          <Text style={styles.loginT}>
+            Login
+          </Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -316,10 +323,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#EEF2F7",
     borderRadius: 12,
     paddingHorizontal: 18,
-    marginBottom: 6,
+    marginBottom: 8,
     fontFamily: "Poppins_400Regular",
-    borderWidth: 1,
-    borderColor: "transparent",
+    // borderWidth: 1,
+    // borderColor: "transparent",
+    borderColor: "#6B7280",
+    borderWidth: 0.7,
   },
 
   inputError: {
@@ -339,7 +348,7 @@ const styles = StyleSheet.create({
     color: ERROR,
     fontSize: 13,
     fontFamily: "Poppins_400Regular",
-    marginTop: 10,
+    marginTop: 8,
     textAlign: "center",
   },
 
@@ -362,5 +371,20 @@ const styles = StyleSheet.create({
     marginTop: 20,
     color: PRIMARY,
     fontFamily: "Poppins_500Medium",
+  },
+  login: {
+    color: PRIMARY,
+    fontFamily: "Poppins_500Medium",
+    flexDirection:"row",
+    alignItems:"center",
+    marginTop: 0,
+    gap:2,
+
+  },
+  loginT: {
+    color: PRIMARY,
+    fontFamily: "Poppins_600SemiBold",
+    marginTop:19,
+    textDecorationLine:"underline",
   },
 });
