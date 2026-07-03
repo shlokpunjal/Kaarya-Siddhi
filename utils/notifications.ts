@@ -40,8 +40,8 @@ export async function sendLoginNotification(name: string) {
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: "Logged in successfully",
-      body: `Welcome back, ${name}!`,
+      title: "OTP verified",
+      body: `Welcome, ${name}!`,
       sound: true,
     },
     trigger: null,
