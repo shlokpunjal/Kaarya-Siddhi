@@ -1,16 +1,9 @@
 import React, { useEffect } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  Image,
-} from "react-native";
+import { StyleSheet, View, Text, TouchableOpacity, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { typography } from '../../theme/theme';
-
+import { typography } from "../../theme/theme";
 
 export default function LoginChoice() {
   useEffect(() => {
@@ -42,15 +35,13 @@ export default function LoginChoice() {
       </View>
 
       {/* Logo */}
-      <View style={styles.logoContainer}>
+      <View style={styles.imagestyle}>
         <Image
           source={require("../../assets/images/logo.jpeg")}
-          style={styles.logo}
+          style={styles.imageStyling}
         />
-
-        <Text style={styles.welcome}>Welcome to Kaarya Siddhi</Text>
       </View>
-
+      <Text style={styles.welcome}>Welcome to Kaarya Siddhi</Text>
       {/* Buttons */}
       <View style={styles.cardsContainer}>
         <View style={styles.card}>
@@ -116,10 +107,11 @@ const styles = StyleSheet.create({
   },
 
   welcome: {
-    marginTop: 40,
+    marginTop: 35,
     fontSize: 20,
     fontFamily: "Poppins_600SemiBold",
     color: PRIMARY,
+    alignSelf: "center",
   },
 
   subtitle: {
@@ -143,7 +135,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 20,
-    marginBottom:20,
+    marginBottom: 20,
 
     shadowColor: "#000",
     shadowOffset: {
@@ -162,7 +154,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 20,
-    marginBottom:100,
+    marginBottom: 170,
 
     shadowColor: "#000",
     shadowOffset: {
@@ -204,5 +196,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#6B7280",
     fontFamily: "Poppins_400Regular",
+  },
+  imagestyle: {
+    justifyContent: "center",
+    alignItems: "center",
+    height: 120,
+    width: 120,
+    marginTop: 50,
+    borderRadius: 120,
+    backgroundColor: "#E8870A",
+    alignSelf: "center",
+  },
+  imageStyling: {
+    height: 116,
+    width: 116,
+    borderRadius: 120,
+    bottom: 0,
   },
 });
