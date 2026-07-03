@@ -91,11 +91,11 @@ Scan the QR code with Expo Go. The app will load the Employee or Admin view base
 
 ```bash
 cd backend
+python -m pip install fastapi uvicorn python-dotenv supabase pydantic
 python -m venv venv
-venv\Scripts\activate       # Windows
-# source venv/bin/activate  # macOS/Linux
+venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload 
 ```
 
 > **Note:** When testing on a physical device via Expo Go, replace `localhost` with your machine's LAN IP address (run `ipconfig` on Windows / `ifconfig` on Mac). Both devices must be on the same Wi-Fi network.
