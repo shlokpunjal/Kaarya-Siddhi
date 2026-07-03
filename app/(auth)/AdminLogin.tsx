@@ -5,19 +5,25 @@ import {
   Image,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef } from "react";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
+import { typography } from '../../theme/theme';
+
 
 const AdminLogin = () => {
   const [ph, setPh] = useState("");
   const [email, setEmail] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [isSending, setIsSending] = useState(false); // ADD THIS
+  const [isSending, setIsSending] = useState(false);
+
+  const [errors, setErrors] = useState({
+    phone: "",
+    email: "",
+  });
 
   const startCooldown = () => {
     setCooldown(30);
@@ -32,37 +38,42 @@ const AdminLogin = () => {
     }, 1000);
   };
 
-  const sendOTP = async () => {
+  function validate() {
+    const newErrors = { phone: "", email: "" };
+    let isValid = true;
+
+    if (!ph.trim()) {
+      newErrors.phone = "Please enter your phone number";
+      isValid = false;
+    } else if (ph.length !== 10) {
+      newErrors.phone = "Enter a valid 10-digit phone number";
+      isValid = false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim()) {
-      Alert.alert("Error", "Enter your email");
+      newErrors.email = "Please enter a valid email";
+      isValid = false;
+    } else if (!emailRegex.test(email)) {
+      newErrors.email = "Please enter a valid email";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  }
+
+  const sendOTP = async () => {
+    if (!validate()) {
       return;
     }
 
     try {
       setIsSending(true);
+      setErrors({ phone: "", email: "" });
 
       // Check account exists
       const loginResponse = await fetch(`${API_BASE_URL}/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          // phone: ph,
-          role: "admin",
-        }),
-      });
-
-      const loginData = await loginResponse.json();
-
-      if (!loginResponse.ok) {
-        Alert.alert("Account Not Found", loginData.detail);
-        return;
-      }
-
-      // Send OTP
-      const otpResponse = await fetch(`${API_BASE_URL}/send-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -74,10 +85,64 @@ const AdminLogin = () => {
         }),
       });
 
+      const loginData = await loginResponse.json();
+
+      if (!loginResponse.ok) {
+        let message = "Account not found";
+
+        if (typeof loginData.detail === "string") {
+          message = loginData.detail;
+        } else if (Array.isArray(loginData.detail) && loginData.detail.length > 0) {
+          message = loginData.detail[0].msg;
+        } else if (loginData.detail?.msg) {
+          message = loginData.detail.msg;
+        }
+
+        setErrors((prev) => ({
+          ...prev,
+          email: message,
+        }));
+
+        return;
+      }
+
+      // Send OTP
+      const otpResponse = await fetch(`${API_BASE_URL}/send-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          // phone: ph,
+          role: "admin",
+        }),
+      });
+
       const otpData = await otpResponse.json();
 
       if (!otpResponse.ok) {
-        Alert.alert("Error", otpData.detail);
+        setErrors((prev) => ({
+          ...prev,
+          email: otpData.detail || "Failed to send OTP",
+        }));
+        return;
+      } if (!otpResponse.ok) {
+        let message = "Failed to send OTP";
+
+        if (typeof otpData.detail === "string") {
+          message = otpData.detail;
+        } else if (Array.isArray(otpData.detail) && otpData.detail.length > 0) {
+          message = otpData.detail[0].msg;
+        } else if (otpData.detail?.msg) {
+          message = otpData.detail.msg;
+        }
+
+        setErrors((prev) => ({
+          ...prev,
+          email: message,
+        }));
+
         return;
       }
 
@@ -94,7 +159,10 @@ const AdminLogin = () => {
       });
     } catch (error) {
       console.log(error);
-      Alert.alert("Error", "Could not connect to server.");
+      setErrors((prev) => ({
+        ...prev,
+        email: "Could not connect to server.",
+      }));
     } finally {
       setIsSending(false);
     }
@@ -105,7 +173,8 @@ const AdminLogin = () => {
   return (
     <SafeAreaView>
       <View style={styles.mainbar}>
-        <Text style={styles.maintext}>AdminLogin</Text>
+        {/* add a back button */}
+        <Text style={[styles.maintext, typography.heading]}>Admin - Login</Text>
       </View>
       <View style={styles.mainStyle}>
         <View style={styles.imagestyle}>
@@ -115,34 +184,56 @@ const AdminLogin = () => {
           />
         </View>
 
-        {/* Card — grows taller during cooldown */}
-        <View style={[styles.divi, isOnCooldown && styles.diviExpanded]}>
-          <Text style={styles.divtext}>Login to your workspace</Text>
+        {/* Card — grows taller during cooldown or errors */}
+        <View
+          style={[
+            styles.divi,
+            (isOnCooldown || errors.phone || errors.email) &&
+            styles.diviExpanded,
+          ]}
+        >
+          <Text style={[styles.divtext, typography.subheading]}>Login to your workspace</Text>
           <View>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.phone ? styles.inputError : null]}
               value={ph}
               placeholder="Enter Phone Number"
-              onChangeText={setPh}
+              onChangeText={(text) => {
+                setPh(text);
+                if (errors.phone)
+                  setErrors((prev) => ({ ...prev, phone: "" }));
+              }}
               keyboardType="phone-pad"
               maxLength={10}
             />
+            {errors.phone ? (
+              <Text style={styles.errorText}>{errors.phone}</Text>
+            ) : null}
+
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.email ? styles.inputError : null]}
               value={email}
               placeholder="Enter Email"
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (errors.email)
+                  setErrors((prev) => ({ ...prev, email: "" }));
+              }}
               keyboardType="email-address"
+              autoCapitalize="none"
             />
+            {errors.email ? (
+              <Text style={styles.errorText}>{errors.email}</Text>
+            ) : null}
           </View>
           <View>
             <TouchableOpacity
               style={[
                 styles.LoginStyle,
-                (isOnCooldown || isSending) && styles.LoginDisabled, // add isSending
+                (isOnCooldown || isSending) && styles.LoginDisabled,
               ]}
               onPress={sendOTP}
-              disabled={isOnCooldown || isSending} // add isSending
+              disabled={isOnCooldown || isSending}
             >
               <Text style={styles.LoginText}>
                 {isSending
@@ -180,6 +271,8 @@ const AdminLogin = () => {
 
 export default AdminLogin;
 
+const ERROR = "#D32F2F";
+
 const styles = StyleSheet.create({
   setText: {
     color: "white",
@@ -199,7 +292,7 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontSize: 18,
     fontFamily: "Poppins_400Regular",
-    marginTop: 70,
+    marginTop: 50,
   },
   LoginText: {
     color: "white",
@@ -243,6 +336,18 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 20,
     borderColor: "#6B7280",
+    borderWidth: 1,
+  },
+  inputError: {
+    borderColor: ERROR,
+    backgroundColor: "#FDECEC",
+  },
+  errorText: {
+    color: ERROR,
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    marginTop: 4,
+    marginLeft: 4,
   },
   mainStyle: {
     alignItems: "center",
@@ -256,6 +361,7 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 20,
     fontFamily: "Poppins_400Regular",
+    alignSelf:"center",
   },
   imagestyle: {
     justifyContent: "center",
@@ -282,7 +388,7 @@ const styles = StyleSheet.create({
     marginTop: 110,
   },
   diviExpanded: {
-    height: 360,
+    height: 340,
   },
   divtext: {
     fontSize: 20,
