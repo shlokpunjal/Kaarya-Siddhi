@@ -17,7 +17,6 @@ import { typography } from '../../theme/theme';
 
 export default function EmployeeSignup() {
   const [name, setName] = useState("");
-  const [employeeId, setEmployeeId] = useState("");
   const [department, setDepartment] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -49,6 +48,19 @@ export default function EmployeeSignup() {
 
     if (!employeeId.trim()) {
       newErrors.employeeId = "Please enter your employee ID";
+      isValid = false;
+    }
+
+    if (!department.trim()) {
+      newErrors.department = "Please enter your department";
+      isValid = false;
+    }
+
+    if (!phone.trim()) {
+      newErrors.phone = "Please enter a phone number";
+      isValid = false;
+    } else if (phone.length !== 10) {
+      newErrors.phone = "Enter a valid 10-digit phone number";
       isValid = false;
     }
 
@@ -103,7 +115,6 @@ export default function EmployeeSignup() {
           email,
           phone,
           role: "employee",
-          employee_id: employeeId,
           department,
         }),
       });
@@ -119,6 +130,7 @@ export default function EmployeeSignup() {
             employeeId: signupData.detail,
           }));
         } else if (detail.includes("phone")) {
+        if (detail.includes("phone")) {
           setErrors((prev) => ({
             ...prev,
             phone: signupData.detail,

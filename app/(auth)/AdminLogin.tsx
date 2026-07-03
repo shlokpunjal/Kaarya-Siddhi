@@ -114,7 +114,7 @@ const AdminLogin = () => {
         },
         body: JSON.stringify({
           email,
-          phone: ph,
+          // phone: ph,
           role: "admin",
         }),
       });
