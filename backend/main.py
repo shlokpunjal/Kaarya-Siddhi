@@ -55,7 +55,7 @@ class SignupRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    phone: str
+    # phone: str
     email: str
     role: str
 
