@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  ScrollView
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
+
 
 export default function EmployeeSignup() {
   const [name, setName] = useState("");
@@ -23,6 +25,7 @@ export default function EmployeeSignup() {
 
   const [errors, setErrors] = useState({
     name: "",
+    employeeId: "",
     department: "",
     phone: "",
     email: "",
@@ -31,6 +34,7 @@ export default function EmployeeSignup() {
   function validate() {
     const newErrors = {
       name: "",
+      employeeId: "",
       department: "",
       phone: "",
       email: "",
@@ -39,6 +43,24 @@ export default function EmployeeSignup() {
 
     if (!name.trim()) {
       newErrors.name = "Please enter your name";
+      isValid = false;
+    }
+
+    if (!employeeId.trim()) {
+      newErrors.employeeId = "Please enter your employee ID";
+      isValid = false;
+    }
+
+    if (!department.trim()) {
+      newErrors.department = "Please enter your department";
+      isValid = false;
+    }
+
+    if (!phone.trim()) {
+      newErrors.phone = "Please enter a phone number";
+      isValid = false;
+    } else if (phone.length !== 10) {
+      newErrors.phone = "Enter a valid 10-digit phone number";
       isValid = false;
     }
 
@@ -77,6 +99,7 @@ export default function EmployeeSignup() {
       setLoading(true);
       setErrors({
         name: "",
+        employeeId: "",
         department: "",
         phone: "",
         email: "",
@@ -101,6 +124,12 @@ export default function EmployeeSignup() {
       if (!signupResponse.ok) {
         const detail = (signupData.detail || "").toLowerCase();
 
+        if (detail.includes("employee") && detail.includes("id")) {
+          setErrors((prev) => ({
+            ...prev,
+            employeeId: signupData.detail,
+          }));
+        } else if (detail.includes("phone")) {
         if (detail.includes("phone")) {
           setErrors((prev) => ({
             ...prev,
@@ -188,6 +217,23 @@ export default function EmployeeSignup() {
         {errors.name ? (
           <Text style={styles.errorText}>{errors.name}</Text>
         ) : null}
+
+        {/* <TextInput
+          style={[
+            styles.input,
+            errors.employeeId ? styles.inputError : null,
+          ]}
+          placeholder="Employee ID"
+          value={employeeId}
+          onChangeText={(text) => {
+            setEmployeeId(text);
+            if (errors.employeeId)
+              setErrors((prev) => ({ ...prev, employeeId: "" }));
+          }}
+        /> */}
+        {/* {errors.employeeId ? (
+          <Text style={styles.errorText}>{errors.employeeId}</Text>
+        ) : null} */}
 
         <TextInput
           style={[
