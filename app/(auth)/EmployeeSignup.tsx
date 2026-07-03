@@ -6,12 +6,14 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
+  ScrollView
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
+import { typography } from '../../theme/theme';
+
 
 export default function EmployeeSignup() {
   const [name, setName] = useState("");
@@ -22,25 +24,74 @@ export default function EmployeeSignup() {
 
   const [loading, setLoading] = useState(false);
 
-  async function createAccount() {
-    if (
-      !name ||
-      !employeeId ||
-      !department ||
-      !phone ||
-      !email
-    ) {
-      Alert.alert("Missing Information", "Please fill all the fields.");
-      return;
+  const [errors, setErrors] = useState({
+    name: "",
+    employeeId: "",
+    department: "",
+    phone: "",
+    email: "",
+  });
+
+  function validate() {
+    const newErrors = {
+      name: "",
+      employeeId: "",
+      department: "",
+      phone: "",
+      email: "",
+    };
+    let isValid = true;
+
+    if (!name.trim()) {
+      newErrors.name = "Please enter your name";
+      isValid = false;
     }
 
-    if (phone.length !== 10) {
-      Alert.alert("Invalid Phone", "Enter a valid phone number.");
+    if (!employeeId.trim()) {
+      newErrors.employeeId = "Please enter your employee ID";
+      isValid = false;
+    }
+
+    if (!department.trim()) {
+      newErrors.department = "Please enter your department";
+      isValid = false;
+    }
+
+    if (!phone.trim()) {
+      newErrors.phone = "Please enter a phone number";
+      isValid = false;
+    } else if (phone.length !== 10) {
+      newErrors.phone = "Enter a valid 10-digit phone number";
+      isValid = false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      newErrors.email = "Please enter a valid email";
+      isValid = false;
+    } else if (!emailRegex.test(email)) {
+      newErrors.email = "Please enter a valid email";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  }
+
+  async function createAccount() {
+    if (!validate()) {
       return;
     }
 
     try {
       setLoading(true);
+      setErrors({
+        name: "",
+        employeeId: "",
+        department: "",
+        phone: "",
+        email: "",
+      });
 
       const signupResponse = await fetch(`${API_BASE_URL}/signup`, {
         method: "POST",
@@ -60,7 +111,29 @@ export default function EmployeeSignup() {
       const signupData = await signupResponse.json();
 
       if (!signupResponse.ok) {
-        Alert.alert("Signup Failed", signupData.detail);
+        const detail = (signupData.detail || "").toLowerCase();
+
+        if (detail.includes("employee") && detail.includes("id")) {
+          setErrors((prev) => ({
+            ...prev,
+            employeeId: signupData.detail,
+          }));
+        } else if (detail.includes("phone")) {
+          setErrors((prev) => ({
+            ...prev,
+            phone: signupData.detail,
+          }));
+        } else if (detail.includes("exist")) {
+          setErrors((prev) => ({
+            ...prev,
+            email: "The user already exists",
+          }));
+        } else {
+          setErrors((prev) => ({
+            ...prev,
+            email: signupData.detail || "Signup failed",
+          }));
+        }
         return;
       }
 
@@ -78,11 +151,12 @@ export default function EmployeeSignup() {
       const otpData = await otpResponse.json();
 
       if (!otpResponse.ok) {
-        Alert.alert("OTP Error", otpData.detail);
+        setErrors((prev) => ({
+          ...prev,
+          email: otpData.detail || "Failed to send OTP",
+        }));
         return;
       }
-
-      Alert.alert("Success", "OTP sent successfully.");
 
       router.push({
         pathname: "/(auth)/OtpVerify",
@@ -94,7 +168,10 @@ export default function EmployeeSignup() {
       });
     } catch (error) {
       console.log(error);
-      Alert.alert("Error", "Something went wrong.");
+      setErrors((prev) => ({
+        ...prev,
+        email: "Something went wrong. Please try again.",
+      }));
     } finally {
       setLoading(false);
     }
@@ -103,7 +180,7 @@ export default function EmployeeSignup() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>Employee Signup</Text>
+        <Text style={[styles.headerText, typography.heading]}>Employee Signup</Text>
       </View>
 
       <View style={styles.logoContainer}>
@@ -117,43 +194,81 @@ export default function EmployeeSignup() {
         <Text style={styles.title}>Create Employee Account</Text>
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.name ? styles.inputError : null]}
           placeholder="Full Name"
           value={name}
-          onChangeText={setName}
+          onChangeText={(text) => {
+            setName(text);
+            if (errors.name) setErrors((prev) => ({ ...prev, name: "" }));
+          }}
         />
+        {errors.name ? (
+          <Text style={styles.errorText}>{errors.name}</Text>
+        ) : null}
 
-        <TextInput
-          style={styles.input}
+        {/* <TextInput
+          style={[
+            styles.input,
+            errors.employeeId ? styles.inputError : null,
+          ]}
           placeholder="Employee ID"
           value={employeeId}
-          onChangeText={setEmployeeId}
-        />
+          onChangeText={(text) => {
+            setEmployeeId(text);
+            if (errors.employeeId)
+              setErrors((prev) => ({ ...prev, employeeId: "" }));
+          }}
+        /> */}
+        {/* {errors.employeeId ? (
+          <Text style={styles.errorText}>{errors.employeeId}</Text>
+        ) : null} */}
 
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            errors.department ? styles.inputError : null,
+          ]}
           placeholder="Department"
           value={department}
-          onChangeText={setDepartment}
+          onChangeText={(text) => {
+            setDepartment(text);
+            if (errors.department)
+              setErrors((prev) => ({ ...prev, department: "" }));
+          }}
         />
+        {errors.department ? (
+          <Text style={styles.errorText}>{errors.department}</Text>
+        ) : null}
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.phone ? styles.inputError : null]}
           placeholder="Phone Number"
           keyboardType="phone-pad"
           maxLength={10}
           value={phone}
-          onChangeText={setPhone}
+          onChangeText={(text) => {
+            setPhone(text);
+            if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+          }}
         />
+        {errors.phone ? (
+          <Text style={styles.errorText}>{errors.phone}</Text>
+        ) : null}
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.email ? styles.inputError : null]}
           placeholder="Email"
           keyboardType="email-address"
           autoCapitalize="none"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(text) => {
+            setEmail(text);
+            if (errors.email) setErrors((prev) => ({ ...prev, email: "" }));
+          }}
         />
+        {errors.email ? (
+          <Text style={styles.errorText}>{errors.email}</Text>
+        ) : null}
 
         <TouchableOpacity
           style={styles.button}
@@ -181,6 +296,7 @@ export default function EmployeeSignup() {
 
 const PRIMARY = "#1A2744";
 const ACCENT = "#E8870A";
+const ERROR = "#D32F2F";
 
 const styles = StyleSheet.create({
   container: {
@@ -214,7 +330,7 @@ const styles = StyleSheet.create({
 
   card: {
     marginTop: 30,
-    width: "88%",
+    width: "85%",
     backgroundColor: "white",
     borderRadius: 20,
     padding: 20,
@@ -223,7 +339,7 @@ const styles = StyleSheet.create({
 
   title: {
     textAlign: "center",
-    fontSize: 22,
+    fontSize: 20,
     color: PRIMARY,
     marginBottom: 20,
     fontFamily: "Poppins_600SemiBold",
@@ -234,8 +350,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#EEF2F7",
     borderRadius: 12,
     paddingHorizontal: 18,
-    marginBottom: 16,
+    marginBottom: 6,
     fontFamily: "Poppins_400Regular",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+
+  inputError: {
+    borderColor: ERROR,
+    backgroundColor: "#FDECEC",
+  },
+
+  errorText: {
+    color: ERROR,
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    marginBottom: 10,
+    marginLeft: 4,
   },
 
   button: {
@@ -254,7 +385,7 @@ const styles = StyleSheet.create({
   },
 
   bottomText: {
-    marginTop: 25,
+    marginTop: 20,
     color: PRIMARY,
     fontFamily: "Poppins_500Medium",
   },
