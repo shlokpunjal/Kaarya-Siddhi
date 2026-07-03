@@ -54,86 +54,77 @@ const OtpVerify = () => {
   };
 
     const verifyOTP = async () => {
-    if (otp.length !== 6) {
-      setOtpError("Enter a valid 6-digit OTP");
+  if (otp.length !== 6) {
+    setOtpError("Enter a valid 6-digit OTP");
+    return;
+  }
+
+  try {
+    setOtpError("");
+
+    const response = await fetch(`${API_BASE_URL}/verify-otp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        otp,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setOtpError(data.detail || "Invalid OTP");
       return;
     }
 
-    try {
-      setOtpError("");
+    await saveSession(data.token, ph?.toString() ?? "", data.email, data.role, data.workspace_id);
 
-      const response = await fetch(`${API_BASE_URL}/verify-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          otp,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setOtpError(data.detail || "Invalid OTP");
-        return;
-      }
-
-      await saveSession(data.token, ph?.toString() ?? "", data.email, data.role, data.workspace_id);
-
-      // ---------- SIGNUP FLOW → go through onboarding first ----------
-     // ---------- SIGNUP FLOW ----------
-      if (mode === "signup") {
-        if (data.role === "admin") {
-          router.replace({
-            pathname: "/(onboarding)/profileSetup1",
-            params: { role: "admin", name },   // ← forward name here
-          });
-          return;
-        }
-
-        if (data.role === "employee") {
-          // Onboarding happens later, after RequestAdmin flow completes
-          router.replace({
-            pathname: "/(auth)/RequestAdmin",
-            params: { email: data.email },
-          });
-          return;
-        }
-      sendLoginNotification(data.email).catch((err) => 
-        console.log("Login notification failed:", err)
-      )
-
-      // ---------- ADMIN ----------
+    // ---------- SIGNUP FLOW → go through onboarding first ----------
+    if (mode === "signup") {
       if (data.role === "admin") {
-        router.replace("/(admin)");
-        return;
-      }
-
-      // ---------- LOGIN FLOW (existing behavior) ----------
-      if (data.role === "admin") {
-        router.replace("/(admin)");
-        return;
-      }
-
-      if (data.role === "employee" && !data.workspace_id) {
         router.replace({
-          pathname: "/(auth)/RequestAdmin",
-          params: {
-            email: data.email,
-          },
+          pathname: "/(onboarding)/profileSetup1",
+          params: { role: "admin", name },
         });
         return;
       }
 
-      router.replace("/(employee)");
-    } catch (error) {
-      console.log(error);
-      setOtpError("Verification failed. Please try again.");
+      if (data.role === "employee") {
+        router.replace({
+          pathname: "/(auth)/RequestAdmin",
+          params: { email: data.email },
+        });
+        return;
+      }
     }
-  };
 
+    // ---------- LOGIN FLOW ----------
+    sendLoginNotification(data.email).catch((err) =>
+      console.log("Login notification failed:", err)
+    );
+
+    if (data.role === "admin") {
+      router.replace("/(admin)");
+      return;
+    }
+
+    if (data.role === "employee" && !data.workspace_id) {
+      router.replace({
+        pathname: "/(auth)/RequestAdmin",
+        params: { email: data.email },
+      });
+      return;
+    }
+
+    router.replace("/(employee)");
+  } catch (error) {
+    console.log(error);
+    setOtpError("Verification failed. Please try again.");
+  }
+};
   const resendOTP = async () => {
     try {
       setOtpError("");
