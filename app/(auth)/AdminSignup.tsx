@@ -214,14 +214,16 @@ export default function AdminSignup() {
           )}
         </TouchableOpacity>
       </View>
-
-      <TouchableOpacity
-        onPress={() => router.replace("/(auth)/AdminLogin")}
-      >
-        <Text style={styles.bottomText}>
-          Already have an account? Login
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.login}>
+        <Text style={styles.bottomText}>Already have an account?</Text>
+        <TouchableOpacity
+          onPress={() => router.replace("/(auth)/AdminLogin")}
+        >
+          <Text style={styles.loginT}>
+            Login
+          </Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -231,6 +233,17 @@ const ACCENT = "#E8870A";
 const ERROR = "#D32F2F";
 
 const styles = StyleSheet.create({
+  loginButton: {
+    backgroundColor: ACCENT,
+    width: "50%",
+    height: 50,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 10,
+    marginLeft: 200,
+  },
+
   container: {
     flex: 1,
     backgroundColor: "#F8F9FC",
@@ -284,8 +297,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginBottom: 10,
     fontFamily: "Poppins_400Regular",
-    borderWidth: 1,
-    borderColor: "transparent",
+    borderWidth: 0.7,
+    borderColor: "#6B7280",
+    // borderColor: "transparent",
   },
 
   inputError: {
@@ -320,5 +334,20 @@ const styles = StyleSheet.create({
     marginTop: 25,
     color: PRIMARY,
     fontFamily: "Poppins_500Medium",
+  },
+  login: {
+    color: PRIMARY,
+    fontFamily: "Poppins_500Medium",
+    flexDirection:"row",
+    alignItems:"center",
+    marginTop: 0,
+    gap:2,
+
+  },
+  loginT: {
+    color: PRIMARY,
+    fontFamily: "Poppins_600SemiBold",
+    marginTop:23.5,
+    textDecorationLine:"underline",
   },
 });

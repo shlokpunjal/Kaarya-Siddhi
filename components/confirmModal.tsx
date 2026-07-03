@@ -10,6 +10,8 @@ type ConfirmModalProps = {
   confirmText?: string;
   cancelText?: string;
   destructive?: boolean;
+  confirmColor?: string;
+  cardColor?: string;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -21,15 +23,22 @@ export default function ConfirmModal({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   destructive = false,
+  confirmColor,
+  cardColor,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
   const { colors } = useTheme();
 
+  const resolvedConfirmColor =
+    confirmColor ?? (destructive ? colors.status.overdue : colors.brand.accent);
+
+  const resolvedCardColor = cardColor ?? colors.base.surfaceL1;
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.overlay}>
-        <View style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
+        <View style={[styles.card, { backgroundColor: resolvedCardColor, borderColor: colors.base.border }]}>
           <Text style={[typography.subheading, { color: colors.text.primary, marginBottom: 8, textAlign: 'center' }]}>
             {title}
           </Text>
@@ -46,10 +55,7 @@ export default function ConfirmModal({
             </Pressable>
 
             <Pressable
-              style={[
-                styles.confirmButton,
-                { backgroundColor: destructive ? colors.status.overdue : colors.brand.accent },
-              ]}
+              style={[styles.confirmButton, { backgroundColor: resolvedConfirmColor }]}
               onPress={onConfirm}
             >
               <Text style={[typography.heading3, { color: '#FFFFFF' }]}>{confirmText}</Text>

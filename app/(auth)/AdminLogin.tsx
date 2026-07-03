@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     width: 280,
     borderRadius: 10,
     elevation: 4,
-    top: 20,
+    marginTop: 20,
   },
   LoginDisabled: {
     backgroundColor: "#6B7280",
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
   },
   formatForgot: {
-    top: 5,
+    // top: 5,
   },
   forgot: {
     fontSize: 11,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 20,
     borderColor: "#6B7280",
-    borderWidth: 1,
+    borderWidth: 0.7,
   },
   inputError: {
     borderColor: ERROR,

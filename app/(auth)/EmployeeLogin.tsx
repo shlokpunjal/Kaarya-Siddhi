@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 20,
     borderColor: "#6B7280",
-    borderWidth: 1,
+    borderWidth: 0.7,
   },
   inputError: {
     borderColor: ERROR,
