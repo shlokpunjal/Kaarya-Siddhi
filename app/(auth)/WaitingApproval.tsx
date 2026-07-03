@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
- Text,
+  Text,
   StyleSheet,
   ActivityIndicator,
   Image,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
+import { typography } from '../../theme/theme';
+
 
 export default function WaitingApproval() {
   const { employee_email, admin_email } =
@@ -19,6 +20,7 @@ export default function WaitingApproval() {
     }>();
 
   const [status, setStatus] = useState("pending");
+  const [statusMessage, setStatusMessage] = useState("");
 
   useEffect(() => {
     checkStatus();
@@ -41,26 +43,24 @@ export default function WaitingApproval() {
       setStatus(data.status);
 
       if (data.status === "accepted") {
-        Alert.alert(
-          "Approved",
-          "Your admin has accepted your request."
-        );
+        setStatusMessage("Your admin has accepted your request.");
 
-        router.replace("/(employee)");
+        setTimeout(() => {
+          router.replace("/(employee)");
+        }, 1500);
       }
 
       if (data.status === "rejected") {
-        Alert.alert(
-          "Rejected",
-          "Your request was rejected."
-        );
+        setStatusMessage("Your request was rejected.");
 
-        router.replace({
-          pathname: "/(auth)/RequestAdmin",
-          params: {
-            email: employee_email,
-          },
-        });
+        setTimeout(() => {
+          router.replace({
+            pathname: "/(auth)/RequestAdmin",
+            params: {
+              email: employee_email,
+            },
+          });
+        }, 1500);
       }
     } catch (error) {
       console.log(error);
@@ -83,10 +83,12 @@ export default function WaitingApproval() {
       </View>
 
       <View style={styles.card}>
-        <ActivityIndicator
-          size="large"
-          color="#E8870A"
-        />
+        {status === "pending" ? (
+          <ActivityIndicator
+            size="large"
+            color="#E8870A"
+          />
+        ) : null}
 
         <Text style={styles.title}>
           Connection Request Sent
@@ -103,12 +105,27 @@ export default function WaitingApproval() {
         <Text style={styles.status}>
           Status : {status}
         </Text>
+
+        {statusMessage ? (
+          <Text
+            style={[
+              styles.statusMessage,
+              status === "accepted"
+                ? styles.successText
+                : styles.errorText,
+            ]}
+          >
+            {statusMessage}
+          </Text>
+        ) : null}
       </View>
     </SafeAreaView>
   );
 }
 
 const PRIMARY = "#1A2744";
+const ERROR = "#D32F2F";
+const SUCCESS = "#2E7D32";
 
 const styles = StyleSheet.create({
   container: {
@@ -170,5 +187,20 @@ const styles = StyleSheet.create({
     color: "#E8870A",
     fontSize: 18,
     fontFamily: "Poppins_600SemiBold",
+  },
+
+  statusMessage: {
+    marginTop: 15,
+    fontSize: 14,
+    fontFamily: "Poppins_400Regular",
+    textAlign: "center",
+  },
+
+  errorText: {
+    color: ERROR,
+  },
+
+  successText: {
+    color: SUCCESS,
   },
 });

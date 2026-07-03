@@ -5,28 +5,40 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
+import { typography } from '../../theme/theme';
+
 
 export default function RequestAdmin() {
   const { email } = useLocalSearchParams<{ email: string }>();
 
   const [adminEmail, setAdminEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const sendRequest = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     if (!adminEmail.trim()) {
-      Alert.alert("Error", "Enter Admin Email");
+      setError("Please enter your admin's email");
+      return;
+    }
+
+    if (!emailRegex.test(adminEmail)) {
+      setError("Please enter a valid email");
       return;
     }
 
     try {
       setLoading(true);
+      setError("");
+      setSuccessMessage("");
 
       const response = await fetch(
         `${API_BASE_URL}/connect-request`,
@@ -45,14 +57,11 @@ export default function RequestAdmin() {
       const data = await response.json();
 
       if (!response.ok) {
-        Alert.alert("Error", data.detail);
+        setError(data.detail || "Unable to send request");
         return;
       }
 
-      Alert.alert(
-        "Success",
-        "Request sent successfully."
-      );
+      setSuccessMessage("Request sent successfully.");
 
       router.replace({
         pathname: "/(auth)/WaitingApproval",
@@ -64,10 +73,7 @@ export default function RequestAdmin() {
 
     } catch (error) {
       console.log(error);
-      Alert.alert(
-        "Error",
-        "Unable to connect to server."
-      );
+      setError("Unable to connect to server.");
     } finally {
       setLoading(false);
     }
@@ -77,7 +83,7 @@ export default function RequestAdmin() {
     <SafeAreaView style={styles.container}>
 
       <View style={styles.header}>
-        <Text style={styles.headerText}>
+        <Text style={[styles.headerText, typography.heading]}>
           Connect to Admin
         </Text>
       </View>
@@ -96,13 +102,22 @@ export default function RequestAdmin() {
         </Text>
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, error ? styles.inputError : null]}
           placeholder="Admin Email"
           keyboardType="email-address"
           autoCapitalize="none"
           value={adminEmail}
-          onChangeText={setAdminEmail}
+          onChangeText={(text) => {
+            setAdminEmail(text);
+            if (error) setError("");
+          }}
         />
+        {error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : null}
+        {successMessage ? (
+          <Text style={styles.successText}>{successMessage}</Text>
+        ) : null}
 
         <TouchableOpacity
           style={styles.button}
@@ -126,6 +141,8 @@ export default function RequestAdmin() {
 
 const PRIMARY = "#1A2744";
 const ACCENT = "#E8870A";
+const ERROR = "#D32F2F";
+const SUCCESS = "#2E7D32";
 
 const styles = StyleSheet.create({
 
@@ -179,8 +196,31 @@ const styles = StyleSheet.create({
     height:55,
     borderRadius:12,
     paddingHorizontal:18,
-    marginBottom:20,
-    fontFamily:"Poppins_400Regular"
+    marginBottom:6,
+    fontFamily:"Poppins_400Regular",
+    borderWidth:1,
+    borderColor:"transparent"
+  },
+
+  inputError:{
+    borderColor:ERROR,
+    backgroundColor:"#FDECEC"
+  },
+
+  errorText:{
+    color:ERROR,
+    fontSize:12,
+    fontFamily:"Poppins_400Regular",
+    marginBottom:14,
+    marginLeft:4
+  },
+
+  successText:{
+    color:SUCCESS,
+    fontSize:12,
+    fontFamily:"Poppins_400Regular",
+    marginBottom:14,
+    marginLeft:4
   },
 
   button:{
