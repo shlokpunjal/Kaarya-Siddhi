@@ -3,6 +3,8 @@ import { StyleSheet, View, Text, TouchableOpacity, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { typography } from '../../theme/theme';
+
 import { typography } from "../../theme/theme";
 
 export default function LoginChoice() {
@@ -40,6 +42,8 @@ export default function LoginChoice() {
           source={require("../../assets/images/logo.jpeg")}
           style={styles.imageStyling}
         />
+
+        <Text style={styles.welcome}>Welcome to Kaarya Siddhi</Text>
       </View>
       <Text style={styles.welcome}>Welcome to Kaarya Siddhi</Text>
       {/* Buttons */}
@@ -107,6 +111,7 @@ const styles = StyleSheet.create({
   },
 
   welcome: {
+    marginTop: 40,
     marginTop: 35,
     fontSize: 20,
     fontFamily: "Poppins_600SemiBold",
@@ -135,7 +140,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
+    marginBottom:20,
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+
+    elevation: 5,
+
+    alignItems: "center",
+  },
+  carde: {
+    width: "85%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom:100,
 
     shadowColor: "#000",
     shadowOffset: {
