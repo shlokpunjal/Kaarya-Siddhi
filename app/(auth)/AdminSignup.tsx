@@ -127,6 +127,7 @@ export default function AdminSignup() {
         pathname: "/(auth)/OtpVerify",
         params: {
           email,
+          name,        // ← add this
           role: "admin",
           mode: "signup",
         },

@@ -1,67 +1,180 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
 import ProgressDots from "../../components/progressDots";
+import { lightTheme, typography } from "../../theme/theme";
+import { API_BASE_URL } from "../../constants/api";
+import { useAuth } from "../../hooks/useAuth";
+
+const { colors } = lightTheme;
+const ERROR = "#D32F2F";
 
 export default function ProfileSetup1() {
-  const { role } = useLocalSearchParams<{ role: string }>();
+  const { role, name } = useLocalSearchParams<{ role: string; name?: string }>();
+  const { token } = useAuth();
+
   const [photo, setPhoto] = useState<string | null>(null);
-  const [name, setName] = useState("");
   const [designation, setDesignation] = useState("");
+  const [designationError, setDesignationError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+    });
     if (!result.canceled) setPhoto(result.assets[0].uri);
   };
 
-  const handleDone = () => {
-    // TODO: save name, designation, photo to backend / store
-    router.push({ pathname: "/(onboarding)/profileSetup2", params: { role } });
+  const validate = () => {
+    if (!designation.trim()) {
+      setDesignationError("Please enter your designation");
+      return false;
+    }
+    setDesignationError("");
+    return true;
+  };
+
+  const handleDone = async () => {
+    if (!validate()) return;
+
+    try {
+      setSubmitting(true);
+      await fetch(`${API_BASE_URL}/profile`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ designation, photo }),
+      });
+
+      router.push({ pathname: "/(onboarding)/profileSetup2", params: { role } });
+    } catch (error) {
+      console.log(error);
+      setDesignationError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>Profile Setup</Text>
+        <Text style={[styles.headerText, typography.heading]}>Profile Setup</Text>
       </View>
 
-      <Text style={styles.title}>Let's set up your profile</Text>
+      <View style={[styles.container ]}>
+        <Text style={[styles.greeting, typography.heading]}>
+          Hey {name ? name : "there"}!
+        </Text>
 
-      <View style={styles.card}>
-        <TouchableOpacity style={styles.photoCircle} onPress={pickImage}>
-          {photo ? <Image source={{ uri: photo }} style={styles.photoImg} /> : <Text style={{ fontSize: 24 }}>📷</Text>}
-        </TouchableOpacity>
-        <Text style={styles.uploadLabel}>Upload Profile Picture</Text>
+        <Text style={[styles.title, typography.body]}>Let's set up your profile</Text>
 
-        <TextInput style={styles.input} placeholder="Name*" value={name} onChangeText={setName} />
-        <TextInput style={styles.input} placeholder="Designation*" value={designation} onChangeText={setDesignation} />
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.photoCircle} onPress={pickImage}>
+            {photo ? (
+              <Image source={{ uri: photo }} style={styles.photoImg} />
+            ) : (
+              <Ionicons name="camera" size={50} color={colors.text.secondary} />
+            )}
+          </TouchableOpacity>
+          <Text style={[styles.uploadLabel, typography.heading3]}>Upload Profile Picture</Text>
 
-        <TouchableOpacity style={styles.doneBtn} onPress={handleDone}>
-          <Text style={styles.doneBtnText}>Done!</Text>
-        </TouchableOpacity>
+          <TextInput
+            style={[
+              styles.input,
+              typography.body,
+              designationError ? styles.inputError : null,
+            ]}
+            placeholder="Designation*"
+            placeholderTextColor={colors.text.secondary}
+            value={designation}
+            onChangeText={(text) => {
+              setDesignation(text);
+              if (designationError) setDesignationError("");
+            }}
+          />
+          {designationError ? (
+            <Text style={[styles.errorText, typography.label]}>{designationError}</Text>
+          ) : null}
+
+          <TouchableOpacity style={styles.doneBtn} onPress={handleDone} disabled={submitting}>
+            {submitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={[styles.doneBtnText, typography.heading3]}>Done!</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.dotsWrap}>
+          <ProgressDots total={3} current={1} />
+        </View>
       </View>
-
-      <TouchableOpacity onPress={() => router.push({ pathname: "/(onboarding)/profileSetup2", params: { role } })}>
-        <Text style={styles.skip}>Skip</Text>
-      </TouchableOpacity>
-
-      <ProgressDots total={4} current={1} />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F5F5F5", padding: 20 },
-  header: { backgroundColor: "#0F1F3D", padding: 16, borderRadius: 6, marginBottom: 20 },
-  headerText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  title: { textAlign: "center", color: "#666", marginBottom: 16 },
-  card: { backgroundColor: "#fff", borderRadius: 8, padding: 20, alignItems: "center" },
-  photoCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: "#EEE", justifyContent: "center", alignItems: "center", marginBottom: 8, overflow: "hidden" },
-  photoImg: { width: 80, height: 80 },
-  uploadLabel: { fontWeight: "600", marginBottom: 16 },
-  input: { width: "100%", backgroundColor: "#F0F0F0", borderRadius: 6, padding: 12, marginBottom: 12 },
-  doneBtn: { backgroundColor: "#0F1F3D", borderRadius: 6, paddingVertical: 12, width: "100%", alignItems: "center", marginTop: 8 },
-  doneBtnText: { color: "#fff", fontWeight: "700" },
-  skip: { alignSelf: "flex-end", marginTop: 12, textDecorationLine: "underline", color: "#333" },
+  safe: { flex: 1, backgroundColor: colors.base.background },
+  header: { backgroundColor: colors.brand.primary, paddingVertical: 18, paddingHorizontal: 20,height:72},
+  headerText: { color: "#fff" },
+  container: { flex: 1, paddingHorizontal: 20, paddingTop: 40 },
+  greeting: { textAlign: "center", color: colors.brand.primary, marginBottom: 4},
+  title: { textAlign: "center", color: colors.text.secondary, marginBottom: 20 },
+  card: {
+    backgroundColor: colors.base.surfaceL1,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.base.border,
+  },
+  photoCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: colors.base.surfaceL2,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+    overflow: "hidden",
+  },
+  photoImg: { width: 84, height: 84 },
+  uploadLabel: { color: colors.text.primary, marginBottom: 16 },
+  input: {
+    width: "100%",
+    backgroundColor: colors.base.surfaceL2,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "transparent",
+    color: colors.text.primary,
+  },
+  inputError: {
+    borderColor: ERROR,
+    backgroundColor: "#FDECEC",
+  },
+  errorText: {
+    color: ERROR,
+    alignSelf: "flex-start",
+    marginTop: 6,
+    marginLeft: 4,
+    marginBottom: 6,
+  },
+  doneBtn: {
+    backgroundColor: colors.brand.primary,
+    borderRadius: 8,
+    paddingVertical: 14,
+    width: "100%",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  doneBtnText: { color: "#fff" },
+  dotsWrap: { marginTop: "auto", marginBottom: 40, alignItems: "center" },
 });
