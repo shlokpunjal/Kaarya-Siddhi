@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
-import { typography } from '../../theme/theme';
+import { typography } from "../../theme/theme";
 
 
 export default function EmployeeSignup() {
@@ -29,6 +29,9 @@ export default function EmployeeSignup() {
     phone: "",
     email: "",
   });
+
+  // Card-level error (e.g. "user already exists") shown below the card
+  const [cardError, setCardError] = useState("");
 
   function validate() {
     const newErrors = {
@@ -57,7 +60,7 @@ export default function EmployeeSignup() {
       isValid = false;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
     if (!email.trim()) {
       newErrors.email = "Please enter a valid email";
       isValid = false;
@@ -71,6 +74,8 @@ export default function EmployeeSignup() {
   }
 
   async function createAccount() {
+    setCardError("");
+
     if (!validate()) {
       return;
     }
@@ -109,15 +114,9 @@ export default function EmployeeSignup() {
             phone: signupData.detail,
           }));
         } else if (detail.includes("exist")) {
-          setErrors((prev) => ({
-            ...prev,
-            email: "The user already exists",
-          }));
+          setCardError("The user already exists");
         } else {
-          setErrors((prev) => ({
-            ...prev,
-            email: signupData.detail || "Signup failed",
-          }));
+          setCardError(signupData.detail || "Signup failed");
         }
         return;
       }
@@ -136,10 +135,7 @@ export default function EmployeeSignup() {
       const otpData = await otpResponse.json();
 
       if (!otpResponse.ok) {
-        setErrors((prev) => ({
-          ...prev,
-          email: otpData.detail || "Failed to send OTP",
-        }));
+        setCardError(otpData.detail || "Failed to send OTP");
         return;
       }
 
@@ -154,10 +150,7 @@ export default function EmployeeSignup() {
       });
     } catch (error) {
       console.log(error);
-      setErrors((prev) => ({
-        ...prev,
-        email: "Something went wrong. Please try again.",
-      }));
+      setCardError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -166,7 +159,9 @@ export default function EmployeeSignup() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={[styles.headerText, typography.heading]}>Employee Signup</Text>
+        <Text style={[styles.headerText, typography.heading]}>
+          Employee Signup
+        </Text>
       </View>
 
       <View style={styles.logoContainer}>
@@ -176,7 +171,7 @@ export default function EmployeeSignup() {
         />
       </View>
 
-      <View style={styles.card}>
+      <View style={[styles.card, cardError ? styles.cardError : null]}>
         <Text style={styles.title}>Create Employee Account</Text>
 
         <TextInput
@@ -193,10 +188,7 @@ export default function EmployeeSignup() {
         ) : null}
 
         <TextInput
-          style={[
-            styles.input,
-            errors.department ? styles.inputError : null,
-          ]}
+          style={[styles.input, errors.department ? styles.inputError : null]}
           placeholder="Department"
           value={department}
           onChangeText={(text) => {
@@ -233,6 +225,7 @@ export default function EmployeeSignup() {
           onChangeText={(text) => {
             setEmail(text);
             if (errors.email) setErrors((prev) => ({ ...prev, email: "" }));
+            if (cardError) setCardError("");
           }}
         />
         {errors.email ? (
@@ -252,12 +245,10 @@ export default function EmployeeSignup() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        onPress={() => router.replace("/(auth)/EmployeeLogin")}
-      >
-        <Text style={styles.bottomText}>
-          Already have an account? Login
-        </Text>
+      {cardError ? <Text style={styles.cardErrorText}>{cardError}</Text> : null}
+
+      <TouchableOpacity onPress={() => router.replace("/(auth)/EmployeeLogin")}>
+        <Text style={styles.bottomText}>Already have an account? Login</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -304,6 +295,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     elevation: 5,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+
+  cardError: {
+    borderColor: ERROR,
   },
 
   title: {
@@ -336,6 +333,14 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     marginBottom: 10,
     marginLeft: 4,
+  },
+
+  cardErrorText: {
+    color: ERROR,
+    fontSize: 13,
+    fontFamily: "Poppins_400Regular",
+    marginTop: 10,
+    textAlign: "center",
   },
 
   button: {
