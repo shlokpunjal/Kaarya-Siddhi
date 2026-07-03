@@ -44,30 +44,26 @@ OTP_RESEND_SECONDS = 30
 MAX_DAILY_ATTEMPTS = 3
 
 class SignupRequest(BaseModel):
-
     name: str
     email: str
     phone: str
     role: str
-
     department: str | None = None
-    employee_id: str | None = None
+    # employee_id: str | None = None
 
 
 class LoginRequest(BaseModel):
-    # phone: str
+    phone: str
     email: str
     role: str
 
 
 class SendOTPRequest(BaseModel):
-
     email: str
     role: str
 
 
 class VerifyOTPRequest(BaseModel):
-
     email: str
     otp: str
 
@@ -78,7 +74,6 @@ class ConnectRequest(BaseModel):
 
 
 class ConnectionRespond(BaseModel):
-
     employee_email: str
     admin_email: str
     accept: bool
