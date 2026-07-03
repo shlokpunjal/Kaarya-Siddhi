@@ -14,6 +14,7 @@ import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
 
 // import { sendLoginNotification } from "../../utils/notifications";
+import { sendLoginNotification } from "../../utils/notifications";
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState("");
@@ -100,6 +101,14 @@ const OtpVerify = () => {
           });
           return;
         }
+      sendLoginNotification(data.email).catch((err) => 
+        console.log("Login notification failed:", err)
+      )
+
+      // ---------- ADMIN ----------
+      if (data.role === "admin") {
+        router.replace("/(admin)");
+        return;
       }
 
       // ---------- LOGIN FLOW (existing behavior) ----------
