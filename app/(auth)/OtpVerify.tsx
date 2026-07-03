@@ -13,7 +13,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
 
-// import { sendLoginNotification } from "../../utils/notifications";
+import { sendLoginNotification } from "../../utils/notifications";
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState("");
@@ -79,6 +79,10 @@ const OtpVerify = () => {
       }
 
       await saveSession(data.token, ph?.toString() ?? "", data.email, data.role, data.workspace_id);
+
+      sendLoginNotification(data.email).catch((err) => 
+        console.log("Login notification failed:", err)
+      )
 
       // ---------- ADMIN ----------
       if (data.role === "admin") {
