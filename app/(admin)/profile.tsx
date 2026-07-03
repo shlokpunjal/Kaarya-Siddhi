@@ -9,6 +9,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { typography } from '../../theme/theme';
 import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
+import ConfirmModal from "../../components/confirmModal";
+import { useAuth } from "../../hooks/useAuth";
+
+
 
 type UserRow = {
   id: string;
@@ -35,6 +39,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionic
 export default function AdminProfile() {
   const { colors } = useTheme();
   const { mode, setMode } = useThemeMode();
+  const { logout } = useAuth();
   const router = useRouter();
 
   const [currentUser, setCurrentUser] = useState<UserRow | null>(null);
@@ -48,6 +53,8 @@ export default function AdminProfile() {
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
+  const [logoutVisible, setLogoutVisible] = useState(false);
+
 
   const [managedEmployees, setManagedEmployees] = useState<ManagedEmployee[]>([]);
 
@@ -140,15 +147,19 @@ export default function AdminProfile() {
     .slice(0, 2)
     .toUpperCase();
 
+  // const handleLogout = () => {
+  //   Alert.alert('Log out', 'Are you sure you want to log out?', [
+  //     { text: 'Cancel', style: 'cancel' },
+  //     {
+  //       text: 'Log out',
+  //       style: 'destructive',
+  //       onPress: () => router.replace('/(auth)/LoginChoice'),
+  //     },
+  //   ]);
+  // };
+
   const handleLogout = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: () => router.replace('/(auth)/LoginChoice'),
-      },
-    ]);
+    setLogoutVisible(true);
   };
 
   const pickAvatar = async () => {
@@ -373,6 +384,20 @@ export default function AdminProfile() {
           )}
         </Pressable>
       </Modal>
+      <ConfirmModal
+        visible={logoutVisible}
+        title="Logout"
+        message="Are you sure you want to log out?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        destructive
+        confirmColor="#E8870A"
+        onCancel={() => setLogoutVisible(false)}
+        onConfirm={() => {
+          setLogoutVisible(false);
+          logout();
+        }}
+      />
     </SafeAreaView>
   );
 }
