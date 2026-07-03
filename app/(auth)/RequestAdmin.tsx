@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     textAlign:"center",
     fontSize:20,
     color:PRIMARY,
-    marginBottom:20,
+    marginBottom:18,
     fontFamily:"Poppins_600SemiBold"
   },
 
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     height:55,
     borderRadius:12,
     paddingHorizontal:18,
-    marginBottom:6,
+    marginBottom:18,
     fontFamily:"Poppins_400Regular",
     borderWidth:1,
     borderColor:"transparent"
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     color:ERROR,
     fontSize:12,
     fontFamily:"Poppins_400Regular",
-    marginBottom:14,
+    marginBottom:12,
     marginLeft:4
   },
 

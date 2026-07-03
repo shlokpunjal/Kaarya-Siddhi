@@ -297,17 +297,28 @@
 //   },
 // });
 
-
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Image, Modal, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../hooks/useAuth';
-import { typography } from '../../theme/theme';
-import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
+import { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  TextInput,
+  Alert,
+  Image,
+  Modal,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../hooks/useAuth";
+import { typography } from "../../theme/theme";
+import { useTheme, useThemeMode, ThemeMode } from "../../context/ThemeContext";
+import ConfirmModal from "../../components/confirmModal";
 
 type UserRow = {
   id: string;
@@ -329,12 +340,13 @@ export default function EmployeeProfile() {
   const [saving, setSaving] = useState(false);
 
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState('');
-  const [contact, setContact] = useState('');
-  const [email, setemail] = useState('');
+  const [name, setName] = useState("");
+  const [contact, setContact] = useState("");
+  const [email, setemail] = useState("");
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
+  const [logoutVisible, setLogoutVisible] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -344,7 +356,7 @@ export default function EmployeeProfile() {
   const fetchCurrentUser = async () => {
     setLoading(true);
 
-    const savedEmail = await AsyncStorage.getItem('userEmail');
+    const savedEmail = await AsyncStorage.getItem("userEmail");
 
     if (!savedEmail) {
       setLoading(false);
@@ -352,29 +364,35 @@ export default function EmployeeProfile() {
     }
 
     const { data, error } = await supabase
-      .from('users')
-      .select('id, name, email, mobile_number, department, designation, profile_pic_url')
-      .eq('email', savedEmail)
+      .from("users")
+      .select(
+        "id, name, email, mobile_number, department, designation, profile_pic_url",
+      )
+      .eq("email", savedEmail)
       .single();
 
     if (error) {
-      console.error('Profile fetch error:', error.message);
+      console.error("Profile fetch error:", error.message);
       setLoading(false);
       return;
     }
 
     setCurrentUser(data);
-    setName(data.name ?? '');
-    setContact(data.mobile_number ?? '');
-    setemail(data.email ?? '');
+    setName(data.name ?? "");
+    setContact(data.mobile_number ?? "");
+    setemail(data.email ?? "");
     setAvatarUri(data.profile_pic_url ?? null);
     setLoading(false);
   };
 
-  const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-    { value: 'light', label: 'Light', icon: 'sunny-outline' },
-    { value: 'dark', label: 'Dark', icon: 'moon-outline' },
-    { value: 'system', label: 'System', icon: 'phone-portrait-outline' },
+  const THEME_OPTIONS: {
+    value: ThemeMode;
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+  }[] = [
+    { value: "light", label: "Light", icon: "sunny-outline" },
+    { value: "dark", label: "Dark", icon: "moon-outline" },
+    { value: "system", label: "System", icon: "phone-portrait-outline" },
   ];
 
   // ── Save edited fields back to Supabase ─────────────────────────────────────
@@ -388,49 +406,58 @@ export default function EmployeeProfile() {
       setSaving(true);
 
       const { error } = await supabase
-        .from('users')
+        .from("users")
         .update({
           name: name.trim(),
           mobile_number: contact.trim(),
           email: email.trim(),
         })
-        .eq('id', currentUser.id);
+        .eq("id", currentUser.id);
 
       if (error) throw error;
 
       // Keep the stored session email in sync if it was changed
-      await AsyncStorage.setItem('userEmail', email.trim());
+      await AsyncStorage.setItem("userEmail", email.trim());
 
-      setCurrentUser((prev) => (prev ? { ...prev, name, mobile_number: contact, email } : prev));
+      setCurrentUser((prev) =>
+        prev ? { ...prev, name, mobile_number: contact, email } : prev,
+      );
       setEditing(false);
     } catch (error: any) {
-      Alert.alert('Could not save', error?.message || 'Something went wrong.');
+      Alert.alert("Could not save", error?.message || "Something went wrong.");
     } finally {
       setSaving(false);
     }
   };
 
+  // const handleLogout = () => {
+  //   Alert.alert('Log out', 'Are you sure you want to log out?', [
+  //     { text: 'Cancel', style: 'cancel' },
+  //     {
+  //       text: 'Log out',
+  //       style: 'destructive',
+  //       onPress: () => logout(),
+  //     },
+  //   ]);
+  // };
+
   const handleLogout = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: () => logout(),
-      },
-    ]);
+    setLogoutVisible(true);
   };
 
   const pickAvatar = async () => {
     if (!editing) return;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Please allow photo library access to set a profile picture.');
+      Alert.alert(
+        "Permission needed",
+        "Please allow photo library access to set a profile picture.",
+      );
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -443,17 +470,26 @@ export default function EmployeeProfile() {
     }
   };
 
-  const initials = (name || currentUser?.name || '')
-    .split(' ')
+  const initials = (name || currentUser?.name || "")
+    .split(" ")
     .filter(Boolean)
     .map((part) => part[0])
-    .join('')
+    .join("")
     .slice(0, 2)
     .toUpperCase();
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }]}>
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: colors.base.background,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
         <ActivityIndicator size="large" color={colors.brand.primary} />
       </SafeAreaView>
     );
@@ -461,7 +497,16 @@ export default function EmployeeProfile() {
 
   if (!currentUser) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }]}>
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: colors.base.background,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
         <Text style={[typography.body, { color: colors.text.primary }]}>
           Could not load your profile. Please try logging in again.
         </Text>
@@ -470,16 +515,36 @@ export default function EmployeeProfile() {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background }]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.base.background }]}
+    >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 4 }]}>
+        <Text
+          style={[
+            typography.heading,
+            { color: colors.text.primary, marginBottom: 4 },
+          ]}
+        >
           Profile
         </Text>
-        <Text style={[typography.body, { color: colors.text.secondary, marginBottom: 20 }]}>
+        <Text
+          style={[
+            typography.body,
+            { color: colors.text.secondary, marginBottom: 20 },
+          ]}
+        >
           Employee
         </Text>
 
-        <View style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.base.surfaceL1,
+              borderColor: colors.base.border,
+            },
+          ]}
+        >
           {/* Avatar + Name row */}
           <View style={styles.headerRow}>
             <Pressable
@@ -495,15 +560,29 @@ export default function EmployeeProfile() {
               {avatarUri ? (
                 <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
               ) : (
-                <View style={[styles.avatarImage, styles.avatarFallback, { backgroundColor: colors.brand.accent }]}>
-                  <Text style={[typography.subheading, { color: '#FFFFFF' }]}>
+                <View
+                  style={[
+                    styles.avatarImage,
+                    styles.avatarFallback,
+                    { backgroundColor: colors.brand.accent },
+                  ]}
+                >
+                  <Text style={[typography.subheading, { color: "#FFFFFF" }]}>
                     {initials}
                   </Text>
                 </View>
               )}
 
               {editing && (
-                <View style={[styles.editBadge, { backgroundColor: colors.brand.primary, borderColor: colors.base.background }]}>
+                <View
+                  style={[
+                    styles.editBadge,
+                    {
+                      backgroundColor: colors.brand.primary,
+                      borderColor: colors.base.background,
+                    },
+                  ]}
+                >
                   <Ionicons name="camera" size={12} color="#FFFFFF" />
                 </View>
               )}
@@ -514,79 +593,146 @@ export default function EmployeeProfile() {
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  style={[styles.input, typography.body, { borderColor: colors.base.border, color: colors.text.primary }]}
+                  style={[
+                    styles.input,
+                    typography.body,
+                    {
+                      borderColor: colors.base.border,
+                      color: colors.text.primary,
+                    },
+                  ]}
                 />
               ) : (
-                <Text style={[typography.subheading, { color: colors.text.primary }]} numberOfLines={1}>
+                <Text
+                  style={[
+                    typography.subheading,
+                    { color: colors.text.primary },
+                  ]}
+                  numberOfLines={1}
+                >
                   {name}
                 </Text>
               )}
-              <Text style={[typography.body, { color: colors.text.secondary, marginTop: 2 }]}>
-                {currentUser.designation ?? '—'}
+              <Text
+                style={[
+                  typography.body,
+                  { color: colors.text.secondary, marginTop: 2 },
+                ]}
+              >
+                {currentUser.designation ?? "—"}
               </Text>
             </View>
           </View>
 
           {/* Contact Details Fields */}
-          <Text style={[typography.label, { color: colors.text.secondary, marginTop: 12, marginBottom: 6 }]}>
+          <Text
+            style={[
+              typography.label,
+              { color: colors.text.secondary, marginTop: 12, marginBottom: 6 },
+            ]}
+          >
             Email id
           </Text>
           {editing ? (
             <TextInput
               value={email}
               onChangeText={setemail}
-              style={[styles.input, typography.body, { borderColor: colors.base.border, color: colors.text.primary }]}
+              style={[
+                styles.input,
+                typography.body,
+                { borderColor: colors.base.border, color: colors.text.primary },
+              ]}
             />
           ) : (
-            <Text style={[typography.body, { color: colors.text.primary }]}>{email}</Text>
+            <Text style={[typography.body, { color: colors.text.primary }]}>
+              {email}
+            </Text>
           )}
 
-          <Text style={[typography.label, { color: colors.text.secondary, marginTop: 12, marginBottom: 6 }]}>
+          <Text
+            style={[
+              typography.label,
+              { color: colors.text.secondary, marginTop: 12, marginBottom: 6 },
+            ]}
+          >
             Contact
           </Text>
           {editing ? (
             <TextInput
               value={contact}
               onChangeText={setContact}
-              style={[styles.input, typography.body, { borderColor: colors.base.border, color: colors.text.primary }]}
+              style={[
+                styles.input,
+                typography.body,
+                { borderColor: colors.base.border, color: colors.text.primary },
+              ]}
             />
           ) : (
-            <Text style={[typography.body, { color: colors.text.primary }]}>{contact}</Text>
+            <Text style={[typography.body, { color: colors.text.primary }]}>
+              {contact}
+            </Text>
           )}
 
-          <Text style={[typography.label, { color: colors.text.secondary, marginTop: 16, marginBottom: 6 }]}>
+          <Text
+            style={[
+              typography.label,
+              { color: colors.text.secondary, marginTop: 16, marginBottom: 6 },
+            ]}
+          >
             Department
           </Text>
           <Text style={[typography.body, { color: colors.text.primary }]}>
-            {currentUser.department ?? '—'}
+            {currentUser.department ?? "—"}
           </Text>
         </View>
 
         {/* Dynamic Edit/Save Action Buttons */}
         <Pressable
-          style={[styles.actionButton, { backgroundColor: colors.brand.accent, opacity: saving ? 0.7 : 1 }]}
+          style={[
+            styles.actionButton,
+            { backgroundColor: colors.brand.accent, opacity: saving ? 0.7 : 1 },
+          ]}
           onPress={editing ? handleSave : () => setEditing(true)}
           disabled={saving}
         >
           {saving ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={[typography.heading3, { color: '#FFFFFF' }]}>
-              {editing ? 'Save Changes' : 'Edit Profile'}
+            <Text style={[typography.heading3, { color: "#FFFFFF" }]}>
+              {editing ? "Save Changes" : "Edit Profile"}
             </Text>
           )}
         </Pressable>
 
         <Pressable
-          style={[styles.actionButton, styles.logoutButton, { borderColor: colors.status.overdue }]}
+          style={[
+            styles.actionButton,
+            styles.logoutButton,
+            { borderColor: colors.status.overdue },
+          ]}
           onPress={handleLogout}
         >
-          <Text style={[typography.heading3, { color: colors.status.overdue }]}>Log Out</Text>
+          <Text style={[typography.heading3, { color: colors.status.overdue }]}>
+            Log Out
+          </Text>
         </Pressable>
 
         {/* Configuration Block */}
-        <View style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
-          <Text style={[typography.subheading, { color: colors.text.primary, marginBottom: 14 }]}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.base.surfaceL1,
+              borderColor: colors.base.border,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              typography.subheading,
+              { color: colors.text.primary, marginBottom: 14 },
+            ]}
+          >
             Appearance
           </Text>
           <View style={styles.themeRow}>
@@ -599,13 +745,29 @@ export default function EmployeeProfile() {
                   style={[
                     styles.themeOption,
                     {
-                      backgroundColor: selected ? colors.brand.accent : colors.base.surfaceL2,
-                      borderColor: selected ? colors.brand.accent : colors.base.border,
+                      backgroundColor: selected
+                        ? colors.brand.accent
+                        : colors.base.surfaceL2,
+                      borderColor: selected
+                        ? colors.brand.accent
+                        : colors.base.border,
                     },
                   ]}
                 >
-                  <Ionicons name={option.icon} size={22} color={selected ? '#FFFFFF' : colors.text.primary} />
-                  <Text style={[typography.label, { color: selected ? '#FFFFFF' : colors.text.primary, marginTop: 4 }]}>
+                  <Ionicons
+                    name={option.icon}
+                    size={22}
+                    color={selected ? "#FFFFFF" : colors.text.primary}
+                  />
+                  <Text
+                    style={[
+                      typography.label,
+                      {
+                        color: selected ? "#FFFFFF" : colors.text.primary,
+                        marginTop: 4,
+                      },
+                    ]}
+                  >
                     {option.label}
                   </Text>
                 </Pressable>
@@ -613,16 +775,43 @@ export default function EmployeeProfile() {
             })}
           </View>
 
-          <Text style={[typography.subheading, { color: colors.text.primary, marginTop: 20, marginBottom: 10 }]}>
+          <Text
+            style={[
+              typography.subheading,
+              { color: colors.text.primary, marginTop: 20, marginBottom: 10 },
+            ]}
+          >
             Language
           </Text>
           <Pressable
-            style={[styles.languageButton, { backgroundColor: colors.base.surfaceL2, borderColor: colors.base.border }]}
-            onPress={() => { }}
+            style={[
+              styles.languageButton,
+              {
+                backgroundColor: colors.base.surfaceL2,
+                borderColor: colors.base.border,
+              },
+            ]}
+            onPress={() => {}}
           >
-            <Ionicons name="language-outline" size={20} color={colors.text.primary} />
-            <Text style={[typography.body, { color: colors.text.primary, marginLeft: 8 }]}>English</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} style={{ marginLeft: 'auto' }} />
+            <Ionicons
+              name="language-outline"
+              size={20}
+              color={colors.text.primary}
+            />
+            <Text
+              style={[
+                typography.body,
+                { color: colors.text.primary, marginLeft: 8 },
+              ]}
+            >
+              English
+            </Text>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.text.secondary}
+              style={{ marginLeft: "auto" }}
+            />
           </Pressable>
         </View>
       </ScrollView>
@@ -634,13 +823,38 @@ export default function EmployeeProfile() {
         animationType="fade"
         onRequestClose={() => setShowImage(false)}
       >
-        <Pressable style={styles.modalBackground} onPress={() => setShowImage(false)}>
-          <Ionicons name="close" size={30} color="#FFFFFF" style={styles.closeModalButton} />
+        <Pressable
+          style={styles.modalBackground}
+          onPress={() => setShowImage(false)}
+        >
+          <Ionicons
+            name="close"
+            size={30}
+            color="#FFFFFF"
+            style={styles.closeModalButton}
+          />
           {avatarUri && (
-            <Image source={{ uri: avatarUri }} style={styles.fullscreenImage} resizeMode="contain" />
+            <Image
+              source={{ uri: avatarUri }}
+              style={styles.fullscreenImage}
+              resizeMode="contain"
+            />
           )}
         </Pressable>
       </Modal>
+      <ConfirmModal
+        visible={logoutVisible}
+        title="Log Out"
+        message="Are you sure you want to log out?"
+        confirmText="Log Out"
+        cancelText="Cancel"
+        destructive
+        onCancel={() => setLogoutVisible(false)}
+        onConfirm={() => {
+          setLogoutVisible(false);
+          logout();
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -649,54 +863,70 @@ const AVATAR_SIZE = 64;
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   scrollContent: { padding: 20 },
-  themeRow: { flexDirection: 'row', gap: 10 },
-  themeOption: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 14, alignItems: 'center' },
+  themeRow: { flexDirection: "row", gap: 10 },
+  themeOption: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
   languageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 12,
     borderWidth: 1,
     paddingVertical: 12,
     paddingHorizontal: 14,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  avatarPressable: { position: 'relative' },
+  headerRow: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
+  avatarPressable: { position: "relative" },
   avatarImage: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
   },
-  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
+  avatarFallback: { alignItems: "center", justifyContent: "center" },
   editBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     right: 0,
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   nameColumn: { marginLeft: 14, flex: 1 },
   card: { borderRadius: 16, borderWidth: 1, padding: 18, marginBottom: 20 },
-  input: { borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 },
-  actionButton: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 12 },
-  logoutButton: { backgroundColor: 'transparent', borderWidth: 1.5 },
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  actionButton: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  logoutButton: { backgroundColor: "transparent", borderWidth: 1.5 },
   modalBackground: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   closeModalButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 50,
     right: 20,
     zIndex: 10,
   },
   fullscreenImage: {
-    width: '90%',
-    height: '70%',
+    width: "90%",
+    height: "70%",
   },
 });
