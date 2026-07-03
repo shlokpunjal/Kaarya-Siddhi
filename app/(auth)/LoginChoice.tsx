@@ -66,7 +66,7 @@ export default function LoginChoice() {
           </TouchableOpacity>
 
           <Text style={styles.cardText}>
-            View assigned tasks and update progress
+            View assigned tasks and update     progress
           </Text>
         </View>
       </View>
