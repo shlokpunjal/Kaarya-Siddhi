@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  ScrollView
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
+
 
 export default function EmployeeSignup() {
   const [name, setName] = useState("");
@@ -141,6 +143,7 @@ export default function EmployeeSignup() {
         pathname: "/(auth)/OtpVerify",
         params: {
           email,
+          name,
           role: "employee",
           mode: "signup",
         },
