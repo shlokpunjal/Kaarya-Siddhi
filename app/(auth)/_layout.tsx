@@ -15,17 +15,17 @@ export default function Layout() {
     Poppins_600SemiBold,
   });
 
-  // useEffect(() => {
-  //   async function register() {
-  //     const settings = await Notifications.getPermissionsAsync();
+  useEffect(() => {
+    async function register() {
+      const settings = await Notifications.getPermissionsAsync();
 
-  //     if (settings.status !== "granted") {
-  //       await Notifications.requestPermissionsAsync();
-  //     }
-  //   }
+      if (settings.status !== "granted") {
+        await Notifications.requestPermissionsAsync();
+      }
+    }
 
-  //   register();
-  // }, []);
+    register();
+  }, []);
 
   if (!fontsLoaded) {
     return null;
