@@ -11,6 +11,7 @@ import React, { useState, useRef } from "react";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
+import BackButton from "../../components/backButton";
 
 
 const AdminLogin = () => {
@@ -174,7 +175,8 @@ const AdminLogin = () => {
     <SafeAreaView>
       <View style={styles.mainbar}>
         {/* add a back button */}
-        <Text style={[styles.maintext, typography.heading]}>Admin - Login</Text>
+          <BackButton />
+        <Text style={[styles.maintext, typography.heading]}>Admin Login</Text>
       </View>
       <View style={styles.mainStyle}>
         <View style={styles.imagestyle}>
