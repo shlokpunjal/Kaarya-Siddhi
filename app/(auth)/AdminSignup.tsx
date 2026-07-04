@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
+import BackButton from "../../components/backButton";
 
 
 export default function AdminSignup() {
@@ -146,6 +147,7 @@ export default function AdminSignup() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+          <BackButton />
         <Text style={[styles.headerText, typography.heading]}>Admin Signup</Text>
       </View>
 
@@ -261,6 +263,7 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 22,
     fontFamily: "Poppins_600SemiBold",
+    alignSelf:"center",
   },
 
   logoContainer: {
