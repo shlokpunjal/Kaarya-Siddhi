@@ -28,7 +28,7 @@ app = FastAPI(title="Kaarya Siddhi API")
 ALLOWED_ORIGINS = [
     "http://localhost:8081",       # Expo web dev server (if you ever test on web)
     "http://localhost:19006",      # Expo web alt port
-    "exp://192.168.1.42:8081",     # Expo Go on your LAN — replace with your actual dev IP
+    "exp://192.168.31.88:8081",     # Expo Go on your LAN — replace with your actual dev IP
 ]
 
 # this corsMiddleware tells the fastAPI which applications are allowed to connect to the API
@@ -138,7 +138,6 @@ def send_email_otp(receiver_email: str, otp: str):
     message["To"] = receiver_email
     message["Subject"] = "Kaarya Siddhi Verification Code"
 
-    # Plain text version — used only for notification previews / text-only clients
     text = f"""Kaarya Siddhi - Verification Code
 
 Dear Kaarya Siddhi User,
@@ -176,16 +175,7 @@ The Kaarya Siddhi Team
       </td></tr></table>
     </body></html>
     """
-
     message.attach(MIMEText(text, "plain"))
-    message.attach(MIMEText(html, "html"))
-
-    server = smtplib.SMTP("smtp.gmail.com", 587)
-    server.starttls()
-    server.login(sender, password)
-    server.sendmail(sender, receiver_email, message.as_string())
-    server.quit()
-
     message.attach(MIMEText(html, "html"))
     server = smtplib.SMTP("smtp.gmail.com", 587)
     server.starttls()
@@ -232,11 +222,6 @@ async def signup(data: SignupRequest):
 
 @app.post("/login")
 async def login(data: LoginRequest):
-    print("========== LOGIN ==========")
-    print(data)
-    print(data.email)
-    print(data.phone)
-    print(data.role)
 
     data.email = normalize_email(data.email)
 
@@ -385,6 +370,7 @@ async def verify_otp(data: VerifyOTPRequest):
             "email": data.email,
             "mobile_number": pending["phone"],
             "role": pending["role"],
+            "department": pending["department"],
             "is_profile_setup": False,
         }).execute()
 
@@ -492,41 +478,31 @@ async def connect_request(data: ConnectRequest):
                 )
 
     # Pending request already?
-    existing = (
+    existing_row = (
         supabase.table("connections")
         .select("*")
         .eq("employee_email", employee_email)
         .eq("admin_email", admin_email)
-        .eq("status", "pending")
         .execute()
     )
 
-    if existing.data:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Request already pending."
-        )
-
-    supabase.table("connections").insert({
-
-        "id": str(uuid.uuid4()),
-
-        "employee_email": employee_email,
-
-        "admin_email": admin_email,
-
-        "status": "pending"
-
-    }).execute()
+    if existing_row.data:
+        supabase.table("connections").update({
+            "status": "pending"
+        }).eq("employee_email", employee_email).eq("admin_email", admin_email).execute()
+    else:
+        supabase.table("connections").insert({
+            "id": str(uuid.uuid4()),
+            "employee_email": employee_email,
+            "admin_email": admin_email,
+            "status": "pending"
+        }).execute()
 
     return {
-
         "success": True,
-
         "message": "Connection request sent."
-
     }
+
 
 @app.get("/connection-status/{employee_email}/{admin_email}")
 async def connection_status(employee_email: str, admin_email: str):
@@ -656,18 +632,6 @@ async def connection_respond(data: ConnectionRespond):
 
     employee = employee.data[0]
 
-    old_workspace = employee.get("workspace_id")
-    supabase.table("users").update({
-        
-
-        "workspace_id": workspace_id
-
-    }).eq(
-
-        "email",
-        employee_email
-
-    ).execute()
     return {
 
         "success": True,
@@ -707,7 +671,7 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
 
-JWT_SECRET = os.getenv("JWT_SECRET")
+# JWT_SECRET = os.getenv("JWT_SECRET")
 
 if not JWT_SECRET:
     raise RuntimeError("JWT_SECRET is not set in .env — add it before starting the server.")
