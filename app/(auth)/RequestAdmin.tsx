@@ -132,9 +132,7 @@ export default function RequestAdmin() {
             </Text>
           )}
         </TouchableOpacity>
-
       </View>
-
     </SafeAreaView>
   );
 }
