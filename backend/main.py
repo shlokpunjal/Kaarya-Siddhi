@@ -20,6 +20,9 @@ from fastapi import Header
 
 import re
 
+import requests
+
+
 load_dotenv()
 
 app = FastAPI(title="Kaarya Siddhi API")
@@ -129,15 +132,6 @@ def normalize_email(email: str):
 # the function responsible for sending otp and gets the parameters from the frontend
 def send_email_otp(receiver_email: str, otp: str):
 
-    sender = os.getenv("EMAIL_ADDRESS")
-    password = os.getenv("EMAIL_PASSWORD")
-
-    message = MIMEMultipart("alternative")
-
-    message["From"] = sender
-    message["To"] = receiver_email
-    message["Subject"] = "Kaarya Siddhi Verification Code"
-
     text = f"""Kaarya Siddhi - Verification Code
 
 Dear Kaarya Siddhi User,
@@ -175,18 +169,29 @@ The Kaarya Siddhi Team
       </td></tr></table>
     </body></html>
     """
-    message.attach(MIMEText(text, "plain"))
-    message.attach(MIMEText(html, "html"))
-    server = smtplib.SMTP("smtp.gmail.com", 587)
-    server.starttls()
-    server.login(sender, password)
-    server.sendmail(
-        sender,
-        receiver_email,
-        message.as_string()
-    )
-    server.quit()
 
+    response = requests.post(
+        "https://api.brevo.com/v3/smtp/email",
+        headers={
+            "api-key": os.getenv("BREVO_API_KEY"),
+            "Content-Type": "application/json",
+        },
+        json={
+            "sender": {
+                "name": "Kaarya Siddhi",
+                "email": os.getenv("EMAIL_ADDRESS"),
+            },
+            "to": [{"email": receiver_email}],
+            "subject": "Kaarya Siddhi Verification Code",
+            "htmlContent": html,
+            "textContent": text,
+        },
+        timeout=10,
+    )
+
+    if response.status_code >= 400:
+        raise Exception(f"Brevo send failed ({response.status_code}): {response.text}")
+    
 # The fastAPI endpoint which is called when create account is clicked on the frontend side
 @app.post("/signup")
 async def signup(data: SignupRequest):
