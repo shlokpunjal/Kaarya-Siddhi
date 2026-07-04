@@ -13,11 +13,12 @@ import { typography } from '../../theme/theme';
 
 
 export default function WaitingApproval() {
-  const { employee_email, admin_email } =
+  const { employee_email, admin_email, name } =
     useLocalSearchParams<{
       employee_email: string;
       admin_email: string;
-    }>();
+      name?: string;
+  }>();
 
   const [status, setStatus] = useState("pending");
   const [statusMessage, setStatusMessage] = useState("");
@@ -43,14 +44,17 @@ export default function WaitingApproval() {
       setStatus(data.status);
 
       if (data.status === "accepted") {
-        setStatusMessage("Your admin has accepted your request.");
+      setStatusMessage("Your admin has accepted your request.");
 
-        setTimeout(() => {
-          router.replace("/(employee)");
-        }, 1500);
-      }
+      setTimeout(() => {
+        router.replace({
+          pathname: "/(onboarding)/profileSetup1",
+          params: { role: "employee", name },
+        });
+      }, 1500);
+    }
 
-      if (data.status === "rejected") {
+     if (data.status === "rejected") {
         setStatusMessage("Your request was rejected.");
 
         setTimeout(() => {
@@ -58,6 +62,7 @@ export default function WaitingApproval() {
             pathname: "/(auth)/RequestAdmin",
             params: {
               email: employee_email,
+              name,   // ← add this
             },
           });
         }, 1500);
