@@ -8,7 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { typography } from '../../theme/theme';
 import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
-import CollapsibleSection from '../../components/collapsibleSection';
+import CollapsibleSection from '../../components/CollapsibleSection';
 import ConfirmModal from '../../components/confirmModal';
 
 type UserRow = {
