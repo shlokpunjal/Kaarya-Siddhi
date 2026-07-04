@@ -48,6 +48,8 @@ export default function EmployeeProfile() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
   const [logoutVisible, setLogoutVisible] = useState(false);
+  const [deleteVisible, setDeleteVisible] = useState(false);
+
 
   useEffect(() => {
     fetchCurrentUser();
