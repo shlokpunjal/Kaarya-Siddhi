@@ -12,39 +12,71 @@ import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from datetime import datetime, timedelta
-from collections import defaultdict
+# from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 import jwt
-from fastapi import Depends, Header
+from fastapi import Header
+
+import re
 
 load_dotenv()
 
 app = FastAPI(title="Kaarya Siddhi API")
 
 
+ALLOWED_ORIGINS = [
+    "http://localhost:8081",       # Expo web dev server (if you ever test on web)
+    "http://localhost:19006",      # Expo web alt port
+    "exp://192.168.1.42:8081",     # Expo Go on your LAN — replace with your actual dev IP
+]
+
+# this corsMiddleware tells the fastAPI which applications are allowed to connect to the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-otp_store = {}
+# global exception handlers which catch any exception that occurs or any crash occurs
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
-otp_attempts = defaultdict(
-    lambda: {
-        "count": 0,
-        "first_attempt": None,
-        "last_sent": None,
-    }
-)
 
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Invalid request data. Please check your input."},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request, exc):
+    print(f"UNHANDLED ERROR on {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Something went wrong on our end. Please try again."},
+    )
+
+
+MAX_VERIFY_ATTEMPTS = 5
 OTP_EXPIRY_MINUTES = 10
 OTP_RESEND_SECONDS = 30
 MAX_DAILY_ATTEMPTS = 3
 
+# routes of the fastAPI similar to class definition
 class SignupRequest(BaseModel):
     name: str
     email: str
@@ -80,22 +112,21 @@ class ConnectionRespond(BaseModel):
     admin_email: str
     accept: bool
 
+# removed auto append for fake usernames to be created
 def normalize_email(email: str):
+    email = email.strip().lower()
 
-        email = email.strip()
+    email_regex = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
 
-        if email == "@gmail.com" or email.startswith("@"):
+    if not email or not re.match(email_regex, email):
+        raise HTTPException(
+            status_code=400,
+            detail="Please enter a valid email address."
+        )
 
-            raise HTTPException(
-                status_code=400,
-                detail="Please enter a valid email."
-            )
+    return email
 
-        if "@" not in email:
-            email += "@gmail.com"
-            
-        return email.lower()
-    
+# the function responsible for sending otp and gets the parameters from the frontend
 def send_email_otp(receiver_email: str, otp: str):
 
     sender = os.getenv("EMAIL_ADDRESS")
@@ -106,6 +137,21 @@ def send_email_otp(receiver_email: str, otp: str):
     message["From"] = sender
     message["To"] = receiver_email
     message["Subject"] = "Kaarya Siddhi Verification Code"
+
+    # Plain text version — used only for notification previews / text-only clients
+    text = f"""Kaarya Siddhi - Verification Code
+
+Dear Kaarya Siddhi User,
+
+We received a login request for {receiver_email}. Your verification code is: {otp}
+
+This code is valid for 10 minutes. Do not share it with anyone.
+
+If you did not request this, please ignore this email.
+
+Sincerely,
+The Kaarya Siddhi Team
+"""
 
     html = f"""
     <html><body style="margin:0; padding:0; font-family: Arial, sans-serif; background-color:#f4f4f4;">
@@ -131,24 +177,27 @@ def send_email_otp(receiver_email: str, otp: str):
     </body></html>
     """
 
+    message.attach(MIMEText(text, "plain"))
     message.attach(MIMEText(html, "html"))
 
     server = smtplib.SMTP("smtp.gmail.com", 587)
-
     server.starttls()
-
     server.login(sender, password)
+    server.sendmail(sender, receiver_email, message.as_string())
+    server.quit()
 
+    message.attach(MIMEText(html, "html"))
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    server.login(sender, password)
     server.sendmail(
         sender,
         receiver_email,
         message.as_string()
     )
-
     server.quit()
 
-pending_signups = {}
-
+# The fastAPI endpoint which is called when create account is clicked on the frontend side
 @app.post("/signup")
 async def signup(data: SignupRequest):
 
@@ -162,24 +211,24 @@ async def signup(data: SignupRequest):
     )
 
     if existing.data:
-        raise HTTPException(
-            status_code=400,
-            detail="Account already exists."
-        )
+        raise HTTPException(status_code=400, detail="Account already exists.")
 
-    # Stage the signup — do NOT insert into users yet
-    pending_signups[data.email] = {
+    pending_data = {
         "name": data.name,
-        "email": data.email,
         "phone": data.phone,
         "role": data.role,
         "department": data.department,
     }
 
-    return {
-        "success": True,
-        "message": "Signup staged. Please verify OTP."
-    }
+    # Upsert so re-attempting signup before OTP verification just overwrites cleanly
+    supabase.table("otp_sessions").upsert({
+        "email": data.email,
+        "otp": "",
+        "role": data.role,
+        "pending_signup": pending_data,
+    }).execute()
+
+    return {"success": True, "message": "Signup staged. Please verify OTP."}
 
 @app.post("/login")
 async def login(data: LoginRequest):
@@ -209,11 +258,8 @@ async def login(data: LoginRequest):
         )
 
     return {
-
         "success": True,
-
         "message": "Account Found"
-
     }
 
 @app.post("/send-otp")
@@ -229,48 +275,44 @@ async def send_otp(data: SendOTPRequest):
         .execute()
     )
 
-# Allow users who are in the signup process
-    if not user.data and data.email not in pending_signups:
-        raise HTTPException(
-            status_code=404,
-            detail="Account doesn't exist."
-        )
-    
-    record = otp_attempts[data.email]
-    now = datetime.now()
+    session = (
+        supabase.table("otp_sessions")
+        .select("*")
+        .eq("email", data.email)
+        .execute()
+    )
+    session_row = session.data[0] if session.data else None
 
-    if (
-        record["first_attempt"]
-        and now - record["first_attempt"] > timedelta(hours=24)
-    ):
-        otp_attempts[data.email] = {
-            "count": 0,
-            "first_attempt": None,
-            "last_sent": None,
-        }
-        record = otp_attempts[data.email]
+    if not user.data and not (session_row and session_row.get("pending_signup")):
+        raise HTTPException(status_code=404, detail="Account doesn't exist. Please signup.")
 
-    if record["count"] >= MAX_DAILY_ATTEMPTS:
-        raise HTTPException(
-            status_code=429,
-            detail="Daily OTP limit reached."
-        )
+    now = datetime.now(timezone.utc)
 
-    if (
-        record["last_sent"]
-        and now - record["last_sent"] < timedelta(seconds=OTP_RESEND_SECONDS)
-    ):
-        wait = OTP_RESEND_SECONDS - int(
-            (now - record["last_sent"]).total_seconds()
-        )
-        raise HTTPException(
-            status_code=429,
-            detail=f"Please wait {wait} seconds."
-        )
+    first_attempt = (
+        datetime.fromisoformat(session_row["first_attempt_at"])
+        if session_row and session_row.get("first_attempt_at")
+        else None
+    )
+    last_sent = (
+        datetime.fromisoformat(session_row["last_sent_at"])
+        if session_row and session_row.get("last_sent_at")
+        else None
+    )
+    daily_count = session_row["daily_count"] if session_row else 0
+
+    if first_attempt and now - first_attempt > timedelta(hours=24):
+        daily_count = 0
+        first_attempt = None
+
+    if daily_count >= MAX_DAILY_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Daily OTP limit reached.")
+
+    if last_sent and now - last_sent < timedelta(seconds=OTP_RESEND_SECONDS):
+        wait = OTP_RESEND_SECONDS - int((now - last_sent).total_seconds())
+        raise HTTPException(status_code=429, detail=f"Please wait {wait} seconds.")
 
     otp = str(random.randint(100000, 999999))
 
-    # Try sending BEFORE committing to otp_store / otp_attempts
     try:
         send_email_otp(data.email, otp)
     except Exception as e:
@@ -280,59 +322,67 @@ async def send_otp(data: SendOTPRequest):
             detail="Failed to send OTP email. Please check your email address and try again."
         )
 
-    # Only commit state once the email actually sent
-    if record["count"] == 0:
-        record["first_attempt"] = now
+    if daily_count == 0:
+        first_attempt = now
 
-    record["count"] += 1
-    record["last_sent"] = now
-
-    otp_store[data.email] = {
+    supabase.table("otp_sessions").upsert({
+        "email": data.email,
         "otp": otp,
         "role": data.role,
-        "created": now,
-    }
+        "created_at": now.isoformat(),
+        "verify_attempts": 0,
+        "daily_count": daily_count + 1,
+        "first_attempt_at": first_attempt.isoformat() if first_attempt else None,
+        "last_sent_at": now.isoformat(),
+        "pending_signup": session_row.get("pending_signup") if session_row else None,
+    }).execute()
 
-    return {
-        "success": True,
-        "message": "OTP Sent Successfully"
-    }
+    return {"success": True, "message": "OTP Sent Successfully"}
 
 @app.post("/verify-otp")
 async def verify_otp(data: VerifyOTPRequest):
 
     data.email = normalize_email(data.email)
 
-    stored = otp_store.get(data.email)
+    session = (
+        supabase.table("otp_sessions")
+        .select("*")
+        .eq("email", data.email)
+        .execute()
+    )
 
-    if not stored:
+    if not session.data:
+        raise HTTPException(status_code=400, detail="OTP expired.")
+
+    session_row = session.data[0]
+    created = datetime.fromisoformat(session_row["created_at"])
+
+    if datetime.now(timezone.utc) - created > timedelta(minutes=OTP_EXPIRY_MINUTES):
+        supabase.table("otp_sessions").delete().eq("email", data.email).execute()
+        raise HTTPException(status_code=400, detail="OTP expired.")
+
+    if session_row["verify_attempts"] >= MAX_VERIFY_ATTEMPTS:
+        supabase.table("otp_sessions").delete().eq("email", data.email).execute()
         raise HTTPException(
-            status_code=400,
-            detail="OTP expired."
+            status_code=429,
+            detail="Too many incorrect attempts. Please request a new OTP."
         )
 
-    if datetime.now() - stored["created"] > timedelta(minutes=OTP_EXPIRY_MINUTES):
-        del otp_store[data.email]
-        raise HTTPException(
-            status_code=400,
-            detail="OTP expired."
-        )
+    if session_row["otp"] != data.otp:
+        new_attempts = session_row["verify_attempts"] + 1
+        supabase.table("otp_sessions").update({
+            "verify_attempts": new_attempts
+        }).eq("email", data.email).execute()
 
-    if stored["otp"] != data.otp:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid OTP."
-        )
+        remaining = MAX_VERIFY_ATTEMPTS - new_attempts
+        raise HTTPException(status_code=400, detail=f"Invalid OTP. {remaining} attempt(s) remaining.")
 
-    del otp_store[data.email]
-
-    # If this email has a pending signup, create the real user row now
-    pending = pending_signups.pop(data.email, None)
+    pending = session_row.get("pending_signup")
 
     if pending:
         supabase.table("users").insert({
             "name": pending["name"],
-            "email": pending["email"],
+            "email": data.email,
             "mobile_number": pending["phone"],
             "role": pending["role"],
             "is_profile_setup": False,
@@ -343,16 +393,17 @@ async def verify_otp(data: VerifyOTPRequest):
                 supabase.table("workspaces")
                 .insert({
                     "name": f"{pending['name']}'s Workspace",
-                    "owner_email": pending["email"],
+                    "owner_email": data.email,
                 })
                 .execute()
             )
-
             workspace_id = workspace.data[0]["id"]
 
             supabase.table("users").update({
                 "workspace_id": workspace_id
-            }).eq("email", pending["email"]).execute()
+            }).eq("email", data.email).execute()
+
+    supabase.table("otp_sessions").delete().eq("email", data.email).execute()
 
     user = (
         supabase.table("users")
@@ -362,10 +413,7 @@ async def verify_otp(data: VerifyOTPRequest):
     )
 
     if not user.data:
-        raise HTTPException(
-            status_code=404,
-            detail="Account not found."
-        )
+        raise HTTPException(status_code=404, detail="Account not found.")
 
     user = user.data[0]
 
@@ -374,10 +422,6 @@ async def verify_otp(data: VerifyOTPRequest):
         role=user["role"],
         workspace_id=user.get("workspace_id"),
     )
-
-    print("=========== JWT ISSUED ===========")
-    print(access_token)
-    print("===================================")
 
     return {
         "success": True,
@@ -660,16 +704,21 @@ async def employee_connection_status(employee_email: str):
 # JWT tokens part here : 
 
 JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
+
+JWT_SECRET = os.getenv("JWT_SECRET")
+
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET is not set in .env — add it before starting the server.")
 
 def create_access_token(email: str, role: str, workspace_id: str | None):
     payload = {
         "sub": email,
         "role": role,
         "workspace_id": workspace_id,
-        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
-        "iat": datetime.utcnow(),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRY_HOURS),
+        "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -689,3 +738,15 @@ def get_current_user(authorization: str = Header(None)):
     token = authorization.split(" ")[1]
     payload = decode_access_token(token)
     return payload
+
+# old method of storing otp_sessions (now moved to supabase)
+# otp_store = {}
+# otp_attempts = defaultdict(
+#     lambda: {
+#         "count": 0,
+#         "first_attempt": None,
+#         "last_sent": None,
+#     }
+# )
+# otp_verify_attempts = defaultdict(int)
+# # pending_signups = {}
