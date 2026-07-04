@@ -92,10 +92,10 @@ const OtpVerify = () => {
         return;
       }
 
-      if (data.role === "employee") {
+    if (data.role === "employee") {
         router.replace({
           pathname: "/(auth)/RequestAdmin",
-          params: { email: data.email },
+          params: { email: data.email, name },   // ← add name
         });
         return;
       }
