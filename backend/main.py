@@ -660,7 +660,7 @@ async def employee_connection_status(employee_email: str):
 # JWT tokens part here : 
 
 JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = "HS256"
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
 JWT_EXPIRY_HOURS = 24
 
 def create_access_token(email: str, role: str, workspace_id: str | None):
