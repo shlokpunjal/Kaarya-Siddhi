@@ -12,11 +12,13 @@ import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from datetime import datetime, timedelta
-from collections import defaultdict
+# from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 import jwt
-from fastapi import Depends, Header
+from fastapi import Header
+
+import re
 
 load_dotenv()
 
@@ -29,6 +31,7 @@ ALLOWED_ORIGINS = [
     "exp://192.168.1.42:8081",     # Expo Go on your LAN — replace with your actual dev IP
 ]
 
+# this corsMiddleware tells the fastAPI which applications are allowed to connect to the API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -37,25 +40,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# old method of storing otp_sessions (now moved to supabase)
-# otp_store = {}
-# otp_attempts = defaultdict(
-#     lambda: {
-#         "count": 0,
-#         "first_attempt": None,
-#         "last_sent": None,
-#     }
-# )
-# otp_verify_attempts = defaultdict(int)
-# # pending_signups = {}
+# global exception handlers which catch any exception that occurs or any crash occurs
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Invalid request data. Please check your input."},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request, exc):
+    print(f"UNHANDLED ERROR on {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Something went wrong on our end. Please try again."},
+    )
 
 
 MAX_VERIFY_ATTEMPTS = 5
-
 OTP_EXPIRY_MINUTES = 10
 OTP_RESEND_SECONDS = 30
 MAX_DAILY_ATTEMPTS = 3
 
+# routes of the fastAPI similar to class definition
 class SignupRequest(BaseModel):
     name: str
     email: str
@@ -91,22 +112,21 @@ class ConnectionRespond(BaseModel):
     admin_email: str
     accept: bool
 
+# removed auto append for fake usernames to be created
 def normalize_email(email: str):
+    email = email.strip().lower()
 
-        email = email.strip()
+    email_regex = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
 
-        if email == "@gmail.com" or email.startswith("@"):
+    if not email or not re.match(email_regex, email):
+        raise HTTPException(
+            status_code=400,
+            detail="Please enter a valid email address."
+        )
 
-            raise HTTPException(
-                status_code=400,
-                detail="Please enter a valid email."
-            )
+    return email
 
-        if "@" not in email:
-            email += "@gmail.com"
-            
-        return email.lower()
-    
+# the function responsible for sending otp and gets the parameters from the frontend
 def send_email_otp(receiver_email: str, otp: str):
 
     sender = os.getenv("EMAIL_ADDRESS")
@@ -117,6 +137,21 @@ def send_email_otp(receiver_email: str, otp: str):
     message["From"] = sender
     message["To"] = receiver_email
     message["Subject"] = "Kaarya Siddhi Verification Code"
+
+    # Plain text version — used only for notification previews / text-only clients
+    text = f"""Kaarya Siddhi - Verification Code
+
+Dear Kaarya Siddhi User,
+
+We received a login request for {receiver_email}. Your verification code is: {otp}
+
+This code is valid for 10 minutes. Do not share it with anyone.
+
+If you did not request this, please ignore this email.
+
+Sincerely,
+The Kaarya Siddhi Team
+"""
 
     html = f"""
     <html><body style="margin:0; padding:0; font-family: Arial, sans-serif; background-color:#f4f4f4;">
@@ -142,22 +177,27 @@ def send_email_otp(receiver_email: str, otp: str):
     </body></html>
     """
 
+    message.attach(MIMEText(text, "plain"))
     message.attach(MIMEText(html, "html"))
 
     server = smtplib.SMTP("smtp.gmail.com", 587)
-
     server.starttls()
-
     server.login(sender, password)
+    server.sendmail(sender, receiver_email, message.as_string())
+    server.quit()
 
+    message.attach(MIMEText(html, "html"))
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    server.login(sender, password)
     server.sendmail(
         sender,
         receiver_email,
         message.as_string()
     )
-
     server.quit()
 
+# The fastAPI endpoint which is called when create account is clicked on the frontend side
 @app.post("/signup")
 async def signup(data: SignupRequest):
 
@@ -218,11 +258,8 @@ async def login(data: LoginRequest):
         )
 
     return {
-
         "success": True,
-
         "message": "Account Found"
-
     }
 
 @app.post("/send-otp")
@@ -246,12 +283,10 @@ async def send_otp(data: SendOTPRequest):
     )
     session_row = session.data[0] if session.data else None
 
-    # For login flow, the account must already exist.
-    # For signup flow, a staged pending_signup takes the place of an existing user.
     if not user.data and not (session_row and session_row.get("pending_signup")):
         raise HTTPException(status_code=404, detail="Account doesn't exist. Please signup.")
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
 
     first_attempt = (
         datetime.fromisoformat(session_row["first_attempt_at"])
@@ -322,7 +357,7 @@ async def verify_otp(data: VerifyOTPRequest):
     session_row = session.data[0]
     created = datetime.fromisoformat(session_row["created_at"])
 
-    if datetime.now() - created > timedelta(minutes=OTP_EXPIRY_MINUTES):
+    if datetime.now(timezone.utc) - created > timedelta(minutes=OTP_EXPIRY_MINUTES):
         supabase.table("otp_sessions").delete().eq("email", data.email).execute()
         raise HTTPException(status_code=400, detail="OTP expired.")
 
@@ -669,16 +704,21 @@ async def employee_connection_status(employee_email: str):
 # JWT tokens part here : 
 
 JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
+
+JWT_SECRET = os.getenv("JWT_SECRET")
+
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET is not set in .env — add it before starting the server.")
 
 def create_access_token(email: str, role: str, workspace_id: str | None):
     payload = {
         "sub": email,
         "role": role,
         "workspace_id": workspace_id,
-        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
-        "iat": datetime.utcnow(),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRY_HOURS),
+        "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -698,3 +738,15 @@ def get_current_user(authorization: str = Header(None)):
     token = authorization.split(" ")[1]
     payload = decode_access_token(token)
     return payload
+
+# old method of storing otp_sessions (now moved to supabase)
+# otp_store = {}
+# otp_attempts = defaultdict(
+#     lambda: {
+#         "count": 0,
+#         "first_attempt": None,
+#         "last_sent": None,
+#     }
+# )
+# otp_verify_attempts = defaultdict(int)
+# # pending_signups = {}
