@@ -15,8 +15,7 @@ import { typography } from '../../theme/theme';
 
 
 export default function RequestAdmin() {
-  const { email } = useLocalSearchParams<{ email: string }>();
-
+  const { email, name } = useLocalSearchParams<{ email: string; name?: string }>();
   const [adminEmail, setAdminEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -63,13 +62,14 @@ export default function RequestAdmin() {
 
       setSuccessMessage("Request sent successfully.");
 
-      router.replace({
-        pathname: "/(auth)/WaitingApproval",
-        params: {
-          employee_email: email,
-          admin_email: adminEmail,
-        },
-      });
+     router.replace({
+      pathname: "/(auth)/WaitingApproval",
+      params: {
+        employee_email: email,
+        admin_email: adminEmail,
+        name,   // ← add this
+      },
+    });
 
     } catch (error) {
       console.log(error);
