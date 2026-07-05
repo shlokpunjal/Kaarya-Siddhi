@@ -10,6 +10,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
+import BackButton from "../../components/backButton";
+
 
 
 export default function WaitingApproval() {
@@ -18,7 +20,7 @@ export default function WaitingApproval() {
       employee_email: string;
       admin_email: string;
       name?: string;
-  }>();
+    }>();
 
   const [status, setStatus] = useState("pending");
   const [statusMessage, setStatusMessage] = useState("");
@@ -44,17 +46,17 @@ export default function WaitingApproval() {
       setStatus(data.status);
 
       if (data.status === "accepted") {
-      setStatusMessage("Your admin has accepted your request.");
+        setStatusMessage("Your admin has accepted your request.");
 
-      setTimeout(() => {
-        router.replace({
-          pathname: "/(onboarding)/profileSetup1",
-          params: { role: "employee", name },
-        });
-      }, 1500);
-    }
+        setTimeout(() => {
+          router.replace({
+            pathname: "/(onboarding)/profileSetup1",
+            params: { role: "employee", name },
+          });
+        }, 1500);
+      }
 
-     if (data.status === "rejected") {
+      if (data.status === "rejected") {
         setStatusMessage("Your request was rejected.");
 
         setTimeout(() => {
@@ -66,7 +68,7 @@ export default function WaitingApproval() {
             },
           });
         }, 1500);
-      }   
+      }
     } catch (error) {
       console.log(error);
     }
@@ -75,6 +77,7 @@ export default function WaitingApproval() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <BackButton />
         <Text style={styles.headerText}>
           Waiting for Approval
         </Text>
