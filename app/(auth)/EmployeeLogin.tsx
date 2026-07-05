@@ -11,6 +11,7 @@ import React, { useState, useRef } from "react";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
+import BackButton from "../../components/backButton";
 
 
 const EmployeeLogin = () => {
@@ -155,6 +156,7 @@ const EmployeeLogin = () => {
   return (
     <SafeAreaView>
       <View style={styles.mainbar}>
+        <BackButton />
         <Text style={[styles.maintext, typography.heading]}>EmployeeLogin</Text>
       </View>
       <View style={styles.mainStyle}>
@@ -169,7 +171,7 @@ const EmployeeLogin = () => {
           style={[
             styles.divi,
             (isOnCooldown || errors.phone || errors.email) &&
-              styles.diviExpanded,
+            styles.diviExpanded,
           ]}
         >
           <Text style={styles.divtext}>Login to your workspace</Text>

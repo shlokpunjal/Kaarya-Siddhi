@@ -13,6 +13,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
 import FadeIn from "../../components/FadeIn";
+import BackButton from "../../components/backButton";
+
 
 
 export default function RequestAdmin() {
@@ -86,8 +88,8 @@ export default function RequestAdmin() {
 
   return (
     <SafeAreaView style={styles.container}>
-
       <View style={styles.header}>
+        <BackButton />
         <Text style={[styles.headerText, typography.heading]}>
           Connect to Admin
         </Text>
