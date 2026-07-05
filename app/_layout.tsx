@@ -5,7 +5,7 @@ import {
   Poppins_600SemiBold,
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
-import { Slot } from 'expo-router';
+import { Stack } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase'
 import { useEffect } from 'react'
@@ -20,16 +20,16 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-  async function test() {
-    console.log('🔄 Testing Supabase...')
-    
-    const { data, error } = await supabase.from('users').select('*')
-    
-    console.log('DATA:', JSON.stringify(data))
-    console.log('ERROR:', JSON.stringify(error))
-  }
-  test()
-}, [])
+    async function test() {
+      console.log('🔄 Testing Supabase...')
+
+      const { data, error } = await supabase.from('users').select('*')
+
+      console.log('DATA:', JSON.stringify(data))
+      console.log('ERROR:', JSON.stringify(error))
+    }
+    test()
+  }, [])
 
   if (!fontsLoaded) {
     return (
@@ -39,11 +39,22 @@ export default function RootLayout() {
     );
   }
 
-  
+
 
   return (
     <ThemeProvider>
-      <Slot />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(onboarding)" />
+        <Stack.Screen name="(employee)" />
+        <Stack.Screen name="(admin)" />
+        <Stack.Screen name="(task)/task-detail" />
+        <Stack.Screen name="(task)/newtask" />
+        <Stack.Screen name="(task)/extend-deadline" />
+        <Stack.Screen name="reports/genExcel" />
+        <Stack.Screen name="reports/genPdf" />
+      </Stack>
     </ThemeProvider>
   );
 }
