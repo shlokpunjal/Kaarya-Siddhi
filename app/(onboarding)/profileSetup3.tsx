@@ -26,7 +26,7 @@ export default function ProfileSetup3() {
 
       <View style={styles.container}>
         <Image
-          source={require("../../assets/images/logo.jpeg")}
+          source={require("../../assets/images/logo.png")}
           style={styles.logo}
         />
         <Text style={[styles.title, typography.heading3]}>You are all set!</Text>
