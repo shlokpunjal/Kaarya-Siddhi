@@ -1,2 +1,2 @@
-export const API_BASE_URL = "http://10.190.98.112:8000"
+export const API_BASE_URL = "https://backend-testing-yw8u.onrender.com"
 
