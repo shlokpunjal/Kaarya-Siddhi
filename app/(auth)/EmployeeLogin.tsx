@@ -160,7 +160,7 @@ const EmployeeLogin = () => {
       <View style={styles.mainStyle}>
         <View style={styles.imagestyle}>
           <Image
-            source={require("../../assets/images/logo.jpeg")}
+            source={require("../../assets/images/logo.png")}
             style={styles.imageStyling}
           />
         </View>
