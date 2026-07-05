@@ -21,7 +21,6 @@ import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { API_BASE_URL } from "../../constants/api";
 
-import * as SecureStore from "expo-secure-store";
 type ConnectionRow = {
   id: string;
   employee_email: string;
@@ -67,13 +66,9 @@ export default function AdminRequestsList() {
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
-  const [extensionRequests, setExtensionRequests] = useState<
-    ExtensionRequestRow[]
-  >([]);
+  const [extensionRequests, setExtensionRequests] = useState<ExtensionRequestRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [decidingConnectionId, setDecidingConnectionId] = useState<
-    string | null
-  >(null);
+  const [decidingConnectionId, setDecidingConnectionId] = useState<string | null>(null);
 
   const connectionsChannelRef = useRef<RealtimeChannel | null>(null);
   const extensionChannelRef = useRef<RealtimeChannel | null>(null);
@@ -144,17 +139,21 @@ export default function AdminRequestsList() {
   const fetchAll = useCallback(async () => {
     if (!adminEmail || !workspaceId) return;
     setLoading(true);
-    await Promise.all([
-      fetchConnections(adminEmail),
-      fetchExtensionRequests(workspaceId),
-    ]);
+
+    const [conns, exts] = await Promise.all([fetchConnections(adminEmail), fetchExtensionRequests(workspaceId)]);
+
+    const raw = await AsyncStorage.getItem(clearedKey(workspaceId));
+    const cleared = raw ? JSON.parse(raw) : { connections: [], extensions: [] };
+
+    setConnections(conns.filter((c) => !cleared.connections.includes(c.employee_email)));
+    setExtensionRequests(exts.filter((r) => !cleared.extensions.includes(r.id)));
     setLoading(false);
   }, [adminEmail, workspaceId, fetchConnections, fetchExtensionRequests]);
 
   useFocusEffect(
     useCallback(() => {
       fetchAll();
-    }, [fetchAll]),
+    }, [fetchAll])
   );
 
   useEffect(() => {
@@ -163,15 +162,8 @@ export default function AdminRequestsList() {
       .channel(`connections_admin_${adminEmail}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "connections",
-          filter: `admin_email=eq.${adminEmail}`,
-        },
-        () => {
-          fetchConnections(adminEmail);
-        },
+        { event: "*", schema: "public", table: "connections", filter: `admin_email=eq.${adminEmail}` },
+        () => fetchAll()
       )
       .subscribe();
     connectionsChannelRef.current = channel;
@@ -189,15 +181,8 @@ export default function AdminRequestsList() {
       .channel(`extension_requests_admin_${workspaceId}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "extension_requests",
-          filter: `workspace_id=eq.${workspaceId}`,
-        },
-        () => {
-          fetchExtensionRequests(workspaceId);
-        },
+        { event: "*", schema: "public", table: "extension_requests", filter: `workspace_id=eq.${workspaceId}` },
+        () => fetchAll()
       )
       .subscribe();
     extensionChannelRef.current = channel;
@@ -209,29 +194,14 @@ export default function AdminRequestsList() {
     };
   }, [workspaceId, fetchAll]);
 
-  const decideConnection = async (
-    employeeEmail: string,
-    decision: "accepted" | "rejected",
-  ) => {
+  const decideConnection = async (employeeEmail: string, decision: "accepted" | "rejected") => {
     if (!adminEmail) return;
     setDecidingConnectionId(employeeEmail);
     try {
-      const token = await SecureStore.getItemAsync("token");
-      if (!token) {
-        throw new Error("Your session has expired. Please log in again.");
-      }
-
       const res = await fetch(`${API_BASE_URL}/connection-respond`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          employee_email: employeeEmail,
-          admin_email: adminEmail,
-          accept: decision === "accepted",
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employee_email: employeeEmail, admin_email: adminEmail, accept: decision === "accepted" }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.detail || "Could not update request.");
@@ -241,11 +211,41 @@ export default function AdminRequestsList() {
       setDecidingConnectionId(null);
     }
   };
-  const pendingConnections = connections.filter((c) => c.status === "pending");
-  const pendingExtensions = extensionRequests.filter(
-    (r) => r.status === "pending",
-  );
-  const totalPending = pendingConnections.length + pendingExtensions.length;
+
+  const clearAllConnections = async () => {
+    if (!workspaceId) return;
+
+    const decidedConnectionKeys = connections.filter((c) => isDecided(c.status)).map((c) => c.employee_email);
+
+    const raw = await AsyncStorage.getItem(clearedKey(workspaceId));
+    const existing = raw ? JSON.parse(raw) : { connections: [], extensions: [] };
+    const updated = {
+      ...existing,
+      connections: Array.from(new Set([...existing.connections, ...decidedConnectionKeys])),
+    };
+    await AsyncStorage.setItem(clearedKey(workspaceId), JSON.stringify(updated));
+
+    setConnections((prev) => prev.filter((c) => !isDecided(c.status)));
+  };
+
+  const clearAllExtensions = async () => {
+    if (!workspaceId) return;
+
+    const decidedExtensionIds = extensionRequests.filter((r) => isDecided(r.status)).map((r) => r.id);
+
+    const raw = await AsyncStorage.getItem(clearedKey(workspaceId));
+    const existing = raw ? JSON.parse(raw) : { connections: [], extensions: [] };
+    const updated = {
+      ...existing,
+      extensions: Array.from(new Set([...existing.extensions, ...decidedExtensionIds])),
+    };
+    await AsyncStorage.setItem(clearedKey(workspaceId), JSON.stringify(updated));
+
+    setExtensionRequests((prev) => prev.filter((r) => !isDecided(r.status)));
+  };
+
+  const hasDecidedConnections = connections.some((c) => isDecided(c.status));
+  const hasDecidedExtensions = extensionRequests.some((r) => isDecided(r.status));
 
   return (
     <SafeAreaView
@@ -258,87 +258,33 @@ export default function AdminRequestsList() {
       {/* Header — just title + close, no badges or clear-all here */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 12 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Ionicons
-            name="mail-outline"
-            size={20}
-            color={colors.text.secondary}
-          />
-          <Text style={{ ...typography.heading, color: colors.text.primary }}>
-            Requests
-          </Text>
-          {totalPending > 0 && (
-            <View
-              style={{
-                backgroundColor: colors.status.pending + "22",
-                borderRadius: 8,
-                paddingHorizontal: 8,
-                paddingVertical: 2,
-              }}
-            >
-              <Text
-                style={{ ...typography.label, color: colors.status.pending }}
-              >
-                {totalPending} pending
-              </Text>
-            </View>
-          )}
+          <Ionicons name="mail-outline" size={20} color={colors.text.secondary} />
+          <Text style={{ ...typography.heading, color: colors.text.primary }}>Requests</Text>
         </View>
         <Ionicons onPress={() => router.back()} name="close" size={24} color={colors.text.secondary} />
       </View>
 
       {loading ? (
-        <View
-          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
-        >
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator size="large" color={colors.brand.primary} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 4 }}>
           {/* ---------- Connection Requests ---------- */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 12,
-            }}
-          >
-            <Ionicons
-              name="people-outline"
-              size={16}
-              color={colors.text.secondary}
-            />
-            <Text
-              style={{ ...typography.heading3, color: colors.text.secondary }}
-            >
-              Connection Requests
-            </Text>
-            {pendingConnections.length > 0 && (
-              <View
-                style={{
-                  backgroundColor: colors.status.pending + "22",
-                  borderRadius: 8,
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                }}
-              >
-                <Text
-                  style={{ ...typography.label, color: colors.status.pending }}
-                >
-                  {pendingConnections.length} pending
-                </Text>
-              </View>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="people-outline" size={16} color={colors.text.secondary} />
+              <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Connection Requests</Text>
+            </View>
+            {hasDecidedConnections && (
+              <TouchableOpacity onPress={clearAllConnections}>
+                <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
+              </TouchableOpacity>
             )}
           </View>
 
           {connections.length === 0 && (
-            <Text
-              style={{
-                ...typography.body,
-                color: colors.text.secondary,
-                marginBottom: 24,
-              }}
-            >
+            <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 24 }}>
               No connection requests yet.
             </Text>
           )}
@@ -348,35 +294,11 @@ export default function AdminRequestsList() {
               key={c.employee_email}
               style={{ backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border, borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 14 }}
             >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                    flex: 1,
-                  }}
-                >
-                  <Ionicons
-                    name="person-circle-outline"
-                    size={22}
-                    color={colors.text.secondary}
-                  />
-                  <Text
-                    style={{
-                      ...typography.heading3,
-                      color: colors.text.primary,
-                      flexShrink: 1,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {c.employee_email}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                  <Ionicons name="person-circle-outline" size={22} color={colors.text.secondary} />
+                  <Text style={{ ...typography.heading3, color: colors.text.primary, flexShrink: 1 }} numberOfLines={1}>
+                    {c.employee_name ?? c.employee_email}
                   </Text>
                 </View>
 
@@ -390,54 +312,18 @@ export default function AdminRequestsList() {
               {c.status === "pending" && (
                 <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
                   <TouchableOpacity
-                    onPress={() =>
-                      decideConnection(c.employee_email, "accepted")
-                    }
+                    onPress={() => decideConnection(c.employee_email, "accepted")}
                     disabled={decidingConnectionId === c.employee_email}
-                    style={{
-                      flex: 1,
-                      height: 40,
-                      borderRadius: 10,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: colors.status.completed,
-                      opacity:
-                        decidingConnectionId === c.employee_email ? 0.7 : 1,
-                    }}
+                    style={{ flex: 1, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.status.completed, opacity: decidingConnectionId === c.employee_email ? 0.7 : 1 }}
                   >
-                    <Text
-                      style={{
-                        ...typography.label,
-                        color: colors.base.surfaceL1,
-                      }}
-                    >
-                      Accept
-                    </Text>
+                    <Text style={{ ...typography.label, color: colors.base.surfaceL1 }}>Accept</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() =>
-                      decideConnection(c.employee_email, "rejected")
-                    }
+                    onPress={() => decideConnection(c.employee_email, "rejected")}
                     disabled={decidingConnectionId === c.employee_email}
-                    style={{
-                      flex: 1,
-                      height: 40,
-                      borderRadius: 10,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: colors.status.overdue,
-                      opacity:
-                        decidingConnectionId === c.employee_email ? 0.7 : 1,
-                    }}
+                    style={{ flex: 1, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.status.overdue, opacity: decidingConnectionId === c.employee_email ? 0.7 : 1 }}
                   >
-                    <Text
-                      style={{
-                        ...typography.label,
-                        color: colors.base.surfaceL1,
-                      }}
-                    >
-                      Reject
-                    </Text>
+                    <Text style={{ ...typography.label, color: colors.base.surfaceL1 }}>Reject</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -445,40 +331,15 @@ export default function AdminRequestsList() {
           ))}
 
           {/* ---------- Extend Deadline Requests ---------- */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              marginTop: 10,
-              marginBottom: 12,
-            }}
-          >
-            <Ionicons
-              name="document-text-outline"
-              size={16}
-              color={colors.text.secondary}
-            />
-            <Text
-              style={{ ...typography.heading3, color: colors.text.secondary }}
-            >
-              Extend Deadline Requests
-            </Text>
-            {pendingExtensions.length > 0 && (
-              <View
-                style={{
-                  backgroundColor: colors.status.pending + "22",
-                  borderRadius: 8,
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                }}
-              >
-                <Text
-                  style={{ ...typography.label, color: colors.status.pending }}
-                >
-                  {pendingExtensions.length} pending
-                </Text>
-              </View>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10, marginBottom: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="document-text-outline" size={16} color={colors.text.secondary} />
+              <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Extend Deadline Requests</Text>
+            </View>
+            {hasDecidedExtensions && (
+              <TouchableOpacity onPress={clearAllExtensions}>
+                <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
+              </TouchableOpacity>
             )}
           </View>
 
@@ -492,40 +353,10 @@ export default function AdminRequestsList() {
               onPress={() => router.push({ pathname: "/notifications/admin-request-review", params: { requestId: req.id } })}
               style={{ backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border, borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 14 }}
             >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                    flex: 1,
-                  }}
-                >
-                  <View
-                    style={{
-                      height: 8,
-                      width: 8,
-                      borderRadius: 4,
-                      backgroundColor: priorityColor(
-                        colors,
-                        req.tasks?.priority,
-                      ),
-                    }}
-                  />
-                  <Text
-                    style={{
-                      ...typography.heading3,
-                      color: colors.text.primary,
-                      flexShrink: 1,
-                    }}
-                    numberOfLines={1}
-                  >
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                  <View style={{ height: 8, width: 8, borderRadius: 4, backgroundColor: priorityColor(colors, req.tasks?.priority) }} />
+                  <Text style={{ ...typography.heading3, color: colors.text.primary, flexShrink: 1 }} numberOfLines={1}>
                     {req.tasks?.title ?? "Untitled Task"}
                   </Text>
                 </View>
