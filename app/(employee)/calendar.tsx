@@ -96,16 +96,17 @@ export default function CalendarScreen() {
   const [tasksMap, setTasksMap] = useState<Record<string, Task[]>>({});
   const [loading, setLoading]   = useState(true);
 
-  // ── Fetch employee's own tasks + realtime subscription ───────────────────
+  // ── Resolve employee's user id, fetch their tasks, realtime subscribe ───
   useEffect(() => {
     let isMounted = true;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let tasksChannel: ReturnType<typeof supabase.channel> | null = null;
+    let extensionsChannel: ReturnType<typeof supabase.channel> | null = null;
 
-    const fetchTasks = async (email: string) => {
+    const fetchTasks = async (userId: string) => {
       const { data, error } = await supabase
         .from("tasks")
         .select("*")
-        .eq("assigned_to", email);
+        .eq("assigned_to", userId);
 
       if (error) {
         console.error("Error fetching calendar tasks:", error.message);
@@ -122,15 +123,43 @@ export default function CalendarScreen() {
         return;
       }
 
-      await fetchTasks(email);
+      const { data: userRow, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", email)
+        .single();
+
+      if (userError || !userRow) {
+        console.error("Error resolving employee id:", userError?.message);
+        if (isMounted) setLoading(false);
+        return;
+      }
+
+      const userId = userRow.id as string;
+
+      await fetchTasks(userId);
       if (isMounted) setLoading(false);
 
-      channel = supabase
+      // Refetch when a task itself changes (e.g. deadline updated after an
+      // extension is accepted).
+      tasksChannel = supabase
         .channel("employee-calendar-tasks")
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "tasks", filter: `assigned_to=eq.${email}` },
-          () => { fetchTasks(email); }
+          { event: "*", schema: "public", table: "tasks", filter: `assigned_to=eq.${userId}` },
+          () => { fetchTasks(userId); }
+        )
+        .subscribe();
+
+      // Also refetch the moment an extension request is decided, so the
+      // calendar updates immediately rather than waiting on the tasks-table
+      // write that follows it.
+      extensionsChannel = supabase
+        .channel("employee-calendar-extension-requests")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "extension_requests", filter: `requested_by=eq.${userId}` },
+          () => { fetchTasks(userId); }
         )
         .subscribe();
     };
@@ -139,10 +168,10 @@ export default function CalendarScreen() {
 
     return () => {
       isMounted = false;
-      if (channel) supabase.removeChannel(channel);
+      if (tasksChannel) supabase.removeChannel(tasksChannel);
+      if (extensionsChannel) supabase.removeChannel(extensionsChannel);
     };
   }, []);
-
   const categoryColor: Record<TaskCategory, string> = {
     completed: status.completed,
     inReview:  status.inReview,

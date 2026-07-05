@@ -556,8 +556,8 @@ export default function CalendarScreen() {
   // ── Resolve admin's workspace_id, fetch team tasks, realtime subscribe ──
   useEffect(() => {
     let isMounted = true;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-
+    let tasksChannel: ReturnType<typeof supabase.channel> | null = null;
+    let extensionsChannel: ReturnType<typeof supabase.channel> | null = null;
     const fetchTasks = async (workspaceId: string) => {
       const { data, error } = await supabase
         .from("tasks")
@@ -596,11 +596,20 @@ export default function CalendarScreen() {
       await fetchTasks(workspaceId);
       if (isMounted) setLoading(false);
 
-      channel = supabase
+     tasksChannel = supabase
         .channel("admin-calendar-tasks")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "tasks", filter: `workspace_id=eq.${workspaceId}` },
+          () => { fetchTasks(workspaceId); }
+        )
+        .subscribe();
+
+      extensionsChannel = supabase
+        .channel("admin-calendar-extension-requests")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "extension_requests", filter: `workspace_id=eq.${workspaceId}` },
           () => { fetchTasks(workspaceId); }
         )
         .subscribe();
@@ -610,10 +619,10 @@ export default function CalendarScreen() {
 
     return () => {
       isMounted = false;
-      if (channel) supabase.removeChannel(channel);
+      if (tasksChannel) supabase.removeChannel(tasksChannel);
+      if (extensionsChannel) supabase.removeChannel(extensionsChannel);
     };
   }, []);
-
   const categoryColor: Record<TaskCategory, string> = {
     completed: status.completed,
     inReview:  status.inReview,
