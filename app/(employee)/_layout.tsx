@@ -12,6 +12,10 @@ const icons = {
     outline: require('../../assets/icons/tasks-outline.png'),
     filled: require('../../assets/icons/tasks-filled.png'),
   },
+  report: {
+    outline: require('../../assets/icons/report-outline.png'),
+    filled: require('../../assets/icons/report-filled.png'),
+  },
   calendar: {
     outline: require('../../assets/icons/calendar-outline.png'),
     filled: require('../../assets/icons/calendar-filled.png'),
@@ -70,6 +74,15 @@ export default function EmployeeTabsLayout() {
           title: 'Tasks',
           tabBarIcon: ({ focused }) => (
             <TabIcon source={focused ? icons.tasks.filled : icons.tasks.outline} focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="report"
+        options={{
+          title: 'Reports',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon source={focused ? icons.report.filled : icons.report.outline} focused={focused} />
           ),
         }}
       />

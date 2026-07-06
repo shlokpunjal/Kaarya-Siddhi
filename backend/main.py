@@ -549,7 +549,7 @@ async def verify_otp(data: VerifyOTPRequest):
     pending = session_row.get("pending_signup")
 
     if pending:
-        # NEW: re-check name uniqueness right before creating the account
+        # Re-check name uniqueness right before creating the account
         name_recheck = (
             supabase.table("users")
             .select("id")
@@ -588,6 +588,37 @@ async def verify_otp(data: VerifyOTPRequest):
             supabase.table("users").update({
                 "workspace_id": workspace_id
             }).eq("email", data.email).execute()
+
+    supabase.table("otp_sessions").delete().eq("email", data.email).execute()
+
+    user = (
+        supabase.table("users")
+        .select("*")
+        .eq("email", data.email)
+        .execute()
+    )
+
+    if not user.data:
+        raise HTTPException(status_code=404, detail="Account not found.")
+
+    user = user.data[0]
+
+    access_token = create_access_token(
+        email=user["email"],
+        role=user["role"],
+        workspace_id=user.get("workspace_id"),
+    )
+    refresh_token = create_refresh_token(user["email"])
+    return {
+        "success": True,
+        "token": access_token,
+        "refresh_token": refresh_token,
+        "id": user["id"],
+        "email": user["email"],
+        "role": user["role"],
+        "workspace_id": user.get("workspace_id"),
+        "is_profile_setup": user.get("is_profile_setup", False),
+    }
 
 @app.post("/connect-request")
 async def connect_request(data: ConnectRequest, current_user: dict = Depends(get_current_user)):
