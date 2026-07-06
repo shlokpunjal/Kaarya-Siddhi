@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 import { Task } from '../../types/task';
+import { getGreeting } from '../../utils/greeting';
 
 // Matches the actual `tasks` table columns
 type TaskRow = {
@@ -107,9 +108,9 @@ export default function Dashboard() {
     );
   }
 
-  const overdueTasks   = tasks.filter(t => t.status === "overdue");
-  const pendingTasks   = tasks.filter(t => t.status === "pending");
-  const reviewTasks    = tasks.filter(t => t.status === "inReview");
+  const overdueTasks = tasks.filter(t => t.status === "overdue");
+  const pendingTasks = tasks.filter(t => t.status === "pending");
+  const reviewTasks = tasks.filter(t => t.status === "inReview");
   const completedTasks = tasks.filter(t => t.status === "completed");
 
   return (
@@ -130,7 +131,7 @@ export default function Dashboard() {
                 ...typography.subheading,
                 marginTop: 20, marginLeft: 15,
                 color: colors.text.secondary,
-              }}>Good Morning!</Text>
+              }}>{getGreeting()}</Text>
               <Text style={{
                 ...typography.heading,
                 marginTop: 5, marginLeft: 15,
