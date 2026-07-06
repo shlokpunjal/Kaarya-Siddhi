@@ -186,24 +186,13 @@ export default function Dashboard() {
               {decidedRequestCount > 0 && (
                 <View style={{
                   position: "absolute",
-                  top: 2,
-                  right: 2,
-                  minWidth: 16,
-                  height: 16,
-                  borderRadius: 8,
+                  top: 4,
+                  right: 4,
+                  height: 10,
+                  width: 10,
+                  borderRadius: 5,
                   backgroundColor: colors.status.completed,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingHorizontal: 3,
-                }}>
-                  <Text style={{
-                    color: colors.base.surfaceL1,
-                    fontSize: 10,
-                    fontFamily: "Poppins-SemiBold",
-                  }}>
-                    {decidedRequestCount}
-                  </Text>
-                </View>
+                }} />
               )}
             </TouchableOpacity>
           </View>
