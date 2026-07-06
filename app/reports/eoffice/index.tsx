@@ -4,20 +4,31 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../../context/ThemeContext';
 import { typography } from '../../../theme/theme';
-import { fetchEofficeFiles } from '../../../lib/eoffice';
+import { fetchEofficeFiles, fetchEmployees } from '../../../lib/eoffice';
 import type { EofficeFile } from '../../../types/eoffice';
+import { getCurrentUser } from '../../../lib/currentUser';
 
 export default function EofficeList() {
   const { colors } = useTheme();
   const router = useRouter();
   const [files, setFiles] = useState<EofficeFile[]>([]);
+  const [employeeMap, setEmployeeMap] = useState<Record<string, string>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const loadFiles = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      const data = await fetchEofficeFiles();
-      setFiles(data);
+      const user = await getCurrentUser();
+      if (!user) throw new Error('Not logged in');
+
+      const [filesData, employeesData] = await Promise.all([
+        fetchEofficeFiles(),
+        fetchEmployees(user.workspace_id),
+      ]);
+      setFiles(filesData);
+      setEmployeeMap(
+        Object.fromEntries(employeesData.map((e) => [e.id, e.name]))
+      );
     } catch (err) {
       console.error('Failed to load eOffice files', err);
     } finally {
@@ -26,13 +37,14 @@ export default function EofficeList() {
     }
   }, []);
 
+
   useEffect(() => {
-    loadFiles();
-  }, [loadFiles]);
+    loadData();
+  }, [loadData]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadFiles();
+    loadData();
   };
 
   const daysPending = (pendingSince: string) => {
@@ -71,7 +83,7 @@ export default function EofficeList() {
                 File #{item.file_no}
               </Text>
               <Text style={[typography.label, { color: colors.text.secondary, marginTop: 2 }]}>
-                Sr. No. {item.sr_no} · Pending with {item.pending_with}
+                Sr. No. {item.sr_no} · Pending with {employeeMap[item.pending_with] ?? 'Unknown'}
               </Text>
             </View>
             <View
