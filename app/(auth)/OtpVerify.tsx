@@ -12,18 +12,22 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../../hooks/useAuth";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
+import BackButton from "../../components/backButton";
 
+
+// import { sendLoginNotification } from "../../utils/notifications";
 import { sendLoginNotification } from "../../utils/notifications";
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState("");
   const [cooldown, setCooldown] = useState(30); // starts at 30 immediately
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { email, ph, role, mode } = useLocalSearchParams<{
+  const { email, ph, role, mode, name } = useLocalSearchParams<{
     email: string;
     ph?: string;
     role: string;
     mode: string;
+    name?: string;
   }>();
   const { saveSession } = useAuth();
 
@@ -80,34 +84,39 @@ const OtpVerify = () => {
 
       await saveSession(data.token, ph?.toString() ?? "", data.email, data.role, data.workspace_id);
 
-      sendLoginNotification(data.email).catch((err) => 
-        console.log("Login notification failed:", err)
-      )
+      // ---------- SIGNUP FLOW → go through onboarding first ----------
+      if (mode === "signup") {
+        if (data.role === "admin") {
+          router.replace({
+            pathname: "/(onboarding)/profileSetup1",
+            params: { role: "admin", name },
+          });
+          return;
+        }
 
-      // ---------- ADMIN ----------
+        if (data.role === "employee") {
+          router.replace({
+            pathname: "/(auth)/RequestAdmin",
+            params: { email: data.email, name },   // ← add name
+          });
+          return;
+        }
+      }
+
+      // ---------- LOGIN FLOW ----------
+      sendLoginNotification(data.email).catch((err) =>
+        console.log("Login notification failed:", err)
+      );
+
       if (data.role === "admin") {
         router.replace("/(admin)");
         return;
       }
 
-      // ---------- EMPLOYEE SIGNUP ----------
-      if (data.role === "employee" && mode === "signup") {
-        router.replace({
-          pathname: "/(auth)/RequestAdmin",
-          params: {
-            email: data.email,
-          },
-        });
-        return;
-      }
-
-      // ---------- EMPLOYEE LOGIN ----------
       if (data.role === "employee" && !data.workspace_id) {
         router.replace({
           pathname: "/(auth)/RequestAdmin",
-          params: {
-            email: data.email,
-          },
+          params: { email: data.email },
         });
         return;
       }
@@ -118,7 +127,6 @@ const OtpVerify = () => {
       setOtpError("Verification failed. Please try again.");
     }
   };
-
   const resendOTP = async () => {
     try {
       setOtpError("");
@@ -154,12 +162,13 @@ const OtpVerify = () => {
   return (
     <SafeAreaView>
       <View style={styles.mainbar}>
+        <BackButton />
         <Text style={[styles.maintext, typography.heading]}>OTP Verification</Text>
       </View>
       <View style={styles.mainStyle}>
         <View style={styles.imagestyle}>
           <Image
-            source={require("../../assets/images/logo.jpeg")}
+            source={require("../../assets/images/logo.png")}
             style={styles.imageStyling}
           />
         </View>
@@ -169,7 +178,7 @@ const OtpVerify = () => {
           style={[
             styles.divi,
             (isOnCooldown || otpError || resendMessage) &&
-              styles.diviExpanded,
+            styles.diviExpanded,
           ]}
         >
           <Text style={styles.divtext}>Login to your workspace</Text>

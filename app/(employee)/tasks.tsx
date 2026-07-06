@@ -239,8 +239,9 @@ export default function EmployeeTasks() {
           </Text>
         ) : (
           visibleTasks.map((task) => (
-            <View
+            <Pressable
               key={task.id}
+              onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
               style={[styles.taskCard, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}
             >
               <View style={styles.taskCardHeader}>
@@ -256,14 +257,14 @@ export default function EmployeeTasks() {
               <Text style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}>
                 {task.label} · {task.priority.toUpperCase()} priority · Due {task.dueDate}
               </Text>
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>
 
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
-          <Pressable style={[styles.modalCard, { backgroundColor: colors.base.surfaceL1 }]} onPress={() => {}}>
+          <Pressable style={[styles.modalCard, { backgroundColor: colors.base.surfaceL1 }]} onPress={() => { }}>
             <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollArea}>
               <Text style={[typography.subheading, { color: colors.text.primary, marginBottom: 16 }]}>
                 Filter Tasks

@@ -185,12 +185,12 @@ export default function TaskDetail() {
           onPress={() => router.back()}
           name="arrow-back"
           size={28}
-          color={colors.base.surfaceL1}
+          color={colors.brand.onPrimary}
         />
         <Text
           style={{
             ...typography.heading,
-            color: colors.base.surfaceL1,
+            color: colors.brand.onPrimary,
             flex: 1,
             textAlign: "center",
             marginRight: 28,
@@ -362,7 +362,7 @@ export default function TaskDetail() {
               backgroundColor:
                 task.status === "completed" || task.status === "inReview"
                   ? colors.base.border
-                  : colors.brand.primary,
+                  : colors.brand.accent,
               height: 50,
               borderRadius: 12,
               justifyContent: "center",
@@ -376,9 +376,8 @@ export default function TaskDetail() {
             ) : (
               <Text
                 style={{
-                  color: colors.base.surfaceL1,
-                  fontWeight: "bold",
-                  ...typography.body,
+                  color: colors.brand.onPrimary,
+                  ...typography.subheading,
                 }}
               >
                 {task.status === "completed"
@@ -405,7 +404,7 @@ export default function TaskDetail() {
               backgroundColor:
                 hasPendingExtension || task.status === "completed"
                   ? colors.base.border
-                  : colors.brand.primary,
+                  : colors.brand.secprimary,
               alignItems: "center",
               justifyContent: "center",
               marginTop: 12,
@@ -413,9 +412,8 @@ export default function TaskDetail() {
           >
             <Text
               style={{
-                color: colors.base.surfaceL1,
-                fontWeight: "bold",
-                ...typography.body,
+                ...typography.subheading,
+                color: colors.brand.onPrimary,
               }}
             >
               {hasPendingExtension ? "Extension Requested" : "Extend Deadline"}

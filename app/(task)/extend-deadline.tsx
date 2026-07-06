@@ -129,12 +129,12 @@ export default function ExtendDeadline() {
           onPress={() => router.back()}
           name="arrow-back"
           size={26}
-          color={colors.base.surfaceL1}
+          color={colors.brand.onPrimary}
         />
         <Text
           style={{
             ...typography.heading,
-            color: colors.base.surfaceL1,
+            color: colors.brand.onPrimary,
             marginLeft: 15,
           }}
         >

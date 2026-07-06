@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Platform } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { mockTasks } from '../../data/mockTasks';
-import { TaskStatus, TaskPriority } from '../../types/task';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../../lib/supabase';
+import { TaskStatus, TaskPriority, Task } from '../../types/task';
 import { typography } from '../../theme/theme';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -18,6 +20,19 @@ type FilterType =
   | 'priorityHighLow'
   | 'priorityLowHigh';
 
+// Matches the actual `tasks` table columns — no `label` or `suggestion` columns exist yet
+type TaskRow = {
+  id: string;
+  title: string;
+  status: 'overdue' | 'pending' | 'in_review' | 'completed';
+  priority: 'low' | 'medium' | 'high';
+  assigned_to: string;
+  created_by: string;
+  deadline: string;
+};
+
+type ManagedEmployee = { id: string; name: string };
+
 const STATUS_LABELS: Record<TaskStatus, string> = {
   overdue: 'Overdue',
   pending: 'Pending',
@@ -27,14 +42,27 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 
 const PRIORITY_RANK: Record<TaskPriority, number> = { low: 0, medium: 1, high: 2 };
 
-const EMPLOYEES = [
-  { id: 'emp1', name: 'Ravi Kumar' },
-  { id: 'emp2', name: 'Sita Devi' },
-];
+function mapRowToTask(row: TaskRow): Task {
+  return {
+    id: row.id,
+    title: row.title,
+    status: row.status === 'in_review' ? 'inReview' : row.status,
+    priority: row.priority,
+    label: 'General',
+    assignedTo: row.assigned_to,
+    createdBy: row.created_by,
+    dueDate: row.deadline,
+    suggestion: undefined,
+  };
+}
 
 export default function AdminTasks() {
   const { colors } = useTheme();
+  const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [employees, setEmployees] = useState<ManagedEmployee[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
 
@@ -44,7 +72,68 @@ export default function AdminTasks() {
   const [appliedType, setAppliedType] = useState<FilterType>('all');
   const [appliedValue, setAppliedValue] = useState<string | null>(null);
 
-  const uniqueLabels = Array.from(new Set(mockTasks.map((t) => t.label)));
+  useEffect(() => {
+    fetchTasksAndTeam();
+  }, []);
+
+  const fetchTasksAndTeam = async () => {
+    setLoading(true);
+
+    const adminEmail = await AsyncStorage.getItem('userEmail');
+
+    if (!adminEmail) {
+      router.replace('/(auth)/LoginChoice');
+      return;
+    }
+
+    // ── Tasks this admin created ─────────────────────────────────────────
+    const { data: taskRows, error: taskError } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('created_by', adminEmail)
+      .order('deadline', { ascending: true });
+
+    if (taskError) {
+      console.error('Error fetching tasks list:', taskError.message);
+    } else {
+      setTasks((taskRows ?? []).map(mapRowToTask));
+    }
+
+    // ── This admin's connected employees, for names + the filter list ────
+    const { data: connections, error: connError } = await supabase
+      .from('connections')
+      .select('employee_email')
+      .eq('admin_email', adminEmail)
+      .eq('status', 'accepted');
+
+    if (connError) {
+      console.error('Error fetching team:', connError.message);
+    } else {
+      const employeeEmails = (connections ?? []).map((c) => c.employee_email);
+
+      if (employeeEmails.length > 0) {
+        const { data: users, error: usersError } = await supabase
+          .from('users')
+          .select('email, name')
+          .in('email', employeeEmails);
+
+        if (usersError) {
+          console.error('Error fetching team names:', usersError.message);
+        } else {
+          setEmployees(
+            employeeEmails.map((email) => ({
+              id: email,
+              name: users?.find((u) => u.email === email)?.name ?? email,
+            }))
+          );
+        }
+      }
+    }
+
+    setLoading(false);
+  };
+
+  const uniqueLabels = Array.from(new Set(tasks.map((t) => t.label).filter(Boolean)));
 
   const openModal = () => {
     setDraftType(appliedType);
@@ -63,42 +152,42 @@ export default function AdminTasks() {
     setModalVisible(false);
   };
 
-  const employeeName = (id: string) => EMPLOYEES.find((e) => e.id === id)?.name ?? id;
+  const employeeName = (email: string) => employees.find((e) => e.id === email)?.name ?? email;
 
   const getVisibleTasks = () => {
-    let tasks = [...mockTasks];
+    let list = [...tasks];
 
     if (appliedType === 'status' && appliedValue) {
-      tasks = tasks.filter((t) => t.status === appliedValue);
+      list = list.filter((t) => t.status === appliedValue);
     }
     if (appliedType === 'priority' && appliedValue) {
-      tasks = tasks.filter((t) => t.priority === appliedValue);
+      list = list.filter((t) => t.priority === appliedValue);
     }
     if (appliedType === 'label' && appliedValue) {
-      tasks = tasks.filter((t) => t.label.toLowerCase() === appliedValue.toLowerCase());
+      list = list.filter((t) => (t.label ?? '').toLowerCase() === appliedValue.toLowerCase());
     }
     if (appliedType === 'employee' && appliedValue) {
-      tasks = tasks.filter((t) => t.assignedTo === appliedValue);
+      list = list.filter((t) => t.assignedTo === appliedValue);
     }
     if (appliedType === 'deadlineAsc') {
-      tasks.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+      list.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
     }
     if (appliedType === 'deadlineDesc') {
-      tasks.sort((a, b) => b.dueDate.localeCompare(a.dueDate));
+      list.sort((a, b) => b.dueDate.localeCompare(a.dueDate));
     }
     if (appliedType === 'priorityHighLow') {
-      tasks.sort((a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]);
+      list.sort((a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]);
     }
     if (appliedType === 'priorityLowHigh') {
-      tasks.sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
+      list.sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
     }
 
     const query = searchQuery.trim().toLowerCase();
     if (query.length > 0) {
-      tasks = tasks.filter((t) => {
+      list = list.filter((t) => {
         return (
           t.title.toLowerCase().includes(query) ||
-          t.label.toLowerCase().includes(query) ||
+          (t.label ?? '').toLowerCase().includes(query) ||
           t.priority.toLowerCase().includes(query) ||
           STATUS_LABELS[t.status].toLowerCase().includes(query) ||
           employeeName(t.assignedTo).toLowerCase().includes(query)
@@ -106,14 +195,12 @@ export default function AdminTasks() {
       });
     }
 
-    return tasks;
+    return list;
   };
 
   const visibleTasks = getVisibleTasks();
   const isSearching = searchQuery.trim().length > 0;
-
-  const isSelected = (type: FilterType, value: string | null) =>
-    draftType === type && draftValue === value;
+  const isSelected = (type: FilterType, value: string | null) => draftType === type && draftValue === value;
 
   const Chip = ({ label, type, value }: { label: string; type: FilterType; value: string | null }) => {
     const selected = isSelected(type, value);
@@ -134,6 +221,14 @@ export default function AdminTasks() {
       </Pressable>
     );
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.brand.accent} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background }]}>
@@ -193,8 +288,9 @@ export default function AdminTasks() {
           </Text>
         ) : (
           visibleTasks.map((task) => (
-            <View
+            <Pressable
               key={task.id}
+              onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
               style={[styles.taskCard, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}
             >
               <View style={styles.taskCardHeader}>
@@ -210,14 +306,14 @@ export default function AdminTasks() {
               <Text style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}>
                 {employeeName(task.assignedTo)} · {task.label} · {task.priority.toUpperCase()} · Due {task.dueDate}
               </Text>
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>
 
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
-          <Pressable style={[styles.modalCard, { backgroundColor: colors.base.surfaceL1 }]} onPress={() => { }}>
+          <Pressable style={[styles.modalCard, { backgroundColor: colors.base.surfaceL1 }]} onPress={() => {}}>
             <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollArea}>
               <Text style={[typography.subheading, { color: colors.text.primary, marginBottom: 16 }]}>
                 Filter Tasks
@@ -230,7 +326,6 @@ export default function AdminTasks() {
                 <Chip label="High Priority First" type="priorityHighLow" value={null} />
                 <Chip label="Low Priority First" type="priorityLowHigh" value={null} />
               </View>
-            
 
               <Text style={[typography.label, { color: colors.text.secondary, marginTop: 14, marginBottom: 6 }]}>
                 By Status
@@ -268,18 +363,15 @@ export default function AdminTasks() {
                 By Employee
               </Text>
               <View style={styles.chipRow}>
-                {EMPLOYEES.map((emp) => (
+                {employees.map((emp) => (
                   <Chip key={emp.id} label={emp.name} type="employee" value={emp.id} />
                 ))}
               </View>
-              </ScrollView>
+            </ScrollView>
 
-              <Pressable
-                style={[styles.applyButton, { backgroundColor: colors.brand.accent }]}
-                onPress={applyFilter}
-              >
-                <Text style={[typography.heading3, { color: '#FFFFFF' }]}>Apply Filter</Text>
-              </Pressable>
+            <Pressable style={[styles.applyButton, { backgroundColor: colors.brand.accent }]} onPress={applyFilter}>
+              <Text style={[typography.heading3, { color: '#FFFFFF' }]}>Apply Filter</Text>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -349,24 +441,24 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',     // back to centered
+    justifyContent: 'center',
     paddingHorizontal: 24,
   },
   modalCard: {
     borderRadius: 18,
     padding: 20,
-    maxHeight: 560,                // fixed pixel cap instead of a % — more predictable
+    maxHeight: 560,
     alignSelf: 'center',
     width: '100%',
   },
   scrollArea: {
-    flexGrow: 0,                   // stops the ScrollView from fighting the card's own height
+    flexGrow: 0,
   },
   applyButton: {
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 14,                 // was 20, slightly tighter now that it's outside the scroll
+    marginTop: 14,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1 },

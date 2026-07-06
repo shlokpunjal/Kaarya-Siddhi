@@ -12,6 +12,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
+import FadeIn from "../../components/FadeIn";
+import BackButton from "../../components/backButton";
+
 
 
 export default function RequestAdmin() {
@@ -79,10 +82,14 @@ export default function RequestAdmin() {
     }
   };
 
+  const handleSkip = () => {
+    router.replace("/(employee)");
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-
       <View style={styles.header}>
+        <BackButton />
         <Text style={[styles.headerText, typography.heading]}>
           Connect to Admin
         </Text>
@@ -90,7 +97,7 @@ export default function RequestAdmin() {
 
       <View style={styles.logoContainer}>
         <Image
-          source={require("../../assets/images/logo.jpeg")}
+          source={require("../../assets/images/logo.png")}
           style={styles.logo}
         />
       </View>
@@ -112,12 +119,12 @@ export default function RequestAdmin() {
             if (error) setError("");
           }}
         />
-        {error ? (
+        <FadeIn visible={!!error}>
           <Text style={styles.errorText}>{error}</Text>
-        ) : null}
-        {successMessage ? (
+        </FadeIn>
+        <FadeIn visible={!!successMessage}>
           <Text style={styles.successText}>{successMessage}</Text>
-        ) : null}
+        </FadeIn>
 
         <TouchableOpacity
           style={styles.button}
@@ -135,6 +142,10 @@ export default function RequestAdmin() {
 
       </View>
 
+      <TouchableOpacity onPress={handleSkip} style={styles.skipContainer}>
+        <Text style={styles.skipText}>Skip</Text>
+      </TouchableOpacity>
+
     </SafeAreaView>
   );
 }
@@ -146,95 +157,108 @@ const SUCCESS = "#2E7D32";
 
 const styles = StyleSheet.create({
 
-  container:{
-    flex:1,
-    backgroundColor:"#F7F8FC",
-    alignItems:"center"
+  container: {
+    flex: 1,
+    backgroundColor: "#F7F8FC",
+    alignItems: "center"
   },
 
-  header:{
-    width:"100%",
-    backgroundColor:PRIMARY,
-    padding:20
+  header: {
+    width: "100%",
+    backgroundColor: PRIMARY,
+    padding: 20
   },
 
-  headerText:{
-    color:"white",
-    fontSize:22,
-    fontFamily:"Poppins_600SemiBold"
+  headerText: {
+    color: "white",
+    fontSize: 22,
+    fontFamily: "Poppins_600SemiBold"
   },
 
-  logoContainer:{
-    marginTop:40
+  logoContainer: {
+    marginTop: 40
   },
 
-  logo:{
-    width:120,
-    height:120,
-    borderRadius:60
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 60
   },
 
-  card:{
-    marginTop:35,
-    width:"88%",
-    backgroundColor:"white",
-    borderRadius:20,
-    padding:20,
-    elevation:5
+  card: {
+    marginTop: 35,
+    width: "88%",
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 20,
+    elevation: 5
   },
 
-  title:{
-    textAlign:"center",
-    fontSize:20,
-    color:PRIMARY,
-    marginBottom:20,
-    fontFamily:"Poppins_600SemiBold"
+  title: {
+    textAlign: "center",
+    fontSize: 20,
+    color: PRIMARY,
+    marginBottom: 18,
+    fontFamily: "Poppins_600SemiBold"
   },
 
-  input:{
-    backgroundColor:"#EEF2F7",
-    height:55,
-    borderRadius:12,
-    paddingHorizontal:18,
-    marginBottom:6,
-    fontFamily:"Poppins_400Regular",
-    borderWidth:1,
-    borderColor:"transparent"
+  input: {
+    backgroundColor: "#EEF2F7",
+    height: 55,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    marginBottom: 18,
+    fontFamily: "Poppins_400Regular",
+    borderWidth: 1,
+    borderColor: "transparent"
   },
 
-  inputError:{
-    borderColor:ERROR,
-    backgroundColor:"#FDECEC"
+  inputError: {
+    borderColor: ERROR,
+    backgroundColor: "#FDECEC"
   },
 
-  errorText:{
-    color:ERROR,
-    fontSize:12,
-    fontFamily:"Poppins_400Regular",
-    marginBottom:14,
-    marginLeft:4
+  errorText: {
+    color: ERROR,
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    marginBottom: 12,
+    marginLeft: 4
   },
 
-  successText:{
-    color:SUCCESS,
-    fontSize:12,
-    fontFamily:"Poppins_400Regular",
-    marginBottom:14,
-    marginLeft:4
+  successText: {
+    color: SUCCESS,
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    marginBottom: 14,
+    marginLeft: 4
   },
 
-  button:{
-    backgroundColor:ACCENT,
-    height:55,
-    borderRadius:12,
-    justifyContent:"center",
-    alignItems:"center"
+  button: {
+    backgroundColor: ACCENT,
+    height: 55,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center"
   },
 
-  buttonText:{
-    color:"white",
-    fontSize:16,
-    fontFamily:"Poppins_600SemiBold"
+  buttonText: {
+    color: "white",
+    fontSize: 16,
+    fontFamily: "Poppins_600SemiBold"
+  },
+
+  skipContainer: {
+    width: "80%",
+    alignItems: "flex-end",
+    marginTop: 14
+  },
+
+  skipText: {
+    color: PRIMARY,
+    fontSize: 14,
+    fontFamily: "Poppins_500Medium",
+    textDecorationLine: "underline"
   }
 
 });

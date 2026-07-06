@@ -72,8 +72,10 @@ export const lightTheme = {
       border: '#E2E2E6',     // Subtle outlines
     },
     brand: {
-      primary: '#0B1B3D',    // Deep navy identity
-      accent: '#E8870A',     // Deep saffron CTA
+      primary: "#0B1B3D",
+      accent: "#E8870A",
+      onPrimary: "#FFFFFF",
+      secprimary: "#0B1B3D",
     },
     text: {
       primary: '#1A1A1E',    // Near black ink
@@ -103,8 +105,10 @@ export const darkTheme = {
       border: '#2A3754',
     },
     brand: {
-      primary: '#1A2E5A',    // Muted dark navigation element
-      accent: '#F5A623',     // Glowing golden amber
+      primary: "#0B1B3D",
+      accent: "#E8870A",
+      onPrimary: "#FFFFFF",
+      secprimary: "#133886",
     },
     text: {
       primary: '#F5F6F9',    // Warm non-glare white
