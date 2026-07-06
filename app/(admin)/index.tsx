@@ -98,19 +98,35 @@ export default function Dashboard() {
   }, []);
 
   // ── Bell badge: count of requests still pending admin review, refreshed on focus ──
+  // Scoped to this admin's own workspace — otherwise it counts every pending
+  // request across every admin's team.
   useFocusEffect(
     useCallback(() => {
       (async () => {
+        const email = await AsyncStorage.getItem('userEmail');
+        if (!email) return;
+
+        const { data: userRow } = await supabase
+          .from('users')
+          .select('workspace_id')
+          .eq('email', email)
+          .single();
+
+        if (!userRow?.workspace_id) {
+          setPendingRequestCount(0);
+          return;
+        }
+
         const { count } = await supabase
           .from('extension_requests')
           .select('*', { count: 'exact', head: true })
+          .eq('workspace_id', userRow.workspace_id)
           .eq('status', 'pending');
 
         setPendingRequestCount(count ?? 0);
       })();
     }, [])
   );
-
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }}>
@@ -180,24 +196,13 @@ export default function Dashboard() {
               {pendingRequestCount > 0 && (
                 <View style={{
                   position: "absolute",
-                  top: 2,
-                  right: 2,
-                  minWidth: 16,
-                  height: 16,
-                  borderRadius: 8,
+                  top: 4,
+                  right: 4,
+                  height: 10,
+                  width: 10,
+                  borderRadius: 5,
                   backgroundColor: colors.status.pending,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingHorizontal: 3,
-                }}>
-                  <Text style={{
-                    color: colors.base.surfaceL1,
-                    fontSize: 10,
-                    fontFamily: "Poppins-SemiBold",
-                  }}>
-                    {pendingRequestCount}
-                  </Text>
-                </View>
+                }} />
               )}
             </TouchableOpacity>
           </View>
