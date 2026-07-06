@@ -1,3 +1,5 @@
+from turtle import update
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -605,6 +607,7 @@ async def connection_respond(data: ConnectionRespond):
     admin = admin.data[0]
 
     workspace_id = admin.get("workspace_id")
+    print("Admin workspace:", workspace_id)
     if not workspace_id:
 
         workspace = (
@@ -636,6 +639,23 @@ async def connection_respond(data: ConnectionRespond):
     )
 
     employee = employee.data[0]
+
+    print("Employee ID:", employee["id"])
+    print("Employee Email:", repr(employee_email))
+    print("Workspace ID:", workspace_id)
+
+    update = (
+        supabase.table("users")
+    .update({
+        "workspace_id": workspace_id
+    })
+    .eq("id", employee["id"])
+    .select()
+    .execute()
+    )
+
+    print("UPDATE:", update.data)
+    print(update)
 
     return {
 
@@ -719,3 +739,9 @@ def get_current_user(authorization: str = Header(None)):
 # )
 # otp_verify_attempts = defaultdict(int)
 # # pending_signups = {}
+
+from backend.routes.excel_report import router as excel_report_router   
+# from backend.routes.upload import router as upload_router    
+app = FastAPI()    
+app.include_router(excel_report_router)   
+# app.include_router(upload_router)
