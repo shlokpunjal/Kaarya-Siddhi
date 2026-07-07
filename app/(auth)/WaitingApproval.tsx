@@ -10,13 +10,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
+import BackButton from "../../components/backButton";
+
 
 
 export default function WaitingApproval() {
-  const { employee_email, admin_email } =
+  const { employee_email, admin_email, name } =
     useLocalSearchParams<{
       employee_email: string;
       admin_email: string;
+      name?: string;
     }>();
 
   const [status, setStatus] = useState("pending");
@@ -46,7 +49,10 @@ export default function WaitingApproval() {
         setStatusMessage("Your admin has accepted your request.");
 
         setTimeout(() => {
-          router.replace("/(employee)");
+          router.replace({
+            pathname: "/(onboarding)/profileSetup1",
+            params: { role: "employee", name },
+          });
         }, 1500);
       }
 
@@ -58,6 +64,7 @@ export default function WaitingApproval() {
             pathname: "/(auth)/RequestAdmin",
             params: {
               email: employee_email,
+              name,   // ← add this
             },
           });
         }, 1500);
@@ -70,6 +77,7 @@ export default function WaitingApproval() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <BackButton />
         <Text style={styles.headerText}>
           Waiting for Approval
         </Text>
@@ -77,7 +85,7 @@ export default function WaitingApproval() {
 
       <View style={styles.logoContainer}>
         <Image
-          source={require("../../assets/images/logo.jpeg")}
+          source={require("../../assets/images/logo.png")}
           style={styles.logo}
         />
       </View>

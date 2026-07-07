@@ -1,0 +1,12 @@
+Commands to run backend :
+
+cd backend
+python -m pip install fastapi uvicorn python-dotenv supabase pydantic
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload 
+
+Command to run frontend : 
+
+npx expo start -c
