@@ -1,10 +1,19 @@
-// app/(admin)/notifications.tsx
+// app/notifications/admin.tsx
+//
+// Admin's Notifications page.
+// - "Requests" section: every extension request across all employees, live status,
+//   synced in realtime via Supabase (new pending requests appear instantly).
+// - "Other Notifications" section: placeholder for future notification types.
+//
+// Tapping a request opens app/notifications/admin-request-review.tsx,
+// where the admin reviews details and Accepts / Rejects.
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
@@ -34,14 +43,14 @@ const priorityColor = (colors: any, priority?: string) => {
   return colors.status.completed;
 };
 
-export default function Notifications() {
+export default function AdminNotifications() {
   const { colors } = useTheme();
   const router = useRouter();
   const [requests, setRequests] = useState<ExtensionRequestRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const fetchRequests = useCallback(async () => {
-    setLoading(true);
     // Joins the task's title + priority via Supabase's foreign-key relation.
     // If "tasks" isn't auto-detected, replace with two separate queries.
     const { data, error } = await supabase
@@ -57,11 +66,37 @@ export default function Notifications() {
     setLoading(false);
   }, []);
 
+  // Refresh whenever the screen regains focus (covers any gap while backgrounded)
   useFocusEffect(
     useCallback(() => {
       fetchRequests();
     }, [fetchRequests])
   );
+
+  // Realtime: new requests / status changes from any employee show up instantly
+  useEffect(() => {
+    const channel = supabase
+      .channel("extension_requests_admin")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "extension_requests" },
+        () => {
+          fetchRequests();
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [fetchRequests]);
+
+  const pendingCount = requests.filter((r) => r.status === "pending").length;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
@@ -92,8 +127,37 @@ export default function Notifications() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 20 }}>
+          {/* ---------- Requests section ---------- */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 12,
+            }}
+          >
+            <Ionicons name="document-text-outline" size={18} color={colors.text.secondary} />
+            <Text style={{ ...typography.heading3, color: colors.text.secondary }}>
+              Requests
+            </Text>
+            {pendingCount > 0 && (
+              <View
+                style={{
+                  backgroundColor: colors.status.pending + "22",
+                  borderRadius: 8,
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                }}
+              >
+                <Text style={{ ...typography.label, color: colors.status.pending }}>
+                  {pendingCount} pending
+                </Text>
+              </View>
+            )}
+          </View>
+
           {requests.length === 0 && (
-            <Text style={{ ...typography.body, color: colors.text.secondary, marginTop: 20 }}>
+            <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 24 }}>
               No extension requests yet.
             </Text>
           )}
@@ -103,7 +167,7 @@ export default function Notifications() {
               key={req.id}
               onPress={() =>
                 router.push({
-                  pathname: "/(admin)/notification-detail",
+                  pathname: "/notifications/admin-request-review",
                   params: { requestId: req.id },
                 })
               }
@@ -162,6 +226,25 @@ export default function Notifications() {
               </View>
             </TouchableOpacity>
           ))}
+
+          {/* ---------- Room for future notification types ---------- */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 10,
+              marginBottom: 12,
+            }}
+          >
+            <Ionicons name="notifications-outline" size={18} color={colors.text.secondary} />
+            <Text style={{ ...typography.heading3, color: colors.text.secondary }}>
+              Other Notifications
+            </Text>
+          </View>
+          <Text style={{ ...typography.body, color: colors.text.secondary }}>
+            You're all caught up.
+          </Text>
         </ScrollView>
       )}
     </SafeAreaView>
