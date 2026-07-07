@@ -12,6 +12,7 @@ export default function OnboardingLayout() {
     >
       <Stack.Screen name="profileSetup1" />
       <Stack.Screen name="profileSetup2" />
+      <Stack.Screen name="privacyPolicy" />
       <Stack.Screen name="profileSetup3" />
     </Stack>
   );
