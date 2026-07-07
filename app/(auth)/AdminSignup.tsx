@@ -147,7 +147,7 @@ export default function AdminSignup() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-          <BackButton />
+        <BackButton />
         <Text style={[styles.headerText, typography.heading]}>Admin Signup</Text>
       </View>
 
@@ -257,13 +257,15 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
     paddingVertical: 18,
     paddingHorizontal: 20,
+    alignSelf: "center"
+
   },
 
   headerText: {
     color: "white",
     fontSize: 22,
     fontFamily: "Poppins_600SemiBold",
-    alignSelf:"center",
+    alignSelf: "center",
   },
 
   logoContainer: {
@@ -341,16 +343,16 @@ const styles = StyleSheet.create({
   login: {
     color: PRIMARY,
     fontFamily: "Poppins_500Medium",
-    flexDirection:"row",
-    alignItems:"center",
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 0,
-    gap:2,
+    gap: 2,
 
   },
   loginT: {
     color: PRIMARY,
     fontFamily: "Poppins_600SemiBold",
-    marginTop:23.5,
-    textDecorationLine:"underline",
+    marginTop: 23.5,
+    textDecorationLine: "underline",
   },
 });
