@@ -80,6 +80,7 @@ export default function AdminTasks() {
     setLoading(true);
 
     const adminEmail = await AsyncStorage.getItem('userEmail');
+    // console.log('DEBUG adminEmail:', JSON.stringify(adminEmail)); for debugging
 
     if (!adminEmail) {
       router.replace('/(auth)/LoginChoice');
@@ -122,6 +123,8 @@ export default function AdminTasks() {
       console.error('Error fetching team:', connError.message);
     } else {
       const employeeEmails = (connections ?? []).map((c) => c.employee_email);
+      // console.log('DEBUG connections found:', connections);
+      // console.log('DEBUG employees set:', employeeEmails); for debugging
 
       if (employeeEmails.length > 0) {
         const { data: users, error: usersError } = await supabase
