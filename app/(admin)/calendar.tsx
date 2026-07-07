@@ -469,9 +469,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { useRouter } from "expo-router";
 
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
-interface Task { title: string; descp: string; category: TaskCategory; }
+interface Task {
+  id: string;
+  title: string;
+  descp: string;
+  category: TaskCategory;
+}
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const MONTH_NAMES = [
@@ -527,7 +533,8 @@ function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
   rows.forEach((row) => {
     if (!row.deadline) return;
     const dateKey = row.deadline.slice(0, 10); // YYYY-MM-DD from timestamp
-    const task: Task = {
+      const task: Task = {
+      id: row.id,
       title: row.title,
       descp: row.description ?? "",
       category: mapStatusToCategory(row.status),
@@ -540,6 +547,7 @@ function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
 
 export default function CalendarScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const { brand, base, text, status } = colors;
 
   const todayISO = new Date().toISOString().split("T")[0];
@@ -813,31 +821,56 @@ export default function CalendarScreen() {
           {selected === todayISO ? "Today" : selected}
         </Text>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.taskScroll}>
-          {tasksMap[selected]?.length ? (
-            tasksMap[selected].map((task, i) => (
-              <View
-                key={i}
-                style={[
-                  s.taskCard,
-                  {
-                    backgroundColor: base.surfaceL1,
-                    borderColor:     base.border,
-                    borderLeftColor: categoryColor[task.category],
-                  },
-                ]}
-              >
-                <View style={s.taskCardHeader}>
-                  <Text style={[s.taskTitle, { color: text.primary }]}>{task.title}</Text>
-                  <View style={[s.badge, { backgroundColor: `${categoryColor[task.category]}22` }]}>
-                    <Text style={[s.badgeText, { color: categoryColor[task.category] }]}>
-                      {categoryLabel[task.category]}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={[s.taskDesc, { color: text.secondary }]}>{task.descp}</Text>
-              </View>
-            ))
+        <ScrollView
+  showsVerticalScrollIndicator={false}
+  contentContainerStyle={s.taskScroll}
+>
+  {tasksMap[selected]?.length ? (
+    tasksMap[selected].map((task) => (
+      <Pressable
+        key={task.id}
+        onPress={() =>
+          router.push({
+            pathname: "/(task)/task-detail",
+            params: { taskId: task.id },
+          })
+        }
+        style={[
+          s.taskCard,
+          {
+            backgroundColor: base.surfaceL1,
+            borderColor: base.border,
+            borderLeftColor: categoryColor[task.category],
+          },
+        ]}
+      >
+        <View style={s.taskCardHeader}>
+          <Text style={[s.taskTitle, { color: text.primary }]}>
+            {task.title}
+          </Text>
+
+          <View
+            style={[
+              s.badge,
+              { backgroundColor: `${categoryColor[task.category]}22` },
+            ]}
+          >
+            <Text
+              style={[
+                s.badgeText,
+                { color: categoryColor[task.category] },
+              ]}
+            >
+              {categoryLabel[task.category]}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={[s.taskDesc, { color: text.secondary }]}>
+          {task.descp}
+        </Text>
+      </Pressable>
+    ))
           ) : (
             <View style={[s.emptyState, { borderColor: base.border }]}>
               <Text style={[s.emptyTitle,    { color: text.secondary }]}>No tasks scheduled</Text>
@@ -887,7 +920,7 @@ const s = StyleSheet.create({
     paddingBottom: 4,
   },
   arrow:      { fontSize: 26, lineHeight: 28, fontFamily: "Poppins-Regular" },
-  monthTitle: { fontSize: 28, fontFamily: "Poppins-SemiBold" },
+  monthTitle: { fontSize: 24, fontFamily: "Poppins-SemiBold" },
 
   /* Weekday header */
   weekRow: {

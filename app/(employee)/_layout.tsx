@@ -95,9 +95,9 @@ export default function EmployeeTabsLayout() {
         }}
       />
 
-      {/* ── NEW: notification screens hidden from the tab bar ── */}
-      <Tabs.Screen name="notifications" options={{ href: null }} />
-      <Tabs.Screen name="notification-detail" options={{ href: null }} />
+     <Tabs.Screen name="notification/index" options={{ href: null }} />
+      <Tabs.Screen name="notification/requests" options={{ href: null }} />
+      <Tabs.Screen name="notification/request-detail" options={{ href: null }} />
     </Tabs>
   );
 }

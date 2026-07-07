@@ -487,7 +487,7 @@ type Priority = "low" | "medium" | "high";
 
 type EmployeeProfile = {
   id: string;
-  full_name: string;
+  name: string;
 };
 
 const PRIORITIES: { label: string; value: Priority; color: string; bg: string }[] = [
@@ -526,8 +526,8 @@ export default function Newtask() {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name")
-        .order("full_name", { ascending: true });
+        .select("id, name")
+        .order("name", { ascending: true });
       if (error) throw error;
       if (data) setEmployeesList(data);
     } catch (err: any) {
@@ -543,7 +543,7 @@ export default function Newtask() {
       setShowDropdown(false);
     } else {
       const sorted = employeesList.filter((emp) =>
-        emp.full_name.toLowerCase().includes(text.toLowerCase())
+        emp.name.toLowerCase().includes(text.toLowerCase())
       );
       setFilteredEmployees(sorted);
       setShowDropdown(true);
@@ -551,7 +551,7 @@ export default function Newtask() {
   };
 
   const selectEmployee = (emp: EmployeeProfile) => {
-    setAssignToName(emp.full_name);
+    setAssignToName(emp.name);
     setSelectedEmployeeId(emp.id);
     setShowDropdown(false);
   };
@@ -763,7 +763,7 @@ export default function Newtask() {
                       backgroundColor: colors.base.surfaceL2,
                     }}
                   >
-                    <Text style={{ ...typography.body, color: colors.text.primary }}>{emp.full_name}</Text>
+                    <Text style={{ ...typography.body, color: colors.text.primary }}>{emp.name}</Text>
                   </TouchableOpacity>
                 ))}
               </View>

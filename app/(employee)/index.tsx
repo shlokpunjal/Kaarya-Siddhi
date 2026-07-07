@@ -140,7 +140,7 @@ export default function Dashboard() {
 
             {/* Bell icon */}
             <TouchableOpacity
-              onPress={() => router.push("/(employee)/notifications")}
+              onPress={() => router.push("/(employee)/notification")}   
               style={{
                 position: "relative",
                 marginTop: 22,
@@ -156,25 +156,11 @@ export default function Dashboard() {
               <Ionicons name="notifications-outline" size={24} color={colors.brand.accent} />
               {decidedRequestCount > 0 && (
                 <View style={{
-                  position: "absolute",
-                  top: 2,
-                  right: 2,
-                  minWidth: 16,
-                  height: 16,
-                  borderRadius: 8,
-                  backgroundColor: colors.status.completed,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingHorizontal: 3,
-                }}>
-                  <Text style={{
-                    color: colors.base.surfaceL1,
-                    fontSize: 10,
-                    fontFamily: "Poppins-SemiBold",
-                  }}>
-                    {decidedRequestCount}
-                  </Text>
-                </View>
+                  position: "absolute", top: 4, right: 4,
+                  height: 12, width: 12, borderRadius: 6,
+                  backgroundColor: colors.status.overdue,
+                  borderWidth: 2, borderColor: colors.base.surfaceL2,
+                }} />
               )}
             </TouchableOpacity>
           </View>
