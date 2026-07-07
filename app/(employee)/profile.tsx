@@ -10,7 +10,8 @@ import { typography } from '../../theme/theme';
 import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
 import CollapsibleSection from '../../components/CollapsibleSection';
 import ConfirmModal from '../../components/confirmModal';
-
+const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
+const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
 type UserRow = {
   id: string;
   name: string;
@@ -31,9 +32,11 @@ const AVATAR_SIZE = 84;
 const RING_SIZE = AVATAR_SIZE + 12;
 
 export default function EmployeeProfile() {
+
   const { colors } = useTheme();
   const { mode, setMode } = useThemeMode();
   const { logout } = useAuth();
+
 
   const [currentUser, setCurrentUser] = useState<UserRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,7 +52,7 @@ export default function EmployeeProfile() {
   const [showImage, setShowImage] = useState(false);
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [deleteVisible, setDeleteVisible] = useState(false);
-
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -162,6 +165,27 @@ export default function EmployeeProfile() {
     );
   };
 
+  // const pickAvatar = async () => {
+  //   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  //   if (!permission.granted) {
+  //     Alert.alert('Permission needed', 'Please allow photo library access to set a profile picture.');
+  //     return;
+  //   }
+
+  //   const result = await ImagePicker.launchImageLibraryAsync({
+  //     mediaTypes: ['images'],
+  //     allowsEditing: true,
+  //     aspect: [1, 1],
+  //     quality: 0.8,
+  //   });
+
+  //   if (!result.canceled && result.assets?.[0]?.uri) {
+  //     setAvatarUri(result.assets[0].uri);
+  //     // TEMPORARY — local state only for now; hook up upload (e.g. Cloudinary)
+  //     // and persist the URL to users.profile_pic_url when ready.
+  //   }
+  // };
+
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -176,10 +200,46 @@ export default function EmployeeProfile() {
       quality: 0.8,
     });
 
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setAvatarUri(result.assets[0].uri);
-      // TEMPORARY — local state only for now; hook up upload (e.g. Cloudinary)
-      // and persist the URL to users.profile_pic_url when ready.
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    const localUri = result.assets[0].uri;
+    setAvatarUri(localUri); // optimistic preview
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: localUri,
+        type: 'image/jpeg',
+        name: `avatar_${currentUser!.id}.jpg`,
+      } as any);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+      formData.append('folder', 'profile_pics');
+
+      const uploadRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: 'POST', body: formData }
+      );
+      const uploadData = await uploadRes.json();
+
+      if (!uploadData.secure_url) {
+        throw new Error(uploadData.error?.message || 'Cloudinary upload failed');
+      }
+
+      const { error } = await supabase
+        .from('users')
+        .update({ profile_pic_url: uploadData.secure_url })
+        .eq('id', currentUser!.id);
+
+      if (error) throw error;
+
+      setAvatarUri(uploadData.secure_url);
+      setCurrentUser((prev) => (prev ? { ...prev, profile_pic_url: uploadData.secure_url } : prev));
+    } catch (err: any) {
+      Alert.alert('Upload failed', err.message || 'Could not upload photo.');
+      setAvatarUri(currentUser?.profile_pic_url ?? null); // revert preview
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -258,6 +318,13 @@ export default function EmployeeProfile() {
                   )}
                 </View>
               </Pressable>
+{/* 
+              {uploading && (
+                <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', borderRadius: AVATAR_SIZE / 2, backgroundColor: 'rgba(0,0,0,0.35)' }]}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                </View>
+              )} */}
+
               <Pressable
                 style={[styles.cameraBadge, { backgroundColor: colors.brand.primary, borderColor: colors.base.surfaceL1 }]}
                 onPress={pickAvatar}
