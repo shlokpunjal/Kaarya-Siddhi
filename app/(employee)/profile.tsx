@@ -306,6 +306,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { typography } from '../../theme/theme';
 import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
+import CollapsibleSection from '../../components/CollapsibleSection';
+import ConfirmModal from '../../components/confirmModal';
 
 const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
 const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
@@ -327,6 +329,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionic
 ];
 
 const AVATAR_SIZE = 84;
+const RING_SIZE = AVATAR_SIZE + 12;
 
 export default function EmployeeProfile() {
   const { colors } = useTheme();
@@ -342,9 +345,11 @@ export default function EmployeeProfile() {
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [email, setEmail] = useState('');
+  const [adminName, setAdminName] = useState<string | null>(null);
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
+  const [logoutVisible, setLogoutVisible] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -354,9 +359,29 @@ export default function EmployeeProfile() {
     setLoading(true);
 
     const savedEmail = await AsyncStorage.getItem('userEmail');
+
     if (!savedEmail) {
       setLoading(false);
       return;
+    }
+
+    const { data: connection, error: connError } = await supabase
+      .from('connections')
+      .select('admin_email')
+      .eq('employee_email', savedEmail)
+      .eq('status', 'accepted')
+      .maybeSingle();
+
+    if (connError) console.log('Connection query error:', connError);
+
+    if (connection?.admin_email) {
+      const { data: adminUser } = await supabase
+        .from('users')
+        .select('name')
+        .eq('email', connection.admin_email)
+        .maybeSingle();
+
+      setAdminName(adminUser?.name ?? connection.admin_email);
     }
 
     const { data, error } = await supabase
@@ -411,15 +436,33 @@ export default function EmployeeProfile() {
   };
 
   const handleLogout = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log out', style: 'destructive', onPress: () => logout() },
-    ]);
+    setLogoutVisible(true);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This permanently deletes your account and all associated data. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!currentUser) return;
+            const { error } = await supabase.from('users').delete().eq('id', currentUser.id);
+            if (error) {
+              Alert.alert('Could not delete account', error.message);
+              return;
+            }
+            logout();
+          },
+        },
+      ]
+    );
   };
 
   const pickAvatar = async () => {
-    if (!editing) return;
-
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permission needed', 'Please allow photo library access to set a profile picture.');
@@ -505,16 +548,40 @@ export default function EmployeeProfile() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 4 }]}>
-          Profile
-        </Text>
-        <Text style={[typography.body, { color: colors.text.secondary, marginBottom: 20 }]}>
-          Employee
-        </Text>
+        <View style={styles.headerRow}>
+          <Text style={[typography.heading, { color: colors.text.primary }]}>Profile</Text>
+          <View style={[styles.roleBadge, { backgroundColor: colors.base.surfaceL2, borderColor: colors.base.border }]}>
+            <Text style={[typography.label, { color: colors.brand.accent }]}>Employee</Text>
+          </View>
+        </View>
 
         <View style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
-          {/* Avatar + Name row */}
-          <View style={styles.headerRow}>
+          <View style={styles.cardTopRow}>
+            <Pressable
+              style={[
+                styles.editPill,
+                {
+                  borderColor: colors.brand.accent,
+                  backgroundColor: editing ? colors.brand.accent : 'transparent',
+                },
+              ]}
+              onPress={editing ? handleSave : () => setEditing(true)}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color={editing ? '#FFFFFF' : colors.brand.accent} />
+              ) : (
+                <>
+                  <Ionicons name={editing ? 'checkmark' : 'pencil'} size={13} color={editing ? '#FFFFFF' : colors.brand.accent} />
+                  <Text style={[typography.label, { color: editing ? '#FFFFFF' : colors.brand.accent, marginLeft: 4 }]}>
+                    {editing ? 'Save' : 'Edit Profile'}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+
+          <View style={styles.avatarSection}>
             <View style={styles.avatarWrap}>
               <Pressable
                 onPress={() => {
@@ -525,13 +592,15 @@ export default function EmployeeProfile() {
                   }
                 }}
               >
-                {avatarUri ? (
-                  <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-                ) : (
-                  <View style={[styles.avatarImage, styles.avatarFallback, { backgroundColor: colors.brand.accent }]}>
-                    <Text style={[typography.subheading, { color: '#FFFFFF' }]}>{initials}</Text>
-                  </View>
-                )}
+                <View style={[styles.avatarRing, { borderColor: colors.brand.accent }]}>
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                  ) : (
+                    <View style={[styles.avatarImage, styles.avatarFallback, { backgroundColor: colors.brand.accent }]}>
+                      <Text style={[typography.heading, { color: '#FFFFFF' }]}>{initials}</Text>
+                    </View>
+                  )}
+                </View>
               </Pressable>
 
               {uploading && (
@@ -541,7 +610,7 @@ export default function EmployeeProfile() {
                     {
                       alignItems: 'center',
                       justifyContent: 'center',
-                      borderRadius: AVATAR_SIZE / 2,
+                      borderRadius: RING_SIZE / 2,
                       backgroundColor: 'rgba(0,0,0,0.35)',
                     },
                   ]}
@@ -561,131 +630,133 @@ export default function EmployeeProfile() {
               )}
             </View>
 
-            <View style={styles.nameColumn}>
+            <Text style={[typography.subheading, { color: colors.text.primary, marginTop: 12 }]} numberOfLines={1}>
+              {name}
+            </Text>
+            <Text style={[typography.body, { color: colors.text.secondary, marginTop: 2 }]}>
+              {currentUser.designation ?? '—'}
+            </Text>
+          </View>
+
+          <View style={styles.fieldsGroup}>
+            <View style={[styles.fieldRow, { borderBottomColor: colors.base.border }]}>
+              <Text style={[typography.label, { color: colors.text.secondary }]}>Email id</Text>
               {editing ? (
                 <TextInput
-                  value={name}
-                  onChangeText={setName}
+                  value={email}
+                  onChangeText={setEmail}
                   style={[styles.input, typography.body, { borderColor: colors.base.border, color: colors.text.primary }]}
                 />
               ) : (
-                <Text style={[typography.subheading, { color: colors.text.primary }]} numberOfLines={1}>
-                  {name}
-                </Text>
+                <Text style={[typography.body, { color: colors.text.primary, marginTop: 4 }]}>{email}</Text>
               )}
-              <Text style={[typography.body, { color: colors.text.secondary, marginTop: 2 }]}>
-                {currentUser.designation ?? '—'}
+            </View>
+
+            <View style={[styles.fieldRow, { borderBottomColor: colors.base.border }]}>
+              <Text style={[typography.label, { color: colors.text.secondary }]}>Contact</Text>
+              {editing ? (
+                <TextInput
+                  value={contact}
+                  onChangeText={setContact}
+                  style={[styles.input, typography.body, { borderColor: colors.base.border, color: colors.text.primary }]}
+                />
+              ) : (
+                <Text style={[typography.body, { color: colors.text.primary, marginTop: 4 }]}>{contact}</Text>
+              )}
+            </View>
+
+            <View style={[styles.fieldRow, { borderBottomColor: colors.base.border }]}>
+              <Text style={[typography.label, { color: colors.text.secondary }]}>Department</Text>
+              <Text style={[typography.body, { color: colors.text.primary, marginTop: 4 }]}>
+                {currentUser.department ?? '—'}
+              </Text>
+            </View>
+
+            <View style={[styles.fieldRow, { borderBottomWidth: 0 }]}>
+              <Text style={[typography.label, { color: colors.text.secondary }]}>Reporting to</Text>
+              <Text style={[typography.body, { color: colors.text.primary, marginTop: 4 }]}>
+                {adminName ?? '—'}
               </Text>
             </View>
           </View>
-
-          {/* Contact Details Fields */}
-          <View style={[styles.fieldRow, { borderBottomColor: colors.base.border }]}>
-            <Text style={[typography.label, { color: colors.text.secondary }]}>Email id</Text>
-            {editing ? (
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                style={[styles.input, typography.body, { borderColor: colors.base.border, color: colors.text.primary, marginTop: 4 }]}
-              />
-            ) : (
-              <Text style={[typography.body, { color: colors.text.primary, marginTop: 4 }]}>{email}</Text>
-            )}
-          </View>
-
-          <View style={[styles.fieldRow, { borderBottomColor: colors.base.border }]}>
-            <Text style={[typography.label, { color: colors.text.secondary }]}>Contact</Text>
-            {editing ? (
-              <TextInput
-                value={contact}
-                onChangeText={setContact}
-                style={[styles.input, typography.body, { borderColor: colors.base.border, color: colors.text.primary, marginTop: 4 }]}
-              />
-            ) : (
-              <Text style={[typography.body, { color: colors.text.primary, marginTop: 4 }]}>{contact}</Text>
-            )}
-          </View>
-
-          <View style={[styles.fieldRow, { borderBottomWidth: 0 }]}>
-            <Text style={[typography.label, { color: colors.text.secondary }]}>Department</Text>
-            <Text style={[typography.body, { color: colors.text.primary, marginTop: 4 }]}>
-              {currentUser.department ?? '—'}
-            </Text>
-          </View>
         </View>
 
-        {/* Dynamic Edit/Save Action Buttons */}
-        <Pressable
-          style={[styles.actionButton, { backgroundColor: colors.brand.accent, opacity: saving ? 0.7 : 1 }]}
-          onPress={editing ? handleSave : () => setEditing(true)}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={[typography.heading3, { color: '#FFFFFF' }]}>
-              {editing ? 'Save Changes' : 'Edit Profile'}
-            </Text>
-          )}
-        </Pressable>
-
-        <Pressable
-          style={[styles.actionButton, styles.logoutButton, { borderColor: colors.status.overdue }]}
-          onPress={handleLogout}
-        >
-          <Text style={[typography.heading3, { color: colors.status.overdue }]}>Log Out</Text>
-        </Pressable>
-
-        {/* Configuration Block */}
-        <View style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
-          <Text style={[typography.subheading, { color: colors.text.primary, marginBottom: 14 }]}>
-            Appearance
-          </Text>
-          <View style={styles.themeRow}>
-            {THEME_OPTIONS.map((option) => {
-              const selected = mode === option.value;
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => setMode(option.value)}
-                  style={[
-                    styles.themeOption,
-                    {
-                      backgroundColor: selected ? colors.brand.accent : colors.base.surfaceL2,
-                      borderColor: selected ? colors.brand.accent : colors.base.border,
-                    },
-                  ]}
-                >
-                  <Ionicons name={option.icon} size={22} color={selected ? '#FFFFFF' : colors.text.primary} />
-                  <Text style={[typography.label, { color: selected ? '#FFFFFF' : colors.text.primary, marginTop: 4 }]}>
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Text style={[typography.subheading, { color: colors.text.primary, marginTop: 20, marginBottom: 10 }]}>
-            Language
-          </Text>
-          <Pressable
-            style={[styles.languageButton, { backgroundColor: colors.base.surfaceL2, borderColor: colors.base.border }]}
-            onPress={() => {}}
+        <View style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border, paddingVertical: 4 }]}>
+          <CollapsibleSection
+            icon="color-palette-outline"
+            title="Appearance"
+            summary={THEME_OPTIONS.find((o) => o.value === mode)?.label}
+            colors={colors}
           >
-            <Ionicons name="language-outline" size={20} color={colors.text.primary} />
-            <Text style={[typography.body, { color: colors.text.primary, marginLeft: 8 }]}>English</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} style={{ marginLeft: 'auto' }} />
-          </Pressable>
+            <View style={styles.themeRow}>
+              {THEME_OPTIONS.map((option) => {
+                const selected = mode === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => setMode(option.value)}
+                    style={[
+                      styles.themeOption,
+                      {
+                        backgroundColor: selected ? colors.brand.accent : colors.base.surfaceL2,
+                        borderColor: selected ? colors.brand.accent : colors.base.border,
+                      },
+                    ]}
+                  >
+                    <Ionicons name={option.icon} size={22} color={selected ? '#FFFFFF' : colors.text.primary} />
+                    <Text style={[typography.label, { color: selected ? '#FFFFFF' : colors.text.primary, marginTop: 4 }]}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </CollapsibleSection>
+
+          <CollapsibleSection icon="language-outline" title="Language" summary="English" colors={colors} last>
+            <Pressable
+              style={[styles.languageButton, { backgroundColor: colors.base.surfaceL2, borderColor: colors.base.border }]}
+              onPress={() => {}}
+            >
+              <Ionicons name="language-outline" size={20} color={colors.text.primary} />
+              <Text style={[typography.body, { color: colors.text.primary, marginLeft: 8 }]}>English</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} style={{ marginLeft: 'auto' }} />
+            </Pressable>
+          </CollapsibleSection>
         </View>
+
+        <Pressable style={[styles.logoutRow, { backgroundColor: colors.brand.primary }]} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={18} color="#ffffff" />
+          <Text style={[typography.heading3, { color: '#ffffff', marginLeft: 8 }]}>Log Out</Text>
+        </Pressable>
+
+        <Pressable style={styles.deleteRow} onPress={handleDeleteAccount}>
+          <Ionicons name="trash-outline" size={18} color="#FFFFFF" />
+          <Text style={[typography.heading3, { color: '#FFFFFF', marginLeft: 8 }]}>Delete Account</Text>
+        </Pressable>
       </ScrollView>
 
-      {/* Fullscreen Image View Modal */}
       <Modal visible={showImage} transparent animationType="fade" onRequestClose={() => setShowImage(false)}>
         <Pressable style={styles.modalBackground} onPress={() => setShowImage(false)}>
           <Ionicons name="close" size={30} color="#FFFFFF" style={styles.closeModalButton} />
           {avatarUri && <Image source={{ uri: avatarUri }} style={styles.fullscreenImage} resizeMode="contain" />}
         </Pressable>
       </Modal>
+
+      <ConfirmModal
+        visible={logoutVisible}
+        title="Logout"
+        message="Are you sure you want to log out?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        confirmColor="#E8870A"
+        destructive
+        onCancel={() => setLogoutVisible(false)}
+        onConfirm={() => {
+          setLogoutVisible(false);
+          logout();
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -693,9 +764,28 @@ export default function EmployeeProfile() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 40 },
-  card: { borderRadius: 16, borderWidth: 1, padding: 18, marginBottom: 20 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  avatarWrap: { position: 'relative', width: AVATAR_SIZE, height: AVATAR_SIZE },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  card: { borderRadius: 18, borderWidth: 2, padding: 18, marginBottom: 16 },
+  cardTopRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  editPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  avatarSection: { alignItems: 'center', marginTop: 4, marginBottom: 18 },
+  avatarWrap: { position: 'relative', width: RING_SIZE, height: RING_SIZE },
+  avatarRing: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    borderWidth: 2.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   avatarImage: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
   cameraBadge: {
@@ -709,11 +799,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nameColumn: { marginLeft: 14, flex: 1 },
+  fieldsGroup: { marginTop: 4 },
   fieldRow: { borderBottomWidth: 1, paddingVertical: 12 },
-  input: { borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 },
-  actionButton: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 12 },
-  logoutButton: { backgroundColor: 'transparent', borderWidth: 1.5 },
+  input: { borderWidth: 1, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginTop: 4 },
   themeRow: { flexDirection: 'row', gap: 10 },
   themeOption: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 14, alignItems: 'center' },
   languageButton: {
@@ -723,6 +811,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 12,
     paddingHorizontal: 14,
+  },
+  logoutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+    borderRadius: 14,
+  },
+  deleteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#C53030',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 12,
   },
   modalBackground: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.9)', justifyContent: 'center', alignItems: 'center' },
   closeModalButton: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
