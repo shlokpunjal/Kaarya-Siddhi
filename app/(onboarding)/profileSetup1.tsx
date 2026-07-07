@@ -9,6 +9,7 @@ import { lightTheme, typography } from "../../theme/theme";
 import { API_BASE_URL } from "../../constants/api";
 import { useAuth } from "../../hooks/useAuth";
 
+
 const { colors } = lightTheme;
 const ERROR = "#D32F2F";
 
@@ -110,7 +111,7 @@ export default function ProfileSetup1() {
             )}
           </TouchableOpacity>
         </View>
-
+        
         <View style={styles.dotsWrap}>
           <ProgressDots total={3} current={1} />
         </View>
