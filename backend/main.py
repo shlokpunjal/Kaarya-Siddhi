@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -417,6 +418,7 @@ async def verify_otp(data: VerifyOTPRequest):
     return {
         "success": True,
         "token": access_token,
+        "id": user["id"],
         "email": user["email"],
         "role": user["role"],
         "workspace_id": user.get("workspace_id"),
@@ -558,10 +560,8 @@ async def pending_requests(admin_email: str):
 
 @app.post("/connection-respond")
 async def connection_respond(data: ConnectionRespond):
-
     employee_email = normalize_email(data.employee_email)
     admin_email = normalize_email(data.admin_email)
-
     new_status = "accepted" if data.accept else "rejected"
 
     connection = (
@@ -573,40 +573,25 @@ async def connection_respond(data: ConnectionRespond):
     )
 
     if not connection.data:
-        raise HTTPException(
-            status_code=404,
-            detail="Connection request not found."
-        )
+        raise HTTPException(status_code=404, detail="Connection request not found.")
 
     supabase.table("connections").update({
         "status": new_status
-    }).eq(
-        "employee_email",
-        employee_email
-    ).eq(
-        "admin_email",
-        admin_email
-    ).execute()
+    }).eq("employee_email", employee_email).eq("admin_email", admin_email).execute()
 
     if not data.accept:
-
-        return {
-            "success": True,
-            "message": "Request Rejected"
-        }
+        return {"success": True, "message": "Request Rejected"}
 
     admin = (
         supabase.table("users")
-        .select("*") 
+        .select("*")
         .eq("email", admin_email)
         .execute()
     )
-
     admin = admin.data[0]
 
     workspace_id = admin.get("workspace_id")
     if not workspace_id:
-
         workspace = (
             supabase.table("workspaces")
             .insert({
@@ -615,37 +600,32 @@ async def connection_respond(data: ConnectionRespond):
             })
             .execute()
         )
-
         workspace_id = workspace.data[0]["id"]
 
         supabase.table("users").update({
-
             "workspace_id": workspace_id
+        }).eq("email", admin_email).execute()
 
-        }).eq(
-
-            "email",
-            admin_email
-
-        ).execute()
     employee = (
         supabase.table("users")
         .select("*")
         .eq("email", employee_email)
         .execute()
     )
-
     employee = employee.data[0]
 
-    return {
-
-        "success": True,
-
-        "message": "Employee Connected Successfully",
-
+    # THIS WAS MISSING — the actual write that connects the employee to the workspace
+    supabase.table("users").update({
         "workspace_id": workspace_id
+    }).eq("email", employee_email).execute()
 
+    return {
+        "success": True,
+        "message": "Employee Connected Successfully",
+        "workspace_id": workspace_id
     }
+    
+    
 @app.get("/employee/connection-status/{employee_email}")
 async def employee_connection_status(employee_email: str):
 
@@ -719,3 +699,9 @@ def get_current_user(authorization: str = Header(None)):
 # )
 # otp_verify_attempts = defaultdict(int)
 # # pending_signups = {}
+
+from backend.routes.excel_report import router as excel_report_router   
+# from backend.routes.upload import router as upload_router    
+app = FastAPI()    
+app.include_router(excel_report_router)   
+# app.include_router(upload_router)

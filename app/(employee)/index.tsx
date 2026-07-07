@@ -62,10 +62,22 @@ export default function Dashboard() {
         return;
       }
 
+      const { data: currentUser, error: userLookupError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (userLookupError || !currentUser) {
+        console.error('Could not resolve user id for email:', email);
+        if (isMounted) setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('assigned_to', email)
+        .eq('assigned_to', currentUser.id)
         .order('deadline', { ascending: true });
 
       if (error) {
