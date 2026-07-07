@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 
 from supabase_client import supabase
 
-import smtplib
 import random
 import os
 
