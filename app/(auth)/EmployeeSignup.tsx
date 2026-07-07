@@ -13,6 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
+import BackButton from "../../components/backButton";
+
 
 
 export default function EmployeeSignup() {
@@ -159,6 +161,7 @@ export default function EmployeeSignup() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <BackButton />
         <Text style={[styles.headerText, typography.heading]}>
           Employee Signup
         </Text>
@@ -166,7 +169,7 @@ export default function EmployeeSignup() {
 
       <View style={styles.logoContainer}>
         <Image
-          source={require("../../assets/images/logo.jpeg")}
+          source={require("../../assets/images/logo.png")}
           style={styles.logo}
         />
       </View>
@@ -375,16 +378,16 @@ const styles = StyleSheet.create({
   login: {
     color: PRIMARY,
     fontFamily: "Poppins_500Medium",
-    flexDirection:"row",
-    alignItems:"center",
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 0,
-    gap:2,
+    gap: 2,
 
   },
   loginT: {
     color: PRIMARY,
     fontFamily: "Poppins_600SemiBold",
-    marginTop:19,
-    textDecorationLine:"underline",
+    marginTop: 19,
+    textDecorationLine: "underline",
   },
 });
