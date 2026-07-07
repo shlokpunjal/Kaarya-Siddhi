@@ -252,7 +252,7 @@ export default function Dashboard() {
         <View style={{ flexDirection: "row", gap: 20 }}>
           <View style={{ marginLeft: 33, flex: 1, marginRight: 33 }}>
             <TouchableOpacity
-              onPress={() => router.push("/newtask")}
+              onPress={() => router.push("/newtaskemp")}
               style={{
                 backgroundColor: colors.brand.accent, padding: 14,
                 width: "100%", height: 60, borderRadius: 32,
@@ -266,24 +266,45 @@ export default function Dashboard() {
         </View>
 
         {/* ── Overdue Accordion ── */}
-        <View style={{ width: 320, marginTop: 30, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
-          <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
+        <View style={{ width: 320, marginTop: 30, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1}}>
+          <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal:20}}>
             <Text style={{ ...typography.subheading, color: colors.status.overdue }}>Overdue</Text>
             <TouchableOpacity onPress={() => setShowOverdue(!showOverdue)}>
-              <Ionicons name={showOverdue ? "chevron-up-outline" : "chevron-down-outline"} size={30} color={colors.base.surfaceL1} style={{ backgroundColor: colors.status.overdue, borderRadius: 10, padding: 2 }} />
+              <Ionicons name={showOverdue ? "chevron-up-outline" : "chevron-down-outline"} size={30} color={colors.base.surfaceL1} style={{ backgroundColor: colors.status.overdue, borderRadius: 10, padding: 2}} />
             </TouchableOpacity>
           </View>
           {showOverdue && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
-              {overdueTasks.map((task) => (
-                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
-                  style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
-                  <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.overdue, alignItems: "center", justifyContent: "center" }}>
-                    <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.overdue }} />
-                  </View>
-                  <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
-                </TouchableOpacity>
-              ))}
+              {overdueTasks.length === 0 ? (
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: 20,
+                  marginHorizontal: 10,
+                  marginBottom: 10,
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderStyle: "dashed",
+                  borderColor: colors.base.border,
+                  backgroundColor: colors.base.surfaceL2,
+                }}>
+                  <Ionicons name="checkmark-circle-outline" size={22} color={colors.status.overdue} style={{ opacity: 0.6, marginRight: 8 }} />
+                  <Text style={{ ...typography.body, color: colors.text.secondary }}>
+                    No tasks are overdue
+                  </Text>
+                </View>
+              ) : (
+                overdueTasks.map((task) => (
+                  <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
+                    style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
+                    <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.overdue, alignItems: "center", justifyContent: "center" }}>
+                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.overdue }} />
+                    </View>
+                    <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
           )}
         </View>
@@ -298,15 +319,36 @@ export default function Dashboard() {
           </View>
           {showPending && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
-              {pendingTasks.map((task) => (
-                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
-                  style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
-                  <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.pending, alignItems: "center", justifyContent: "center" }}>
-                    <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.pending }} />
-                  </View>
-                  <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
-                </TouchableOpacity>
-              ))}
+              {pendingTasks.length === 0 ? (
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: 20,
+                  marginHorizontal: 10,
+                  marginBottom: 10,
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderStyle: "dashed",
+                  borderColor: colors.base.border,
+                  backgroundColor: colors.base.surfaceL2,
+                }}>
+                  <Ionicons name="hourglass-outline" size={22} color={colors.status.pending} style={{ opacity: 0.6, marginRight: 8 }} />
+                  <Text style={{ ...typography.body, color: colors.text.secondary }}>
+                    Nothing pending right now
+                  </Text>
+                </View>
+              ) : (
+                pendingTasks.map((task) => (
+                  <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
+                    style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
+                    <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.pending, alignItems: "center", justifyContent: "center" }}>
+                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.pending }} />
+                    </View>
+                    <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
           )}
         </View>
@@ -319,17 +361,38 @@ export default function Dashboard() {
               <Ionicons name={showReview ? "chevron-up-outline" : "chevron-down-outline"} size={30} color={colors.base.surfaceL1} style={{ backgroundColor: colors.status.inReview, borderRadius: 10, padding: 2 }} />
             </TouchableOpacity>
           </View>
-          {showReview && (
+         {showReview && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
-              {reviewTasks.map((task) => (
-                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
-                  style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
-                  <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.inReview, alignItems: "center", justifyContent: "center" }}>
-                    <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.inReview }} />
-                  </View>
-                  <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
-                </TouchableOpacity>
-              ))}
+              {reviewTasks.length === 0 ? (
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: 20,
+                  marginHorizontal: 10,
+                  marginBottom: 8,
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderStyle: "dashed",
+                  borderColor: colors.base.border,
+                  backgroundColor: colors.base.surfaceL2,
+                }}>
+                  <Ionicons name="eye-outline" size={22} color={colors.status.inReview} style={{ opacity: 0.6, marginRight: 8 }} />
+                  <Text style={{ ...typography.body, color: colors.text.secondary }}>
+                    Nothing in review
+                  </Text>
+                </View>
+              ) : (
+                reviewTasks.map((task) => (
+                  <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
+                    style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
+                    <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.inReview, alignItems: "center", justifyContent: "center" }}>
+                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.inReview }} />
+                    </View>
+                    <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
           )}
         </View>
@@ -344,15 +407,36 @@ export default function Dashboard() {
           </View>
           {showCompleted && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
-              {completedTasks.map((task) => (
-                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
-                  style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
-                  <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.completed, alignItems: "center", justifyContent: "center" }}>
-                    <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.completed }} />
-                  </View>
-                  <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
-                </TouchableOpacity>
-              ))}
+              {completedTasks.length === 0 ? (
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: 20,
+                  marginHorizontal: 10,
+                  marginBottom: 8,
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderStyle: "dashed",
+                  borderColor: colors.base.border,
+                  backgroundColor: colors.base.surfaceL2,
+                }}>
+                  <Ionicons name="trophy-outline" size={22} color={colors.status.completed} style={{ opacity: 0.6, marginRight: 8 }} />
+                  <Text style={{ ...typography.body, color: colors.text.secondary }}>
+                    No completed tasks yet
+                  </Text>
+                </View>
+              ) : (
+                completedTasks.map((task) => (
+                  <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
+                    style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
+                    <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.completed, alignItems: "center", justifyContent: "center" }}>
+                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.completed }} />
+                    </View>
+                    <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
           )}
         </View>
