@@ -191,6 +191,7 @@ import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 
+
 const { colors } = lightTheme;
 const ERROR = "#D32F2F";
 
@@ -323,7 +324,7 @@ export default function ProfileSetup1() {
             )}
           </TouchableOpacity>
         </View>
-
+        
         <View style={styles.dotsWrap}>
           <ProgressDots total={3} current={1} />
         </View>
