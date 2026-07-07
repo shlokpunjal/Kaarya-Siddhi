@@ -13,18 +13,13 @@ import { useRouter } from "expo-router";
 import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import * as DocumentPicker from "expo-document-picker";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "@env";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Priority = "low" | "medium" | "high";
-
-type EmployeeProfile = {
-  id: string;
-  name: string;
-};
 
 const PRIORITIES: { label: string; value: Priority; color: string; bg: string }[] = [
   { label: "Low", value: "low", color: "#2E7D32", bg: "#E8F5E9" },
@@ -38,13 +33,6 @@ export default function Newtask() {
 
   const [taskName, setTaskName] = useState("");
 
-  // Employee autocomplete
-  const [assignToName, setAssignToName] = useState("");
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-  const [employeesList, setEmployeesList] = useState<EmployeeProfile[]>([]);
-  const [filteredEmployees, setFilteredEmployees] = useState<EmployeeProfile[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-
   // Deadline — calendar picker (replaces text input)
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -53,45 +41,6 @@ export default function Newtask() {
   const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
   const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    fetchEmployeeProfiles();
-  }, []);
-
-  const fetchEmployeeProfiles = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("users")              // ← was "profiles"
-        .select("id, name")         // ← was "full_name" — check your users schema: it's `name`, not `full_name`
-        .eq("role", "employee")     // optional but recommended — see below
-        .order("name", { ascending: true });
-      if (error) throw error;
-      if (data) setEmployeesList(data);
-    } catch (err: any) {
-      console.error("Error loading employee directory:", err.message);
-    }
-  };
-
-  const handleSearchEmployee = (text: string) => {
-    setAssignToName(text);
-    setSelectedEmployeeId(null);
-    if (text.trim() === "") {
-      setFilteredEmployees([]);
-      setShowDropdown(false);
-    } else {
-      const sorted = employeesList.filter((emp) =>
-        emp.name.toLowerCase().includes(text.toLowerCase())
-      );
-      setFilteredEmployees(sorted);
-      setShowDropdown(true);
-    }
-  };
-
-  const selectEmployee = (emp: EmployeeProfile) => {
-    setAssignToName(emp.name);
-    setSelectedEmployeeId(emp.id);
-    setShowDropdown(false);
-  };
 
   const onChangeDate = (event: any, selected?: Date) => {
     // On Android the picker closes itself; on iOS keep it open until user taps away
@@ -147,10 +96,6 @@ export default function Newtask() {
       alert("Please enter a task name");
       return;
     }
-    if (!selectedEmployeeId) {
-      alert("Please select a valid employee from the list");
-      return;
-    }
 
     try {
       setLoading(true);
@@ -163,7 +108,7 @@ export default function Newtask() {
 
       const { data: currentUser, error: userLookupError } = await supabase
         .from("users")
-        .select("id, workspace_id")   // ← pull workspace_id here too
+        .select("id, workspace_id")
         .eq("email", email)
         .single();
 
@@ -181,7 +126,7 @@ export default function Newtask() {
         .from("tasks")
         .insert({
           title: taskName,
-          assigned_to: selectedEmployeeId,
+          assigned_to: currentUser.id, // self-assigned
           deadline: deadlineDate ? deadlineDate.toISOString().split("T")[0] : null,
           description: description || null,
           attachment_url: mainFileUrl,
@@ -241,7 +186,7 @@ export default function Newtask() {
       }}>
         <Ionicons onPress={() => router.back()} name="arrow-back" size={28} color={colors.brand.onPrimary} />
         <Text style={{ ...typography.heading, color: colors.brand.onPrimary, flex: 1, textAlign: "center", marginRight: 28 }}>
-          Task Assignment
+          New Task
         </Text>
       </View>
 
@@ -272,58 +217,12 @@ export default function Newtask() {
             style={inputStyle}
           />
 
-          {/* Assign To — autocomplete */}
-          <View style={{ zIndex: 10 }}>
-            <TextInput
-              placeholder="Assign to (Type employee name...)"
-              placeholderTextColor={colors.text.secondary}
-              value={assignToName}
-              onChangeText={handleSearchEmployee}
-              style={[
-                inputStyle,
-                selectedEmployeeId ? { borderColor: colors.brand.accent, borderWidth: 1.5 } : {},
-              ]}
-            />
-            {selectedEmployeeId && (
-              <View style={{ position: "absolute", right: 12, top: 26 }}>
-                <Ionicons name="checkmark-circle" size={22} color={colors.brand.accent} />
-              </View>
-            )}
-            {showDropdown && filteredEmployees.length > 0 && (
-              <View style={{
-                backgroundColor: colors.base.surfaceL1,
-                borderColor: colors.base.border,
-                borderWidth: 1,
-                borderRadius: 12,
-                marginTop: 4,
-                maxHeight: 180,
-                overflow: "hidden",
-              }}>
-                {filteredEmployees.map((emp) => (
-                  <TouchableOpacity
-                    key={emp.id}
-                    onPress={() => selectEmployee(emp)}
-                    style={{
-                      padding: 14,
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.base.border,
-                      backgroundColor: colors.base.surfaceL2,
-                    }}
-                  >
-                    <Text style={{ ...typography.body, color: colors.text.primary }}>{emp.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-
           {/* ── Deadline — calendar picker ── */}
           <View style={{ marginTop: 14 }}>
             <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 6, paddingLeft: 4 }}>
               Deadline
             </Text>
 
-            {/* Trigger button — same look as the text inputs above */}
             <TouchableOpacity
               onPress={() => setShowDatePicker(true)}
               style={{
@@ -353,7 +252,6 @@ export default function Newtask() {
               />
             </TouchableOpacity>
 
-            {/* Clear button — only shown when a date is picked */}
             {deadlineDate && (
               <TouchableOpacity
                 onPress={() => setDeadlineDate(null)}
@@ -364,7 +262,6 @@ export default function Newtask() {
               </TouchableOpacity>
             )}
 
-            {/* The actual picker — shown inline on iOS, modal on Android */}
             {showDatePicker && (
               <DateTimePicker
                 value={deadlineDate ?? new Date()}
