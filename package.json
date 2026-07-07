@@ -26,7 +26,11 @@
     "expo-linking": "~8.0.12",
     "expo-notifications": "~0.32.17",
     "expo-router": "~6.0.24",
+<<<<<<< HEAD
+    "expo-secure-store": "~15.0.8",
+=======
     "expo-sharing": "~14.0.8",
+>>>>>>> main
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
