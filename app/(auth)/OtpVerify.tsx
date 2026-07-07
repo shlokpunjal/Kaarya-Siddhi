@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef, useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../context/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
 import BackButton from "../../components/backButton";
@@ -82,18 +82,35 @@ const OtpVerify = () => {
         return;
       }
 
-      await saveSession(data.token, ph?.toString() ?? "", data.email, data.role, data.workspace_id);
+      console.log("Before saveSession");
+
+      await saveSession(
+        data.token,
+        ph?.toString() ?? "",
+        data.email,
+        data.role,
+        data.workspace_id,
+        data.refresh_token
+      ); console.log("✅ Save session completed");
+
+      console.log("OTP DATA:", data);
+
+      console.log("MODE:", mode);
+      console.log("ROLE:", data.role);
+      console.log("WORKSPACE:", data.workspace_id);
+
+      console.log("After saveSession");
       const SecureStore = require("expo-secure-store");
 
       console.log(
         "Access Token After Save:",
-        await SecureStore.getItemAsync("accessToken")
+        await SecureStore.getItemAsync("token")
       );
 
-      console.log(
-        "Refresh Token After Save:",
-        await SecureStore.getItemAsync("refreshToken")
-      );
+      // console.log(
+      //   "Refresh Token After Save:",
+      //   await SecureStore.getItemAsync("refreshToken")
+      // );
       // ---------- SIGNUP FLOW → go through onboarding first ----------
       if (mode === "signup") {
         if (data.role === "admin") {
@@ -113,6 +130,10 @@ const OtpVerify = () => {
         }
       }
 
+      console.log("MODE:", mode);
+      console.log("ROLE:", data.role);
+      console.log("WORKSPACE:", data.workspace_id);
+
       // ---------- LOGIN FLOW ----------
       sendLoginNotification(data.email).catch((err) =>
         console.log("Login notification failed:", err)
@@ -130,9 +151,14 @@ const OtpVerify = () => {
         });
         return;
       }
+      console.log("Going employee dashboard");
 
       router.replace("/(employee)");
-    } catch (error) {
+    } catch (error: any) {
+      console.log("FULL ERROR:", error);
+      console.log("ERROR MESSAGE:", error?.message);
+      console.log("ERROR STACK:", error?.stack);
+
       console.log(error);
       setOtpError("Verification failed. Please try again.");
     }
