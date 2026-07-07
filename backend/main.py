@@ -1,5 +1,5 @@
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -19,13 +19,84 @@ import jwt
 from fastapi import Header
 
 import re
-
 import requests
 
+import secrets
+import hashlib
 
 load_dotenv()
 
 app = FastAPI(title="Kaarya Siddhi API")
+
+load_dotenv()
+
+app = FastAPI(title="Kaarya Siddhi API")
+
+JWT_SECRET = os.getenv("JWT_SECRET")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_HOURS = 24
+REFRESH_TOKEN_DAYS = 30
+ACCESS_TOKEN_MINUTES = 30
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+def create_refresh_token(email: str):
+    raw_token = secrets.token_urlsafe(48)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_DAYS)
+
+    supabase.table("refresh_tokens").insert({
+        "user_email": email,
+        "token_hash": hash_token(raw_token),
+        "expires_at": expires_at.isoformat(),
+    }).execute()
+
+    return raw_token
+
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET is not set in .env — add it before starting the server.")
+
+def create_access_token(email: str, role: str, workspace_id: str | None):
+    payload = {
+        "sub": email,
+        "role": role,
+        "workspace_id": workspace_id,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_MINUTES),
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def decode_access_token(token: str):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Session expired. Please login again.")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid session. Please login again.")
+
+def get_current_user(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header.")
+
+    token = authorization.split(" ")[1]
+    payload = decode_access_token(token)
+    return payload
+
+
+ALLOWED_ORIGINS = [
+    "http://localhost:8081",
+    "http://localhost:19006",
+    "exp://192.168.31.88:8081",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 ALLOWED_ORIGINS = [
@@ -413,10 +484,11 @@ async def verify_otp(data: VerifyOTPRequest):
         role=user["role"],
         workspace_id=user.get("workspace_id"),
     )
-
+    refresh_token = create_refresh_token(user["email"])
     return {
         "success": True,
         "token": access_token,
+        "refresh_token": refresh_token,
         "id": user["id"],
         "email": user["email"],
         "role": user["role"],
@@ -425,8 +497,7 @@ async def verify_otp(data: VerifyOTPRequest):
     }
 
 @app.post("/connect-request")
-async def connect_request(data: ConnectRequest):
-
+async def connect_request(data: ConnectRequest, current_user: dict = Depends(get_current_user)):
     employee_email = normalize_email(data.employee_email)
     admin_email = normalize_email(data.admin_email)
 
@@ -537,7 +608,7 @@ async def connection_status(employee_email: str, admin_email: str):
     }
 
 @app.get("/admin/pending/{admin_email}")
-async def pending_requests(admin_email: str):
+async def pending_requests(admin_email: str, current_user: dict = Depends(get_current_user)):
 
     admin_email = normalize_email(admin_email)
 
@@ -558,7 +629,7 @@ async def pending_requests(admin_email: str):
     }
 
 @app.post("/connection-respond")
-async def connection_respond(data: ConnectionRespond):
+async def connection_respond(data: ConnectionRespond, current_user: dict = Depends(get_current_user)):
     employee_email = normalize_email(data.employee_email)
     admin_email = normalize_email(data.admin_email)
     new_status = "accepted" if data.accept else "rejected"
@@ -626,7 +697,7 @@ async def connection_respond(data: ConnectionRespond):
     
     
 @app.get("/employee/connection-status/{employee_email}")
-async def employee_connection_status(employee_email: str):
+async def employee_connection_status(employee_email: str, current_user: dict = Depends(get_current_user)):
 
     employee_email = normalize_email(employee_email)
 
@@ -649,43 +720,6 @@ async def employee_connection_status(employee_email: str):
         "admin_email": request.data[0]["admin_email"]
     }
 
-# JWT tokens part here : 
-
-JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_HOURS = 24
-
-# JWT_SECRET = os.getenv("JWT_SECRET")
-
-if not JWT_SECRET:
-    raise RuntimeError("JWT_SECRET is not set in .env — add it before starting the server.")
-
-def create_access_token(email: str, role: str, workspace_id: str | None):
-    payload = {
-        "sub": email,
-        "role": role,
-        "workspace_id": workspace_id,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRY_HOURS),
-        "iat": datetime.now(timezone.utc),
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
-def decode_access_token(token: str):
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Session expired. Please login again.")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid session. Please login again.")
-
-def get_current_user(authorization: str = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid authorization header.")
-
-    token = authorization.split(" ")[1]
-    payload = decode_access_token(token)
-    return payload
 
 # old method of storing otp_sessions (now moved to supabase)
 # otp_store = {}
@@ -698,8 +732,88 @@ def get_current_user(authorization: str = Header(None)):
 # )
 # otp_verify_attempts = defaultdict(int)
 # # pending_signups = {}
+@app.get("/me")
+async def get_me(current_user: dict = Depends(get_current_user)):
+    user = (
+        supabase.table("users")
+        .select("*")
+        .eq("email", current_user["sub"])
+        .execute()
+    )
+
+    if not user.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+
+    return user.data[0]
+    
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+@app.post("/refresh-token")
+async def refresh_token_endpoint(data: RefreshRequest):
+    token_hash = hash_token(data.refresh_token)
+
+    row = (
+        supabase.table("refresh_tokens")
+        .select("*")
+        .eq("token_hash", token_hash)
+        .execute()
+    )
+
+    if not row.data:
+        raise HTTPException(status_code=401, detail="Invalid refresh token.")
+
+    row = row.data[0]
+
+    if row["revoked"]:
+        # Reuse of a revoked token = possible theft. Nuke all sessions for this user.
+        supabase.table("refresh_tokens").update({"revoked": True}) \
+            .eq("user_email", row["user_email"]).execute()
+        raise HTTPException(status_code=401, detail="Session invalid. Please login again.")
+
+    if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail="Refresh token expired. Please login again.")
+
+    user = (
+        supabase.table("users")
+        .select("*")
+        .eq("email", row["user_email"])
+        .execute()
+    )
+    if not user.data:
+        raise HTTPException(status_code=404, detail="Account not found.")
+    user = user.data[0]
+
+    # Rotate: issue a new refresh token, revoke the old one
+    new_refresh_token = create_refresh_token(user["email"])
+    supabase.table("refresh_tokens").update({"revoked": True}) \
+        .eq("token_hash", token_hash).execute()
+
+    access_token = create_access_token(
+        email=user["email"], role=user["role"], workspace_id=user.get("workspace_id")
+    )
+
+    return {
+        "success": True,
+        "token": access_token,
+        "refresh_token": new_refresh_token,
+    }
+
+class LogoutRequest(BaseModel):
+    refresh_token: str
+
+@app.post("/logout")
+async def logout(data: LogoutRequest):
+    supabase.table("refresh_tokens").update({"revoked": True}) \
+        .eq("token_hash", hash_token(data.refresh_token)).execute()
+    return {"success": True, "message": "Logged out."}
+
+
 
 from routes.excel_report import router as excel_report_router   
 # from backend.routes.upload import router as upload_router    
 app.include_router(excel_report_router)   
 # app.include_router(upload_router)
+
+
+
