@@ -419,6 +419,7 @@ async def verify_otp(data: VerifyOTPRequest):
     return {
         "success": True,
         "token": access_token,
+        "id": user["id"],
         "email": user["email"],
         "role": user["role"],
         "workspace_id": user.get("workspace_id"),

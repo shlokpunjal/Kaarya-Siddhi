@@ -31,7 +31,7 @@ type TaskRow = {
   deadline: string;
 };
 
-type ManagedEmployee = { id: string; name: string };
+type ManagedEmployee = { id: string; email: string };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   overdue: 'Overdue',
@@ -80,9 +80,22 @@ export default function AdminTasks() {
     setLoading(true);
 
     const adminEmail = await AsyncStorage.getItem('userEmail');
+    // console.log('DEBUG adminEmail:', JSON.stringify(adminEmail)); for debugging
 
     if (!adminEmail) {
       router.replace('/(auth)/LoginChoice');
+      return;
+    }
+
+    const { data: currentAdmin, error: adminLookupError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', adminEmail)
+      .single();
+
+    if (adminLookupError || !currentAdmin) {
+      console.error('Could not resolve admin id for email:', adminEmail);
+      setLoading(false);
       return;
     }
 
@@ -90,7 +103,7 @@ export default function AdminTasks() {
     const { data: taskRows, error: taskError } = await supabase
       .from('tasks')
       .select('*')
-      .eq('created_by', adminEmail)
+      .eq('created_by', currentAdmin.id)
       .order('deadline', { ascending: true });
 
     if (taskError) {
@@ -110,20 +123,22 @@ export default function AdminTasks() {
       console.error('Error fetching team:', connError.message);
     } else {
       const employeeEmails = (connections ?? []).map((c) => c.employee_email);
+      // console.log('DEBUG connections found:', connections);
+      // console.log('DEBUG employees set:', employeeEmails); for debugging
 
       if (employeeEmails.length > 0) {
         const { data: users, error: usersError } = await supabase
           .from('users')
-          .select('email, name')
+          .select('id, email')
           .in('email', employeeEmails);
 
         if (usersError) {
-          console.error('Error fetching team names:', usersError.message);
+          console.error('Error fetching team emails:', usersError.message);
         } else {
           setEmployees(
-            employeeEmails.map((email) => ({
-              id: email,
-              name: users?.find((u) => u.email === email)?.name ?? email,
+            (users ?? []).map((u) => ({
+              id: u.id,
+              email: u.email,
             }))
           );
         }
@@ -152,7 +167,7 @@ export default function AdminTasks() {
     setModalVisible(false);
   };
 
-  const employeeName = (email: string) => employees.find((e) => e.id === email)?.name ?? email;
+  const employeeEmail = (id: string) => employees.find((e) => e.id === id)?.email ?? id;
 
   const getVisibleTasks = () => {
     let list = [...tasks];
@@ -190,7 +205,7 @@ export default function AdminTasks() {
           (t.label ?? '').toLowerCase().includes(query) ||
           t.priority.toLowerCase().includes(query) ||
           STATUS_LABELS[t.status].toLowerCase().includes(query) ||
-          employeeName(t.assignedTo).toLowerCase().includes(query)
+          employeeEmail(t.assignedTo).toLowerCase().includes(query)
         );
       });
     }
@@ -304,7 +319,7 @@ export default function AdminTasks() {
                 </View>
               </View>
               <Text style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}>
-                {employeeName(task.assignedTo)} · {task.label} · {task.priority.toUpperCase()} · Due {task.dueDate}
+                {employeeEmail(task.assignedTo)} · {task.label} · {task.priority.toUpperCase()} · Due {task.dueDate}
               </Text>
             </Pressable>
           ))
@@ -364,7 +379,7 @@ export default function AdminTasks() {
               </Text>
               <View style={styles.chipRow}>
                 {employees.map((emp) => (
-                  <Chip key={emp.id} label={emp.name} type="employee" value={emp.id} />
+                  <Chip key={emp.id} label={emp.email} type="employee" value={emp.id} />
                 ))}
               </View>
             </ScrollView>
