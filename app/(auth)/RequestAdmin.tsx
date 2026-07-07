@@ -282,6 +282,7 @@ import FadeIn from "../../components/FadeIn";
 import BackButton from "../../components/backButton";
 import { authFetch } from "../../utils/authFetch";
 
+
 export default function RequestAdmin() {
   const { email } = useLocalSearchParams<{ email: string }>();
 
@@ -441,13 +442,14 @@ const styles = StyleSheet.create({
   header: {
     width: "100%",
     backgroundColor: PRIMARY,
-    padding: 20
+    padding: 20,
   },
 
   headerText: {
     color: "white",
     fontSize: 22,
-    fontFamily: "Poppins_600SemiBold"
+    fontFamily: "Poppins_600SemiBold",
+    alignSelf: "center",
   },
 
   logoContainer: {

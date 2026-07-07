@@ -331,6 +331,8 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 20,
     fontFamily: "Poppins_400Regular",
+    alignSelf: "center"
+
   },
   imagestyle: {
     justifyContent: "center",
