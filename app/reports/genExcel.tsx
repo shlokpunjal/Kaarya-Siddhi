@@ -5,7 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 import { TaskPriority, TaskStatus } from '../../types/task';
 
-const API_BASE = 'http://10.159.22.182:8000';
+const API_BASE = 'https://kaarya-siddhi.onrender.com';
 
 type FilterMode = 'employee' | 'status' | 'priority' | 'label';
 

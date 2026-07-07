@@ -466,9 +466,6 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
-import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
-import { useRouter } from "expo-router";
 
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
 interface Task {
@@ -509,46 +506,10 @@ function buildGrid(year: number, month: number): string[] {
   return cells;
 }
 
-// ── Supabase row → Task mapping ────────────────────────────────────────────
-
-type TaskRow = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: "overdue" | "pending" | "in_review" | "completed";
-  priority: string;
-  assigned_to: string;
-  created_by: string;
-  deadline: string; // timestamp
-  workspace_id: string;
-};
-
-function mapStatusToCategory(status: TaskRow["status"]): TaskCategory {
-  return status === "in_review" ? "inReview" : status;
-}
-
-function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
-  const map: Record<string, Task[]> = {};
-  rows.forEach((row) => {
-    if (!row.deadline) return;
-    const dateKey = row.deadline.slice(0, 10); // YYYY-MM-DD from timestamp
-    const task: Task = {
-      id: row.id,
-      title: row.title,
-      descp: row.description ?? "",
-      category: mapStatusToCategory(row.status),
-    };
-    if (!map[dateKey]) map[dateKey] = [];
-    map[dateKey].push(task);
-  });
-  return map;
-}
-
 export default function CalendarScreen() {
-  const { colors } = useTheme();
-  const router = useRouter();
-  const { brand, base, text, status } = colors;
-
+const { colors, isDark } = useTheme();
+const { brand, base, text, status } = colors;
+const headingColor = isDark ? text.primary : brand.primary;
   const todayISO = new Date().toISOString().split("T")[0];
   const todayY   = parseInt(todayISO.slice(0, 4), 10);
   const todayM   = parseInt(todayISO.slice(5, 7), 10);
@@ -807,25 +768,19 @@ export default function CalendarScreen() {
         </Text>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.taskScroll}>
-          {tasksMap[selected]?.length ? (
-            tasksMap[selected].map((task, i) => (
-              <Pressable
-                    key={task.id}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/(task)/task-detail",
-                        params: { taskId: task.id },
-                      })
-                    }
-                    style={[
-                      s.taskCard,
-                      {
-                        backgroundColor: base.surfaceL1,
-                        borderColor: base.border,
-                        borderLeftColor: categoryColor[task.category],
-                      },
-                    ]}
-                  >
+          {tasks[selected]?.length ? (
+            tasks[selected].map((task, i) => (
+              <View
+                key={i}
+                style={[
+                  s.taskCard,
+                  {
+                    backgroundColor: base.surfaceL1,
+                    borderColor:     base.border,
+                    borderLeftColor: categoryColor[task.category],
+                  },
+                ]}
+              >
                 <View style={s.taskCardHeader}>
                   <Text style={[s.taskTitle, { color: text.primary }]}>{task.title}</Text>
                   <View style={[s.badge, { backgroundColor: `${categoryColor[task.category]}22` }]}>

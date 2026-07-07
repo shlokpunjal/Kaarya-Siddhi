@@ -360,6 +360,7 @@ import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 import { Task } from '../../types/task';
+import { getGreeting } from '../../utils/greeting';
 
 // Matches the actual `tasks` table columns
 type TaskRow = {
@@ -413,10 +414,22 @@ export default function Dashboard() {
         return;
       }
 
+      const { data: currentUser, error: userLookupError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (userLookupError || !currentUser) {
+        console.error('Could not resolve user id for email:', email);
+        if (isMounted) setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('assigned_to', email)
+        .eq('created_by', currentUser.id)
         .order('deadline', { ascending: true });
 
       if (error) {
@@ -459,9 +472,9 @@ export default function Dashboard() {
     );
   }
 
-  const overdueTasks   = tasks.filter(t => t.status === "overdue");
-  const pendingTasks   = tasks.filter(t => t.status === "pending");
-  const reviewTasks    = tasks.filter(t => t.status === "inReview");
+  const overdueTasks = tasks.filter(t => t.status === "overdue");
+  const pendingTasks = tasks.filter(t => t.status === "pending");
+  const reviewTasks = tasks.filter(t => t.status === "inReview");
   const completedTasks = tasks.filter(t => t.status === "completed");
 
   return (
@@ -482,7 +495,7 @@ export default function Dashboard() {
                 ...typography.subheading,
                 marginTop: 20, marginLeft: 15,
                 color: colors.text.secondary,
-              }}>Good Morning!</Text>
+              }}>{getGreeting()}</Text>
               <Text style={{
                 ...typography.heading,
                 marginTop: 5, marginLeft: 15,

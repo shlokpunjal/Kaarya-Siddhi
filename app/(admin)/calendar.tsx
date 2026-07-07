@@ -469,7 +469,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+<<<<<<< HEAD
 import { useRouter } from "expo-router";
+=======
+>>>>>>> main
 
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
 interface Task {
@@ -533,8 +536,12 @@ function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
   rows.forEach((row) => {
     if (!row.deadline) return;
     const dateKey = row.deadline.slice(0, 10); // YYYY-MM-DD from timestamp
+<<<<<<< HEAD
       const task: Task = {
       id: row.id,
+=======
+    const task: Task = {
+>>>>>>> main
       title: row.title,
       descp: row.description ?? "",
       category: mapStatusToCategory(row.status),
@@ -821,6 +828,7 @@ export default function CalendarScreen() {
           {selected === todayISO ? "Today" : selected}
         </Text>
 
+<<<<<<< HEAD
         <ScrollView
   showsVerticalScrollIndicator={false}
   contentContainerStyle={s.taskScroll}
@@ -871,6 +879,33 @@ export default function CalendarScreen() {
         </Text>
       </Pressable>
     ))
+=======
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.taskScroll}>
+          {tasksMap[selected]?.length ? (
+            tasksMap[selected].map((task, i) => (
+              <View
+                key={i}
+                style={[
+                  s.taskCard,
+                  {
+                    backgroundColor: base.surfaceL1,
+                    borderColor:     base.border,
+                    borderLeftColor: categoryColor[task.category],
+                  },
+                ]}
+              >
+                <View style={s.taskCardHeader}>
+                  <Text style={[s.taskTitle, { color: text.primary }]}>{task.title}</Text>
+                  <View style={[s.badge, { backgroundColor: `${categoryColor[task.category]}22` }]}>
+                    <Text style={[s.badgeText, { color: categoryColor[task.category] }]}>
+                      {categoryLabel[task.category]}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[s.taskDesc, { color: text.secondary }]}>{task.descp}</Text>
+              </View>
+            ))
+>>>>>>> main
           ) : (
             <View style={[s.emptyState, { borderColor: base.border }]}>
               <Text style={[s.emptyTitle,    { color: text.secondary }]}>No tasks scheduled</Text>

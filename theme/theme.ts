@@ -108,7 +108,11 @@ export const darkTheme = {
       primary: "#0B1B3D",
       accent: "#E8870A",
       onPrimary: "#FFFFFF",
+<<<<<<< HEAD
       secprimary: "#3660b9",
+=======
+      secprimary: "#133886",
+>>>>>>> main
     },
     text: {
       primary: '#F5F6F9',    // Warm non-glare white
