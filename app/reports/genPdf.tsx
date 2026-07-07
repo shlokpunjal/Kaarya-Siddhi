@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 
-const API_BASE = 'http://10.159.22.182:8000';
+const API_BASE = 'https://kaarya-siddhi.onrender.com';
 
 export default function GenPdf() {
   const { colors } = useTheme();

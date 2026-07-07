@@ -37,7 +37,7 @@ export default function LoginChoice() {
       {/* Logo */}
       <View style={styles.imagestyle}>
         <Image
-          source={require("../../assets/images/logo.jpeg")}
+          source={require("../../assets/images/logo.png")}
           style={styles.imageStyling}
         />
       </View>
@@ -67,7 +67,7 @@ export default function LoginChoice() {
           </TouchableOpacity>
 
           <Text style={styles.cardText}>
-            View assigned tasks and update progress
+            View assigned tasks and update     progress
           </Text>
         </View>
       </View>

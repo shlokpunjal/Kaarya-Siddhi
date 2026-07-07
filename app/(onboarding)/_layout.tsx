@@ -8,7 +8,7 @@ export default function OnboardingLayout() {
         headerShown: false,   // hide default header, we use our own custom header per screen
         gestureEnabled: false, // disable swipe-back so users can't skip steps accidentally
         animation: "slide_from_right",
-      }}
+      }} 
     >
       <Stack.Screen name="profileSetup1" />
       <Stack.Screen name="profileSetup2" />
