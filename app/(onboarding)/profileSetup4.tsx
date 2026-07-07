@@ -76,7 +76,7 @@ export default function ProfileSetup3() {
         </TouchableOpacity>
 
         <View style={styles.dotsWrap}>
-          <ProgressDots total={3} current={3} />
+          <ProgressDots total={4} current={4} />
         </View>
 
        
