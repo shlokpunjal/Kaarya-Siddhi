@@ -1,47 +1,69 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from io import BytesIO
-# from mock_data import mock_tasks
-from mock_data import mock_tasks
+from datetime import datetime
+
+from main import get_current_user
+from supabase_client import supabase
+
 router = APIRouter()
+
 
 @router.get("/reports/tasks/excel")
 def generate_task_report(
-    employee_id: str | None = Query(None),
+    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
+    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
     status: str | None = Query(None),
     priority: str | None = Query(None),
-    label: str | None = Query(None),
-    start_date: str | None = Query(None),
-    end_date: str | None = Query(None),
+    user: dict = Depends(get_current_user),
 ):
-    
-    tasks = mock_tasks
+    # Only admins can generate workspace-wide reports
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can generate task reports.")
 
-    if employee_id:
-        tasks = [t for t in tasks if t["assignedTo"] == employee_id]
+    workspace_id = user.get("workspace_id")
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="No workspace associated with this account.")
+
+    # Validate date format early with a clear error, rather than a confusing query failure later
+    try:
+        datetime.strptime(start_date, "%Y-%m-%d")
+        datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Dates must be in YYYY-MM-DD format.")
+
+    query = (
+        supabase.table("tasks")
+        .select("*")
+        .eq("workspace_id", workspace_id)
+        .gte("deadline", start_date)
+        .lte("deadline", end_date)
+    )
+
     if status:
-        tasks = [t for t in tasks if t["status"] == status]
+        query = query.eq("status", status)
     if priority:
-        tasks = [t for t in tasks if t["priority"] == priority]
-    if label:
-        tasks = [t for t in tasks if label.lower() in t["label"].lower()]
-    if start_date:
-        tasks = [t for t in tasks if t["dueDate"] >= start_date]
-    if end_date:
-        tasks = [t for t in tasks if t["dueDate"] <= end_date]
+        query = query.eq("priority", priority)
+
+    result = query.execute()
+    tasks = result.data or []
+
+    if not tasks:
+        raise HTTPException(
+            status_code=404,
+            detail="No tasks found for the given filters and date range.",
+        )
 
     wb = Workbook()
     sheet = wb.active
     sheet.title = "Task Report"
 
-    # Brand colors, matching theme.ts (lightTheme.colors.brand)
     NAVY = "0B1B3D"
-    SAFFRON = "E06A28"
 
-    headers = ["Task ID", "Title", "Assigned To", "Status", "Priority", "Label", "Due Date"]
+    headers = ["Task ID", "Title", "Assigned To", "Status", "Priority", "Deadline"]
     sheet.append(headers)
 
     header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
@@ -65,8 +87,12 @@ def generate_task_report(
 
     for row_idx, task in enumerate(tasks, start=2):
         row_values = [
-            task["id"], task["title"], task["assignedToName"],
-            task["status"], task["priority"], task["label"], task["dueDate"],
+            task.get("id", ""),
+            task.get("title", ""),
+            task.get("assigned_to", ""),
+            task.get("status", ""),
+            task.get("priority", ""),
+            task.get("deadline", ""),
         ]
         sheet.append(row_values)
         for col_idx in range(1, len(headers) + 1):
@@ -82,22 +108,24 @@ def generate_task_report(
 
     table = Table(displayName="TaskTable", ref=table_range)
     table.tableStyleInfo = TableStyleInfo(
-        name="TableStyleMedium2", showRowStripes=False  # we're hand-striping above, so library stripes off
+        name="TableStyleMedium2", showRowStripes=False
     )
     sheet.add_table(table)
 
-    column_widths = [10, 28, 18, 14, 12, 16, 14]
+    column_widths = [10, 28, 22, 14, 12, 14]
     for col_idx, width in enumerate(column_widths, start=1):
         sheet.column_dimensions[sheet.cell(row=1, column=col_idx).column_letter].width = width
 
-    sheet.freeze_panes = "A2"  # header row stays visible while scrolling
+    sheet.freeze_panes = "A2"
 
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
 
+    filename = f"task_report_{start_date}_to_{end_date}.xlsx"
+
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=task_report.xlsx"},
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )

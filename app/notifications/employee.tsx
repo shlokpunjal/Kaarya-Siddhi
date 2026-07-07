@@ -1,8 +1,13 @@
-// app/(employee)/notifications.tsx
-// Shows the current employee's own extension requests and their status.
-// Bell badge on index.tsx counts requests where admin has decided (accepted/rejected).
+// app/notifications/employee.tsx
+//
+// Employee's Notifications page.
+// - "Requests" section: the employee's own extension requests, live status
+//   (pending / accepted / rejected), synced in realtime via Supabase.
+// - "Other Notifications" section: placeholder for future notification types.
+//
+// Tapping a request opens app/notifications/employee-request-detail.tsx (read-only view).
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -13,6 +18,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
@@ -50,18 +57,40 @@ export default function EmployeeNotifications() {
   const router = useRouter();
   const [requests, setRequests] = useState<ExtensionRequestRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
-  const fetchRequests = useCallback(async () => {
+  // Resolve the logged-in user's id the same way the dashboards do:
+  // email in AsyncStorage -> lookup against the `users` table.
+  // (This app doesn't use Supabase Auth sessions, so auth.getUser() won't work here.)
+  useEffect(() => {
+    (async () => {
+      const email = await AsyncStorage.getItem("userEmail");
+      if (!email) {
+        setLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", email)
+        .single();
+
+      if (error || !data) {
+        console.error("Could not resolve user id for email:", email);
+        setLoading(false);
+        return;
+      }
+      setUserId(data.id);
+    })();
+  }, []);
+
+  const fetchRequests = useCallback(async (id: string) => {
     setLoading(true);
-
-    // Get current logged-in user's id
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
-
     const { data, error } = await supabase
       .from("extension_requests")
       .select("*, tasks(title, priority)")
-      .eq("requested_by", user.id)
+      .eq("requested_by", id)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -72,11 +101,44 @@ export default function EmployeeNotifications() {
     setLoading(false);
   }, []);
 
+  // Refresh whenever the screen regains focus (covers any gap while backgrounded)
   useFocusEffect(
     useCallback(() => {
-      fetchRequests();
-    }, [fetchRequests])
+      if (userId) fetchRequests(userId);
+    }, [userId, fetchRequests])
   );
+
+  // Realtime: instantly reflect admin's accept/reject without needing to refocus
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`extension_requests_employee_${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "extension_requests",
+          filter: `requested_by=eq.${userId}`,
+        },
+        () => {
+          fetchRequests(userId);
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [userId, fetchRequests]);
+
+  const pendingCount = requests.filter((r) => r.status === "pending").length;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
@@ -96,10 +158,8 @@ export default function EmployeeNotifications() {
           size={26}
           color={colors.base.surfaceL1}
         />
-        <Text
-          style={{ ...typography.heading, color: colors.base.surfaceL1, marginLeft: 15 }}
-        >
-          My Requests
+        <Text style={{ ...typography.heading, color: colors.base.surfaceL1, marginLeft: 15 }}>
+          Notifications
         </Text>
       </View>
 
@@ -109,9 +169,38 @@ export default function EmployeeNotifications() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 20 }}>
+          {/* ---------- Requests section ---------- */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 12,
+            }}
+          >
+            <Ionicons name="document-text-outline" size={18} color={colors.text.secondary} />
+            <Text style={{ ...typography.heading3, color: colors.text.secondary }}>
+              Requests
+            </Text>
+            {pendingCount > 0 && (
+              <View
+                style={{
+                  backgroundColor: colors.status.pending + "22",
+                  borderRadius: 8,
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                }}
+              >
+                <Text style={{ ...typography.label, color: colors.status.pending }}>
+                  {pendingCount} pending
+                </Text>
+              </View>
+            )}
+          </View>
+
           {requests.length === 0 && (
             <Text
-              style={{ ...typography.body, color: colors.text.secondary, marginTop: 20 }}
+              style={{ ...typography.body, color: colors.text.secondary, marginBottom: 24 }}
             >
               You haven't made any extension requests yet.
             </Text>
@@ -124,7 +213,7 @@ export default function EmployeeNotifications() {
                 key={req.id}
                 onPress={() =>
                   router.push({
-                    pathname: "/(employee)/notification-detail",
+                    pathname: "/notifications/employee-request-detail",
                     params: { requestId: req.id },
                   })
                 }
@@ -145,15 +234,7 @@ export default function EmployeeNotifications() {
                     justifyContent: "space-between",
                   }}
                 >
-                  {/* Priority dot + task title */}
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 8,
-                      flex: 1,
-                    }}
-                  >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
                     <View
                       style={{
                         height: 8,
@@ -163,18 +244,13 @@ export default function EmployeeNotifications() {
                       }}
                     />
                     <Text
-                      style={{
-                        ...typography.heading3,
-                        color: colors.text.primary,
-                        flexShrink: 1,
-                      }}
+                      style={{ ...typography.heading3, color: colors.text.primary, flexShrink: 1 }}
                       numberOfLines={1}
                     >
                       {req.tasks?.title ?? "Untitled Task"}
                     </Text>
                   </View>
 
-                  {/* Status pill */}
                   <View
                     style={{
                       flexDirection: "row",
@@ -199,14 +275,7 @@ export default function EmployeeNotifications() {
                   </View>
                 </View>
 
-                {/* Requested deadline sub-line */}
-                <Text
-                  style={{
-                    ...typography.label,
-                    color: colors.text.secondary,
-                    marginTop: 8,
-                  }}
-                >
+                <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 8 }}>
                   Requested:{" "}
                   {new Date(req.requested_deadline).toLocaleDateString("en-IN", {
                     day: "2-digit",
@@ -217,6 +286,25 @@ export default function EmployeeNotifications() {
               </TouchableOpacity>
             );
           })}
+
+          {/* ---------- Room for future notification types ---------- */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 10,
+              marginBottom: 12,
+            }}
+          >
+            <Ionicons name="notifications-outline" size={18} color={colors.text.secondary} />
+            <Text style={{ ...typography.heading3, color: colors.text.secondary }}>
+              Other Notifications
+            </Text>
+          </View>
+          <Text style={{ ...typography.body, color: colors.text.secondary }}>
+            You're all caught up.
+          </Text>
         </ScrollView>
       )}
     </SafeAreaView>
