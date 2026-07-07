@@ -1,7 +1,8 @@
-// app/(employee)/notification-detail.tsx
+// app/notifications/employee-request-detail.tsx
 // Read-only view of a single extension request, including admin's decision + note.
+// Realtime-synced: updates live the moment the admin accepts/rejects.
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -12,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
@@ -24,27 +26,55 @@ const statusMeta = (colors: any, status: string) => {
   return { color: colors.status.pending, label: "Pending", icon: "time-outline" as const };
 };
 
-export default function EmployeeNotificationDetail() {
+export default function EmployeeRequestDetail() {
   const { colors } = useTheme();
   const router = useRouter();
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
 
   const [request, setRequest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
+  const fetchRequest = async () => {
+    const { data, error } = await supabase
+      .from("extension_requests")
+      .select("*, tasks(title, priority, deadline)")
+      .eq("id", requestId)
+      .single();
+    if (error) console.error("Error fetching request:", error);
+    setRequest(data);
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (!requestId) return;
-    (async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("extension_requests")
-        .select("*, tasks(title, priority, deadline)")
-        .eq("id", requestId)
-        .single();
-      if (error) console.error("Error fetching request:", error);
-      setRequest(data);
-      setLoading(false);
-    })();
+    setLoading(true);
+    fetchRequest();
+
+    const channel = supabase
+      .channel(`extension_request_${requestId}_employee`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "extension_requests",
+          filter: `id=eq.${requestId}`,
+        },
+        () => {
+          fetchRequest();
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   }, [requestId]);
 
   if (loading) {
@@ -85,20 +115,11 @@ export default function EmployeeNotificationDetail() {
     value: string;
     valueColor?: string;
   }) => (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "flex-start",
-        marginBottom: 18,
-        gap: 12,
-      }}
-    >
+    <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 18, gap: 12 }}>
       <Ionicons name={icon} size={18} color={colors.text.secondary} style={{ marginTop: 2 }} />
       <View style={{ flex: 1 }}>
         <Text style={{ ...typography.label, color: colors.text.secondary }}>{label}</Text>
-        <Text
-          style={{ ...typography.body, color: valueColor ?? colors.text.primary, marginTop: 2 }}
-        >
+        <Text style={{ ...typography.body, color: valueColor ?? colors.text.primary, marginTop: 2 }}>
           {value}
         </Text>
       </View>
@@ -123,15 +144,12 @@ export default function EmployeeNotificationDetail() {
           size={26}
           color={colors.base.surfaceL1}
         />
-        <Text
-          style={{ ...typography.heading, color: colors.base.surfaceL1, marginLeft: 15 }}
-        >
+        <Text style={{ ...typography.heading, color: colors.base.surfaceL1, marginLeft: 15 }}>
           Request Details
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 25, paddingBottom: 40 }}>
-        {/* Card */}
         <View
           style={{
             backgroundColor: colors.base.surfaceL1,
@@ -151,14 +169,7 @@ export default function EmployeeNotificationDetail() {
               marginBottom: 20,
             }}
           >
-            <Text
-              style={{
-                ...typography.heading,
-                color: colors.text.primary,
-                flex: 1,
-                marginRight: 10,
-              }}
-            >
+            <Text style={{ ...typography.heading, color: colors.text.primary, flex: 1, marginRight: 10 }}>
               {request.tasks?.title ?? "Untitled Task"}
             </Text>
             <View
@@ -173,22 +184,13 @@ export default function EmployeeNotificationDetail() {
               }}
             >
               <Ionicons name={meta.icon} size={13} color={meta.color} />
-              <Text
-                style={{
-                  ...typography.label,
-                  color: meta.color,
-                  textTransform: "capitalize",
-                }}
-              >
+              <Text style={{ ...typography.label, color: meta.color, textTransform: "capitalize" }}>
                 {meta.label}
               </Text>
             </View>
           </View>
 
-          {/* Divider */}
-          <View
-            style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 18 }}
-          />
+          <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 18 }} />
 
           <Row
             icon="calendar-outline"
@@ -209,18 +211,12 @@ export default function EmployeeNotificationDetail() {
             })}
             valueColor={colors.brand.accent}
           />
-          <Row
-            icon="chatbox-ellipses-outline"
-            label="Your Reason"
-            value={request.reason}
-          />
+          <Row icon="chatbox-ellipses-outline" label="Your Reason" value={request.reason} />
 
           {/* Admin decision box — only shown once decided */}
           {request.status !== "pending" && (
             <>
-              <View
-                style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 18 }}
-              />
+              <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 18 }} />
               <View
                 style={{
                   backgroundColor: meta.color + "11",
@@ -230,9 +226,7 @@ export default function EmployeeNotificationDetail() {
                   padding: 16,
                 }}
               >
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}
-                >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <Ionicons name={meta.icon} size={20} color={meta.color} />
                   <Text style={{ ...typography.heading3, color: meta.color }}>
                     Admin {meta.label} this request
@@ -250,13 +244,7 @@ export default function EmployeeNotificationDetail() {
                 )}
 
                 {request.decided_at && (
-                  <Text
-                    style={{
-                      ...typography.label,
-                      color: colors.text.secondary,
-                      marginTop: 8,
-                    }}
-                  >
+                  <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 8 }}>
                     Decided on{" "}
                     {new Date(request.decided_at).toLocaleDateString("en-IN", {
                       day: "2-digit",
@@ -272,9 +260,7 @@ export default function EmployeeNotificationDetail() {
           {/* Still pending notice */}
           {request.status === "pending" && (
             <>
-              <View
-                style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 18 }}
-              />
+              <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 18 }} />
               <View
                 style={{
                   backgroundColor: colors.status.pending + "11",
