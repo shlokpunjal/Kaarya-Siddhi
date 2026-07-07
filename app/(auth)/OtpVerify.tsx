@@ -83,7 +83,17 @@ const OtpVerify = () => {
       }
 
       await saveSession(data.token, ph?.toString() ?? "", data.email, data.role, data.workspace_id);
+      const SecureStore = require("expo-secure-store");
 
+      console.log(
+        "Access Token After Save:",
+        await SecureStore.getItemAsync("accessToken")
+      );
+
+      console.log(
+        "Refresh Token After Save:",
+        await SecureStore.getItemAsync("refreshToken")
+      );
       // ---------- SIGNUP FLOW → go through onboarding first ----------
       if (mode === "signup") {
         if (data.role === "admin") {
