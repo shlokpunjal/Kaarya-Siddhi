@@ -645,7 +645,7 @@ export default function CalendarScreen() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={[s.header, { backgroundColor: brand.primary }]}>
-          <Text style={[typography.heading, { color: text.primary }]}>Calendar</Text>
+          <Text style={[typography.heading, { color: brand.onPrimary }]}>Calendar</Text>
       </View>
 
       {/* ── Calendar card ──────────────────────────────────────────────── */}
@@ -718,19 +718,26 @@ export default function CalendarScreen() {
                         onPress={onPress}
                         style={[
                           s.cell,
-                          // Default: only right border as column divider
-                          !isToday && {
+                          // Column divider — always applied (today no longer
+                          // overrides/fights this, which was causing the
+                          // misaligned-row glitch on whichever row held "today")
+                          {
                             borderRightColor: base.border,
                             borderRightWidth: isLastCol ? 0 : 1,
-                          },
-                          // Today: full orange border on all 4 sides
-                          isToday && {
-                            borderWidth:  1.5,
-                            borderColor:  brand.accent,
                           },
                           isSel && isCurrent && { backgroundColor: base.surfaceL2 },
                         ]}
                       >
+                        {/* Today: drawn as a free-floating overlay ring instead
+                            of a real border, so it never merges with / offsets
+                            the shared row & column divider borders */}
+                        {isToday && (
+                          <View
+                            pointerEvents="none"
+                            style={[s.todayRing, { borderColor: brand.accent }]}
+                          />
+                        )}
+
                         {/* Selected: accent top bar */}
                         {isSel && isCurrent && (
                           <View style={[s.selBar, { backgroundColor: brand.accent }]} />
@@ -787,7 +794,7 @@ export default function CalendarScreen() {
 
       {/* ── Task section ───────────────────────────────────────────────── */}
       <View style={s.taskSection}>
-        <Text style={[s.taskHeading, { color: brand.primary }]}>
+        <Text style={[s.taskHeading, { color: brand.secprimary }]}>
           {selected === todayISO ? "Today" : selected}
         </Text>
 
@@ -899,6 +906,17 @@ const s = StyleSheet.create({
     paddingLeft: 0,
     overflow: "hidden",
     position: "relative",
+  },
+
+  /* Today ring — absolute overlay, decoupled from grid divider borders */
+  todayRing: {
+    position: "absolute",
+    top: 1,
+    left: 1,
+    right: 1,
+    bottom: 1,
+    borderWidth: 1.5,
+    borderRadius: 4,
   },
 
   /* Full-width 2px accent bar at top when selected */
