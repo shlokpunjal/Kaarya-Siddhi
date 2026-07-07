@@ -156,9 +156,9 @@ export default function EmployeeNotifications() {
           onPress={() => router.back()}
           name="arrow-back"
           size={26}
-          color={colors.base.surfaceL1}
+          color={colors.brand.onPrimary}
         />
-        <Text style={{ ...typography.heading, color: colors.base.surfaceL1, marginLeft: 15 }}>
+        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: 15 }}>
           Notifications
         </Text>
       </View>
