@@ -12,6 +12,7 @@ import * as SplashScreen from 'expo-splash-screen'
 import { supabase } from '../lib/supabase'
 import { ThemeProvider } from '../context/ThemeContext';
 import { typography } from '../theme/theme';
+import { AuthProvider } from "../context/AuthContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -71,38 +72,42 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(onboarding)" />
-        <Stack.Screen name="(employee)" />
-        <Stack.Screen name="(admin)" />
-        <Stack.Screen name="(task)/task-detail" />
-        <Stack.Screen name="(task)/newtask" />
-        <Stack.Screen name="(task)/extend-deadline" />
-        <Stack.Screen name="reports/genExcel" />
-        <Stack.Screen name="reports/genPdf" />
-      </Stack>
+    <AuthProvider>
 
-      {showSplash && (
-        <Animated.View pointerEvents="none" style={[styles.splash, { opacity: splashOpacity }]}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('../assets/images/logo.png')}
-              style={styles.logo}
-              resizeMode="cover"
-            />
-          </View>
-          <Text style={[typography.heading, styles.title]}>Kaarya Siddhi</Text>
-          <Text style={[typography.heading, styles.subTitle]}>कार्य सिद्धि</Text>
-          <View style={styles.footer}>
-            <Text style={[typography.label, styles.credits]}>Developed By</Text>
-            <Text style={[typography.heading3, styles.subCredits]}>DRM SUR, Central Railways</Text>
-          </View>
-        </Animated.View>
-      )}
-    </ThemeProvider>
+      <ThemeProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(onboarding)" />
+          <Stack.Screen name="(employee)" />
+          <Stack.Screen name="(admin)" />
+          <Stack.Screen name="(task)/task-detail" />
+          <Stack.Screen name="(task)/newtask" />
+          <Stack.Screen name="(task)/extend-deadline" />
+          <Stack.Screen name="reports/genExcel" />
+          <Stack.Screen name="reports/genPdf" />
+        </Stack>
+
+        {showSplash && (
+          <Animated.View pointerEvents="none" style={[styles.splash, { opacity: splashOpacity }]}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('../assets/images/logo.png')}
+                style={styles.logo}
+                resizeMode="cover"
+              />
+            </View>
+            <Text style={[typography.heading, styles.title]}>Kaarya Siddhi</Text>
+            <Text style={[typography.heading, styles.subTitle]}>कार्य सिद्धि</Text>
+            <View style={styles.footer}>
+              <Text style={[typography.label, styles.credits]}>Developed By</Text>
+              <Text style={[typography.heading3, styles.subCredits]}>DRM SUR, Central Railways</Text>
+            </View>
+          </Animated.View>
+        )}
+      </ThemeProvider>
+    </AuthProvider>
+
   );
 }
 
@@ -144,12 +149,12 @@ const styles = StyleSheet.create({
     bottom: 60,
     alignItems: 'center',
   },
-  credits:{
+  credits: {
     color: TEXT_SECONDARY,
     fontSize: 14,
     textAlign: 'center',
   },
-  subCredits:{
+  subCredits: {
     color: TEXT_PRIMARY,
     fontSize: 14,
     textAlign: 'center',

@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from "../../context/AuthContext";
 import { typography } from '../../theme/theme';
 import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
 import CollapsibleSection from '../../components/CollapsibleSection';
