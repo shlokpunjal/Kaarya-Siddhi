@@ -12,9 +12,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useTheme } from "../../context/ThemeContext";
-import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
+import { useTheme } from "../../../context/ThemeContext";
+import { typography } from "../../../theme/theme";
+import { supabase } from "../../../lib/supabase";
 
 const statusMeta = (colors: any, status: string) => {
   if (status === "accepted")
@@ -24,7 +24,7 @@ const statusMeta = (colors: any, status: string) => {
   return { color: colors.status.pending, label: "Pending", icon: "time-outline" as const };
 };
 
-export default function EmployeeNotificationDetail() {
+export default function EmployeeRequestDetail() {
   const { colors } = useTheme();
   const router = useRouter();
   const { requestId } = useLocalSearchParams<{ requestId: string }>();

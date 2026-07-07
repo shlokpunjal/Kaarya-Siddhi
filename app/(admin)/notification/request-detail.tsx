@@ -1,13 +1,13 @@
-// app/(admin)/notification-detail.tsx
+// app/(admin)/notification/request-detail.tsx
 
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useTheme } from "../../context/ThemeContext";
-import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
+import { useTheme } from "../../../context/ThemeContext";
+import { typography } from "../../../theme/theme";
+import { supabase } from "../../../lib/supabase";
 
 const statusColor = (colors: any, status: string) => {
   if (status === "accepted") return colors.status.completed;
@@ -15,7 +15,7 @@ const statusColor = (colors: any, status: string) => {
   return colors.status.pending;
 };
 
-export default function NotificationDetail() {
+export default function AdminRequestDetail() {
   const { colors } = useTheme();
   const router = useRouter();
   const { requestId } = useLocalSearchParams<{ requestId: string }>();

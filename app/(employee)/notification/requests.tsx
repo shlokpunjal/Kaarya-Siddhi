@@ -13,9 +13,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
-import { useTheme } from "../../context/ThemeContext";
-import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
+import { useTheme } from "../../../context/ThemeContext";
+import { typography } from "../../../theme/theme";
+import { supabase } from "../../../lib/supabase";
 
 type ExtensionRequestRow = {
   id: string;
@@ -45,7 +45,7 @@ const priorityColor = (colors: any, priority?: string) => {
   return colors.status.completed;
 };
 
-export default function EmployeeNotifications() {
+export default function EmployeeRequests() {
   const { colors } = useTheme();
   const router = useRouter();
   const [requests, setRequests] = useState<ExtensionRequestRow[]>([]);
@@ -94,10 +94,10 @@ export default function EmployeeNotifications() {
           onPress={() => router.back()}
           name="arrow-back"
           size={26}
-          color={colors.base.surfaceL1}
+          color={colors.brand.onPrimary}
         />
         <Text
-          style={{ ...typography.heading, color: colors.base.surfaceL1, marginLeft: 15 }}
+          style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: 20 }}
         >
           My Requests
         </Text>
@@ -122,12 +122,12 @@ export default function EmployeeNotifications() {
             return (
               <TouchableOpacity
                 key={req.id}
-                onPress={() =>
-                  router.push({
-                    pathname: "/(employee)/notification-detail",
-                    params: { requestId: req.id },
-                  })
-                }
+               onPress={() =>
+                    router.push({
+                      pathname: "/(employee)/notification/request-detail", // was "/(employee)/notification-detail"
+                      params: { requestId: req.id },
+                    })
+                  }
                 style={{
                   backgroundColor: colors.base.surfaceL1,
                   borderColor: colors.base.border,

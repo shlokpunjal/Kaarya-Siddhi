@@ -103,9 +103,9 @@ export default function AdminTabsLayout() {
         }}
       />
 
-      {/* Notification screens — reachable via router.push, hidden from the tab bar */}
-      <Tabs.Screen name="notifications" options={{ href: null }} />
-      <Tabs.Screen name="notification-detail" options={{ href: null }} />
+      <Tabs.Screen name="notification/index" options={{ href: null }} />
+      <Tabs.Screen name="notification/requests" options={{ href: null }} />
+      <Tabs.Screen name="notification/request-detail" options={{ href: null }} />
     </Tabs>
   );
 }

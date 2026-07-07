@@ -1,13 +1,13 @@
-// app/(admin)/notifications.tsx
+// app/(admin)/notification/requests.tsx
 
 import React, { useState, useCallback } from "react";
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
-import { useTheme } from "../../context/ThemeContext";
-import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
+import { useTheme } from "../../../context/ThemeContext";
+import { typography } from "../../../theme/theme";
+import { supabase } from "../../../lib/supabase";
 
 type ExtensionRequestRow = {
   id: string;
@@ -34,7 +34,7 @@ const priorityColor = (colors: any, priority?: string) => {
   return colors.status.completed;
 };
 
-export default function Notifications() {
+export default function AdminRequests() {
   const { colors } = useTheme();
   const router = useRouter();
   const [requests, setRequests] = useState<ExtensionRequestRow[]>([]);
@@ -82,7 +82,7 @@ export default function Notifications() {
           color={colors.base.surfaceL1}
         />
         <Text style={{ ...typography.heading, color: colors.base.surfaceL1, marginLeft: 15 }}>
-          Notifications
+          Requests
         </Text>
       </View>
 
@@ -103,7 +103,7 @@ export default function Notifications() {
               key={req.id}
               onPress={() =>
                 router.push({
-                  pathname: "/(admin)/notification-detail",
+                  pathname: "/(admin)/notification/request-detail",
                   params: { requestId: req.id },
                 })
               }
