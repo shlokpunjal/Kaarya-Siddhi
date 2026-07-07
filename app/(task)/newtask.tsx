@@ -482,6 +482,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "@env";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Priority = "low" | "medium" | "high";
 
@@ -491,9 +492,9 @@ type EmployeeProfile = {
 };
 
 const PRIORITIES: { label: string; value: Priority; color: string; bg: string }[] = [
-  { label: "Low",    value: "low",    color: "#2E7D32", bg: "#E8F5E9" },
+  { label: "Low", value: "low", color: "#2E7D32", bg: "#E8F5E9" },
   { label: "Medium", value: "medium", color: "#E65100", bg: "#FFF3E0" },
-  { label: "High",   value: "high",   color: "#B71C1C", bg: "#FFEBEE" },
+  { label: "High", value: "high", color: "#B71C1C", bg: "#FFEBEE" },
 ];
 
 export default function Newtask() {
@@ -525,8 +526,9 @@ export default function Newtask() {
   const fetchEmployeeProfiles = async () => {
     try {
       const { data, error } = await supabase
-        .from("profiles")
-        .select("id, name")
+        .from("users")              // ← was "profiles"
+        .select("id, name")         // ← was "full_name" — check your users schema: it's `name`, not `full_name`
+        .eq("role", "employee")     // optional but recommended — see below
         .order("name", { ascending: true });
       if (error) throw error;
       if (data) setEmployeesList(data);
@@ -618,9 +620,20 @@ export default function Newtask() {
     try {
       setLoading(true);
 
-      const { data: { user }, error: userSessionError } = await supabase.auth.getUser();
-      if (userSessionError || !user) {
+      const email = await AsyncStorage.getItem("userEmail");
+      if (!email) {
         alert("Your session has expired. Please log back in.");
+        return;
+      }
+
+      const { data: currentUser, error: userLookupError } = await supabase
+        .from("users")
+        .select("id, workspace_id")   // ← pull workspace_id here too
+        .eq("email", email)
+        .single();
+
+      if (userLookupError || !currentUser || !currentUser.workspace_id) {
+        alert("Could not find your workspace. Please log back in.");
         return;
       }
 
@@ -634,14 +647,13 @@ export default function Newtask() {
         .insert({
           title: taskName,
           assigned_to: selectedEmployeeId,
-          // Store as ISO date string (YYYY-MM-DD) or null
           deadline: deadlineDate ? deadlineDate.toISOString().split("T")[0] : null,
           description: description || null,
           attachment_url: mainFileUrl,
           status: "pending",
           priority: selectedPriority ?? "medium",
-          created_by: user.id,
-          workspace_id: "44799b6c-50a1-42c1-9783-4105bc16a330",
+          created_by: currentUser.id,
+          workspace_id: currentUser.workspace_id,
         })
         .select()
         .single();

@@ -31,7 +31,11 @@ type TaskRow = {
   deadline: string;
 };
 
+<<<<<<< HEAD
 type ManagedEmployee = { id: string; name: string };
+=======
+type ManagedEmployee = { id: string; email: string };
+>>>>>>> main
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   overdue: 'Overdue',
@@ -80,17 +84,40 @@ export default function AdminTasks() {
     setLoading(true);
 
     const adminEmail = await AsyncStorage.getItem('userEmail');
+<<<<<<< HEAD
+=======
+    // console.log('DEBUG adminEmail:', JSON.stringify(adminEmail)); for debugging
+>>>>>>> main
 
     if (!adminEmail) {
       router.replace('/(auth)/LoginChoice');
       return;
     }
 
+<<<<<<< HEAD
+=======
+    const { data: currentAdmin, error: adminLookupError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', adminEmail)
+      .single();
+
+    if (adminLookupError || !currentAdmin) {
+      console.error('Could not resolve admin id for email:', adminEmail);
+      setLoading(false);
+      return;
+    }
+
+>>>>>>> main
     // ── Tasks this admin created ─────────────────────────────────────────
     const { data: taskRows, error: taskError } = await supabase
       .from('tasks')
       .select('*')
+<<<<<<< HEAD
       .eq('created_by', adminEmail)
+=======
+      .eq('created_by', currentAdmin.id)
+>>>>>>> main
       .order('deadline', { ascending: true });
 
     if (taskError) {
@@ -110,10 +137,16 @@ export default function AdminTasks() {
       console.error('Error fetching team:', connError.message);
     } else {
       const employeeEmails = (connections ?? []).map((c) => c.employee_email);
+<<<<<<< HEAD
+=======
+      // console.log('DEBUG connections found:', connections);
+      // console.log('DEBUG employees set:', employeeEmails); for debugging
+>>>>>>> main
 
       if (employeeEmails.length > 0) {
         const { data: users, error: usersError } = await supabase
           .from('users')
+<<<<<<< HEAD
           .select('email, name')
           .in('email', employeeEmails);
 
@@ -124,6 +157,18 @@ export default function AdminTasks() {
             employeeEmails.map((email) => ({
               id: email,
               name: users?.find((u) => u.email === email)?.name ?? email,
+=======
+          .select('id, email')
+          .in('email', employeeEmails);
+
+        if (usersError) {
+          console.error('Error fetching team emails:', usersError.message);
+        } else {
+          setEmployees(
+            (users ?? []).map((u) => ({
+              id: u.id,
+              email: u.email,
+>>>>>>> main
             }))
           );
         }
@@ -152,7 +197,11 @@ export default function AdminTasks() {
     setModalVisible(false);
   };
 
+<<<<<<< HEAD
   const employeeName = (email: string) => employees.find((e) => e.id === email)?.name ?? email;
+=======
+  const employeeEmail = (id: string) => employees.find((e) => e.id === id)?.email ?? id;
+>>>>>>> main
 
   const getVisibleTasks = () => {
     let list = [...tasks];
@@ -190,7 +239,7 @@ export default function AdminTasks() {
           (t.label ?? '').toLowerCase().includes(query) ||
           t.priority.toLowerCase().includes(query) ||
           STATUS_LABELS[t.status].toLowerCase().includes(query) ||
-          employeeName(t.assignedTo).toLowerCase().includes(query)
+          employeeEmail(t.assignedTo).toLowerCase().includes(query)
         );
       });
     }
@@ -304,7 +353,7 @@ export default function AdminTasks() {
                 </View>
               </View>
               <Text style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}>
-                {employeeName(task.assignedTo)} · {task.label} · {task.priority.toUpperCase()} · Due {task.dueDate}
+                {employeeEmail(task.assignedTo)} · {task.label} · {task.priority.toUpperCase()} · Due {task.dueDate}
               </Text>
             </Pressable>
           ))
@@ -364,7 +413,11 @@ export default function AdminTasks() {
               </Text>
               <View style={styles.chipRow}>
                 {employees.map((emp) => (
+<<<<<<< HEAD
                   <Chip key={emp.id} label={emp.name} type="employee" value={emp.id} />
+=======
+                  <Chip key={emp.id} label={emp.email} type="employee" value={emp.id} />
+>>>>>>> main
                 ))}
               </View>
             </ScrollView>
