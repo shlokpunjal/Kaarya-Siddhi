@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -12,7 +11,6 @@ import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# from datetime import datetime, timedelta
 from datetime import datetime, timedelta, timezone
 import uuid
 import jwt
@@ -720,18 +718,6 @@ async def employee_connection_status(employee_email: str, current_user: dict = D
         "admin_email": request.data[0]["admin_email"]
     }
 
-
-# old method of storing otp_sessions (now moved to supabase)
-# otp_store = {}
-# otp_attempts = defaultdict(
-#     lambda: {
-#         "count": 0,
-#         "first_attempt": None,
-#         "last_sent": None,
-#     }
-# )
-# otp_verify_attempts = defaultdict(int)
-# # pending_signups = {}
 @app.get("/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
     user = (
