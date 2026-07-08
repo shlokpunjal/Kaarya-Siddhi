@@ -1,6 +1,3 @@
-// app/(employee)/_layout.tsx
-// Copy your existing layout and add the two hidden Tabs.Screen entries below.
-// Only these lines are NEW — everything else stays exactly as you have it.
 
 import { Tabs } from 'expo-router';
 import { Image } from 'react-native';
@@ -96,8 +93,8 @@ export default function EmployeeTabsLayout() {
       />
 
       {/* ── NEW: notification screens hidden from the tab bar ── */}
-      <Tabs.Screen name="notifications" options={{ href: null }} />
-      <Tabs.Screen name="notification-detail" options={{ href: null }} />
+      {/* <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="notification-detail" options={{ href: null }} /> */}
     </Tabs>
   );
 }
