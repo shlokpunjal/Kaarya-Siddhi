@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   View,
@@ -10,11 +11,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { API_BASE_URL } from "../../constants/api";
+import { supabase } from "../../lib/supabase";
 import { typography } from '../../theme/theme';
 import FadeIn from "../../components/FadeIn";
 import BackButton from "../../components/backButton";
-
+import { authFetch } from "../../utils/authFetch";
 
 
 export default function RequestAdmin() {
@@ -43,19 +44,30 @@ export default function RequestAdmin() {
       setError("");
       setSuccessMessage("");
 
-      const response = await fetch(
-        `${API_BASE_URL}/connect-request`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            employee_email: email,
-            admin_email: adminEmail,
-          }),
-        }
-      );
+      const trimmedAdminEmail = adminEmail.trim();
+
+      // Confirm the email exists in the admins table before sending the request
+      const { data: adminRow, error: adminLookupError } = await supabase
+        .from('admins')
+        .select('email')
+        .eq('email', trimmedAdminEmail)
+        .maybeSingle();
+
+      if (adminLookupError) throw adminLookupError;
+
+      if (!adminRow) {
+        setError("No admin found with that email");
+        return;
+      }
+
+      // Actually create the pending connection so WaitingApproval can poll it
+      const response = await authFetch("/connect-request", {
+        method: "POST",
+        body: JSON.stringify({
+          employee_email: email,
+          admin_email: trimmedAdminEmail,
+        }),
+      });
 
       const data = await response.json();
 
@@ -70,13 +82,12 @@ export default function RequestAdmin() {
         pathname: "/(auth)/WaitingApproval",
         params: {
           employee_email: email,
-          admin_email: adminEmail,
+          admin_email: trimmedAdminEmail,
         },
       });
-
-    } catch (error) {
-      console.log(error);
-      setError("Unable to connect to server.");
+    } catch (err: any) {
+      console.log(err);
+      setError(err.message || "Unable to connect to server.");
     } finally {
       setLoading(false);
     }
@@ -166,13 +177,14 @@ const styles = StyleSheet.create({
   header: {
     width: "100%",
     backgroundColor: PRIMARY,
-    padding: 20
+    padding: 20,
   },
 
   headerText: {
     color: "white",
     fontSize: 22,
-    fontFamily: "Poppins_600SemiBold"
+    fontFamily: "Poppins_600SemiBold",
+    alignSelf: "center",
   },
 
   logoContainer: {

@@ -286,6 +286,7 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 22,
     fontFamily: "Poppins_600SemiBold",
+    alignSelf: "center"
   },
 
   logoContainer: {

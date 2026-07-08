@@ -16,8 +16,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.pshlok.KaaryaSiddhi"
     },
-    "web": {
-    },
+    "web": {},
     "plugins": [
       "expo-router",
       "expo-font",
@@ -30,7 +29,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#1A2744"
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }
