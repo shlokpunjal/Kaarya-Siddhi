@@ -31,7 +31,7 @@ export default function LoginChoice() {
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Kaarya Siddhi</Text>
+        <Text style={[styles.headerTitle, typography.heading]}>Kaarya Siddhi</Text>
       </View>
 
       {/* Logo */}
@@ -47,6 +47,7 @@ export default function LoginChoice() {
       <View style={styles.cardsContainer}>
         <View style={styles.card}>
           <TouchableOpacity
+            activeOpacity={0.85}
             style={[styles.button, styles.adminButton]}
             onPress={() => router.push("/(auth)/AdminLogin")}
           >
@@ -58,8 +59,9 @@ export default function LoginChoice() {
           </Text>
         </View>
 
-        <View style={styles.carde}>
+        <View style={styles.card}>
           <TouchableOpacity
+            activeOpacity={0.85}
             style={[styles.button, styles.employeeButton]}
             onPress={() => router.push("/(auth)/EmployeeLogin")}
           >
@@ -67,7 +69,7 @@ export default function LoginChoice() {
           </TouchableOpacity>
 
           <Text style={styles.cardText}>
-            View assigned tasks and update     progress
+            View assigned tasks and update progress
           </Text>
         </View>
       </View>
@@ -94,17 +96,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 22,
     fontFamily: "Poppins_600SemiBold",
-  },
-
-  logoContainer: {
-    alignItems: "center",
-    marginTop: 50,
-  },
-
-  logo: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
+    // alignSelf: "center",
   },
 
   welcome: {
@@ -128,7 +120,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    gap: 20,
     marginTop: 0,
+    paddingBottom: 135,
   },
 
   card: {
@@ -136,37 +130,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
 
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-
-    elevation: 5,
-
-    alignItems: "center",
-  },
-
-  carde: {
-    width: "85%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 170,
-
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
 
     alignItems: "center",
   },
@@ -174,23 +143,34 @@ const styles = StyleSheet.create({
   button: {
     width: "100%",
     height: 55,
-    borderRadius: 14,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
   },
 
   adminButton: {
     backgroundColor: ACCENT,
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
 
   employeeButton: {
     backgroundColor: PRIMARY,
+    shadowColor: PRIMARY,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
 
   buttonText: {
     color: "#fff",
     fontSize: 16,
     fontFamily: "Poppins_600SemiBold",
+    letterSpacing: 0.3,
   },
 
   cardText: {
