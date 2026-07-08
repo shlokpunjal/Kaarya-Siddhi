@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
+  TouchableOpacity
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -64,7 +65,7 @@ export default function WaitingApproval() {
             pathname: "/(auth)/RequestAdmin",
             params: {
               email: employee_email,
-              name,   // ← add this
+              name,
             },
           });
         }, 1500);
@@ -73,12 +74,15 @@ export default function WaitingApproval() {
       console.log(error);
     }
   };
+  const handleSkip = () => {
+    router.replace("/(employee)");
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <BackButton />
-        <Text style={styles.headerText}>
+        <Text style={[styles.headerText, typography.heading]}>
           Waiting for Approval
         </Text>
       </View>
@@ -127,11 +131,15 @@ export default function WaitingApproval() {
           </Text>
         ) : null}
       </View>
+      <TouchableOpacity onPress={handleSkip} style={styles.skipContainer}>
+        <Text style={styles.skipText}>Skip</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 const PRIMARY = "#1A2744";
+const ACCENT = "#E8870A";
 const ERROR = "#D32F2F";
 const SUCCESS = "#2E7D32";
 
@@ -152,16 +160,22 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 22,
     fontFamily: "Poppins_600SemiBold",
-    alignSelf:"center"
+    alignSelf: "center",
   },
 
   logoContainer: {
     marginTop: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    height: 120,
+    width: 120,
+    borderRadius: 60,
+    backgroundColor: ACCENT,
   },
 
   logo: {
-    width: 120,
-    height: 120,
+    width: 115,
+    height: 115,
     borderRadius: 60,
   },
 
@@ -169,17 +183,23 @@ const styles = StyleSheet.create({
     marginTop: 35,
     width: "88%",
     backgroundColor: "white",
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 30,
     alignItems: "center",
-    elevation: 5,
+
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 10,
   },
 
   title: {
     marginTop: 20,
-    fontSize: 22,
+    fontSize: 20,
+    fontWeight: "700",
     color: PRIMARY,
-    fontFamily: "Poppins_600SemiBold",
+    fontFamily: "Poppins_400Regular",
     textAlign: "center",
   },
 
@@ -211,5 +231,17 @@ const styles = StyleSheet.create({
 
   successText: {
     color: SUCCESS,
+  },
+  skipContainer: {
+    width: "88%",
+    alignItems: "flex-end",
+    marginTop: 20,
+  },
+
+  skipText: {
+    color: PRIMARY,
+    fontSize: 14,
+    fontFamily: "Poppins_500Medium",
+    textDecorationLine: "underline",
   },
 });
