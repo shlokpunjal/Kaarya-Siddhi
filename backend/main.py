@@ -36,7 +36,7 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
 REFRESH_TOKEN_DAYS = 30
-ACCESS_TOKEN_MINUTES = 30
+ACCESS_TOKEN_MINUTES = 1
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
