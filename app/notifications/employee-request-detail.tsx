@@ -142,9 +142,9 @@ export default function EmployeeRequestDetail() {
           onPress={() => router.back()}
           name="arrow-back"
           size={26}
-          color={colors.base.surfaceL1}
+          color={colors.brand.onPrimary}
         />
-        <Text style={{ ...typography.heading, color: colors.base.surfaceL1, marginLeft: 15 }}>
+        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: 15 }}>
           Request Details
         </Text>
       </View>
@@ -157,7 +157,6 @@ export default function EmployeeRequestDetail() {
             borderWidth: 1,
             borderRadius: 20,
             padding: 20,
-            boxShadow: "0px 0px 5px gray",
           }}
         >
           {/* Task name + status badge */}
@@ -287,13 +286,13 @@ export default function EmployeeRequestDetail() {
           style={{
             height: 50,
             borderRadius: 12,
-            backgroundColor: colors.brand.primary,
+            backgroundColor: colors.brand.secprimary,
             alignItems: "center",
             justifyContent: "center",
             marginTop: 20,
           }}
         >
-          <Text style={{ ...typography.subheading, color: colors.base.surfaceL1 }}>
+          <Text style={{ ...typography.subheading, color: colors.brand.onPrimary }}>
             Go Back
           </Text>
         </TouchableOpacity>
