@@ -1,5 +1,3 @@
-// app/notifications/admin.tsx
-//
 // Admin's Notifications page.
 // - "Requests" section: every extension request across all employees, live status,
 //   synced in realtime via Supabase (new pending requests appear instantly).

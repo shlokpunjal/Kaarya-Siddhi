@@ -6,7 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { typography } from '../../theme/theme';
 import * as ImagePicker from 'expo-image-picker';
-import { useAuth } from "../../context/AuthContext";import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
+import { useAuth } from "../../context/AuthContext";
+import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
 import CollapsibleSection from '../../components/CollapsibleSection';
 import ConfirmModal from '../../components/confirmModal';
 
