@@ -10,7 +10,7 @@ export default function NoTasksAdmin() {
   const { colors } = useTheme();
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.base.background}}>
+    <View style={{ flex: 1, backgroundColor: colors.base.background}}> 
       {/* ── Header ── */}
       <SafeAreaView style={{ backgroundColor: colors.brand.primary,marginTop:25 }} edges={["top"]}>
         <View style={styles.header}>
