@@ -4,7 +4,9 @@ import {
   View,
   Image,
   TouchableOpacity,
-  TextInput,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef } from "react";
@@ -12,7 +14,8 @@ import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
 import BackButton from "../../components/backButton";
-
+import ValidatedInput from "../../components/ValidatedInput";
+import { isValidEmail, isValidPhone } from "../../constants/validators";
 
 const AdminLogin = () => {
   const [ph, setPh] = useState("");
@@ -73,7 +76,6 @@ const AdminLogin = () => {
       setIsSending(true);
       setErrors({ phone: "", email: "" });
 
-      // Check account exists
       const loginResponse = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: {
@@ -107,7 +109,6 @@ const AdminLogin = () => {
         return;
       }
 
-      // Send OTP
       const otpResponse = await fetch(`${API_BASE_URL}/send-otp`, {
         method: "POST",
         headers: {
@@ -115,7 +116,6 @@ const AdminLogin = () => {
         },
         body: JSON.stringify({
           email,
-          // phone: ph,
           role: "admin",
         }),
       });
@@ -123,12 +123,6 @@ const AdminLogin = () => {
       const otpData = await otpResponse.json();
 
       if (!otpResponse.ok) {
-        setErrors((prev) => ({
-          ...prev,
-          email: otpData.detail || "Failed to send OTP",
-        }));
-        return;
-      } if (!otpResponse.ok) {
         let message = "Failed to send OTP";
 
         if (typeof otpData.detail === "string") {
@@ -172,110 +166,120 @@ const AdminLogin = () => {
   const isOnCooldown = cooldown > 0;
 
   return (
-    <SafeAreaView>
+    <SafeAreaView style={{ flex: 1 }}>
       <View style={styles.mainbar}>
-        {/* add a back button */}
-          <BackButton />
+        <BackButton />
         <Text style={[styles.maintext, typography.heading]}>Admin Login</Text>
       </View>
-      <View style={styles.mainStyle}>
-        <View style={styles.imagestyle}>
-          <Image
-            source={require("../../assets/images/logo.png")}
-            style={styles.imageStyling}
-          />
-        </View>
 
-        {/* Card — grows taller during cooldown or errors */}
-        <View
-          style={[
-            styles.divi,
-            (isOnCooldown || errors.phone || errors.email) &&
-            styles.diviExpanded,
-          ]}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.divtext, typography.subheading]}>Login to your workspace</Text>
-          <View>
-            <TextInput
-              style={[styles.input, errors.phone ? styles.inputError : null]}
-              value={ph}
-              placeholder="Enter Phone Number"
-              onChangeText={(text) => {
-                setPh(text);
-                if (errors.phone)
-                  setErrors((prev) => ({ ...prev, phone: "" }));
-              }}
-              keyboardType="phone-pad"
-              maxLength={10}
-            />
-            {errors.phone ? (
-              <Text style={styles.errorText}>{errors.phone}</Text>
-            ) : null}
-
-            <TextInput
-              style={[styles.input, errors.email ? styles.inputError : null]}
-              value={email}
-              placeholder="Enter Email"
-              onChangeText={(text) => {
-                setEmail(text);
-                if (errors.email)
-                  setErrors((prev) => ({ ...prev, email: "" }));
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            {errors.email ? (
-              <Text style={styles.errorText}>{errors.email}</Text>
-            ) : null}
-          </View>
-          <View>
-            <TouchableOpacity
+          <View style={styles.mainStyle}>
+            <View style={styles.imagestyle}>
+              <Image
+                source={require("../../assets/images/logo.png")}
+                style={styles.imageStyling}
+              />
+            </View>
+            <View
               style={[
-                styles.LoginStyle,
-                (isOnCooldown || isSending) && styles.LoginDisabled,
+                styles.divi,
+                (isOnCooldown || errors.phone || errors.email) &&
+                styles.diviExpanded,
               ]}
-              onPress={sendOTP}
-              disabled={isOnCooldown || isSending}
             >
-              <Text style={styles.LoginText}>
-                {isSending
-                  ? "Sending..."
-                  : isOnCooldown
-                    ? "OTP Sent"
-                    : "Send OTP"}
+              <Text style={[styles.divtext, typography.subheading]}>
+                Login to your workspace
               </Text>
-            </TouchableOpacity>
+              <View style={{ width: "100%", alignItems: "center" }}>
+                <ValidatedInput
+                  value={ph}
+                  placeholder="Enter Phone Number"
+                  onChangeText={(text) => {
+                    setPh(text);
+                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+                  }}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  validator={isValidPhone}
+                  errorMessage="Enter a valid 10-digit phone number"
+                  externalError={errors.phone}
+                />
+
+                <ValidatedInput
+                  value={email}
+                  placeholder="Enter Email"
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (errors.email) setErrors((prev) => ({ ...prev, email: "" }));
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  validator={isValidEmail}
+                  errorMessage="Please enter a valid email"
+                  externalError={errors.email}
+                />
+              </View>
+              <View style={{ width: "100%" }}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={[
+                    styles.LoginStyle,
+                    (isOnCooldown || isSending) && styles.LoginDisabled,
+                  ]}
+                  onPress={sendOTP}
+                  disabled={isOnCooldown || isSending}
+                >
+                  <Text style={styles.LoginText}>
+                    {isSending
+                      ? "Sending..."
+                      : isOnCooldown
+                        ? "OTP Sent"
+                        : "Send OTP"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {isOnCooldown && (
+                <Text style={styles.resendText}>
+                  Resend in : {cooldown}.00 secs
+                </Text>
+              )}
+            </View>
+
+            <View>
+              <Text style={styles.createStyle}>Create new Account?</Text>
+            </View>
+            <View style={styles.SetStyle}>
+              <Text
+                onPress={() => router.push("/(auth)/AdminSignup")}
+                style={styles.setText}
+              >
+                Create Admin Account
+              </Text>
+            </View>
           </View>
-
-          {/* Countdown text */}
-          {isOnCooldown && (
-            <Text style={styles.resendText}>
-              Resend in : {cooldown}.00 secs
-            </Text>
-          )}
-        </View>
-
-        <View>
-          <Text style={styles.createStyle}>Create new Account?</Text>
-        </View>
-        <View style={styles.SetStyle}>
-          <Text
-            onPress={() => router.push("/(auth)/AdminSignup")}
-            style={styles.setText}
-          >
-            Create Admin Account
-          </Text>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 export default AdminLogin;
 
-const ERROR = "#D32F2F";
-
 const styles = StyleSheet.create({
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
   setText: {
     color: "white",
     fontSize: 15,
@@ -285,71 +289,51 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#E8870A",
-    height: 50,
+    height: 48,
     width: "60%",
-    borderRadius: 10,
-    elevation: 4,
+    borderRadius: 14,
+    shadowColor: "#E8870A",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
   },
   createStyle: {
     color: "#6B7280",
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: "Poppins_400Regular",
-    marginTop: 50,
+    marginTop: 60,
   },
   LoginText: {
     color: "white",
-    fontSize: 15,
+    fontSize: 16,
+    fontWeight: "700",
     fontFamily: "Poppins_400Regular",
+    letterSpacing: 0.3,
   },
   LoginStyle: {
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#1A2744",
-    height: 50,
-    width: 280,
-    borderRadius: 10,
-    elevation: 4,
-    marginTop: 20,
+    height: 52,
+    borderRadius: 16,
+    marginTop: 18,
+    shadowColor: "#1A2744",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 6,
   },
   LoginDisabled: {
     backgroundColor: "#6B7280",
+    shadowOpacity: 0,
+    elevation: 0,
   },
   resendText: {
-    marginTop: 30,
+    marginTop: 20,
     color: "#E8870A",
     fontSize: 13,
     fontFamily: "Poppins_400Regular",
-  },
-  formatForgot: {
-    // top: 5,
-  },
-  forgot: {
-    fontSize: 11,
-    color: "red",
-    textDecorationLine: "underline",
-    fontFamily: "Poppins_400Regular",
-  },
-  input: {
-    backgroundColor: "#E5E7EB",
-    height: 50,
-    width: 280,
-    justifyContent: "center",
-    paddingLeft: 20,
-    borderRadius: 10,
-    marginTop: 20,
-    borderColor: "#6B7280",
-    borderWidth: 0.7,
-  },
-  inputError: {
-    borderColor: ERROR,
-    backgroundColor: "#FDECEC",
-  },
-  errorText: {
-    color: ERROR,
-    fontSize: 12,
-    fontFamily: "Poppins_400Regular",
-    marginTop: 4,
-    marginLeft: 4,
   },
   mainStyle: {
     alignItems: "center",
@@ -363,7 +347,7 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 20,
     fontFamily: "Poppins_400Regular",
-    alignSelf:"center",
+    alignSelf: "center",
   },
   imagestyle: {
     justifyContent: "center",
@@ -382,19 +366,27 @@ const styles = StyleSheet.create({
   },
   divi: {
     alignItems: "center",
-    backgroundColor: "white",
-    padding: 20,
-    height: 290,
-    width: "80%",
-    borderRadius: 25,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
+    width: "85%",
+    borderRadius: 24,
     marginTop: 110,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 10,
+    overflow: "visible",
   },
   diviExpanded: {
-    height: 340,
+    paddingBottom: 28,
   },
   divtext: {
-    fontSize: 20,
-    color: "#8B95A1",
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1A2744",
     fontFamily: "Poppins_400Regular",
   },
 });

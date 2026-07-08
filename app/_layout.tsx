@@ -40,7 +40,7 @@ export default function RootLayout() {
 
       const { data, error } = await supabase.from('users').select('*')
 
-      console.log('DATA:', JSON.stringify(data))
+      // console.log('DATA:', JSON.stringify(data))
       console.log('ERROR:', JSON.stringify(error))
     }
     test()
