@@ -8,6 +8,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 import { TaskPriority, TaskStatus } from '../../types/task';
 import { API_BASE_URL } from '../../constants/api';
+import BackButton from "../../components/backButton";
+
 
 type FilterMode = 'status' | 'priority';
 
@@ -129,7 +131,8 @@ export default function GenExcel() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.base.background }]}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 4 }]}>
+        <BackButton />
+        <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 4 , alignSelf:"center"}]}>
           Generate Excel Report
         </Text>
         <Text style={[typography.body, { color: colors.text.secondary, marginBottom: 22 }]}>

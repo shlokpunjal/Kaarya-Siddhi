@@ -5,6 +5,7 @@ import {
   Image,
   TouchableOpacity,
   TextInput,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef, useEffect } from "react";
@@ -15,11 +16,13 @@ import { typography } from '../../theme/theme';
 import BackButton from "../../components/backButton";
 
 
+
 // import { sendLoginNotification } from "../../utils/notifications";
 import { sendLoginNotification } from "../../utils/notifications";
 
 const OtpVerify = () => {
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const inputRefs = useRef<(TextInput | null)[]>([]);
   const [cooldown, setCooldown] = useState(30); // starts at 30 immediately
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { email, ph, role, mode, name } = useLocalSearchParams<{
@@ -37,6 +40,9 @@ const OtpVerify = () => {
   // Auto-start the 30s cooldown when page loads
   useEffect(() => {
     startCooldown();
+    setTimeout(() => {
+      inputRefs.current[0]?.focus();
+    }, 300);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
@@ -44,6 +50,7 @@ const OtpVerify = () => {
 
   const startCooldown = () => {
     setCooldown(30);
+
     intervalRef.current = setInterval(() => {
       setCooldown((prev) => {
         if (prev <= 1) {
@@ -56,7 +63,8 @@ const OtpVerify = () => {
   };
 
   const verifyOTP = async () => {
-    if (otp.length !== 6) {
+    const otpCode = otp.join("");
+    if (otpCode.length !== 6) {
       setOtpError("Enter a valid 6-digit OTP");
       return;
     }
@@ -71,7 +79,7 @@ const OtpVerify = () => {
         },
         body: JSON.stringify({
           email,
-          otp,
+          otp: otpCode,
         }),
       });
 
@@ -219,17 +227,69 @@ const OtpVerify = () => {
         >
           <Text style={styles.divtext}>Login to your workspace</Text>
           <View>
-            <TextInput
-              style={[styles.input, otpError ? styles.inputError : null]}
-              value={otp}
-              placeholder="6-digit OTP "
-              onChangeText={(text) => {
-                setOtp(text);
-                if (otpError) setOtpError("");
-              }}
-              keyboardType="number-pad"
-              maxLength={6}
-            />
+            <View style={styles.otpContainer}>
+
+              {otp.map((digit, index) => (
+
+                <TextInput
+                  key={index}
+
+                  ref={(ref) => {
+                    inputRefs.current[index] = ref;
+                  }}
+
+                  style={[
+                    styles.otpInput,
+                    otpError && styles.otpError
+                  ]}
+
+                  value={digit}
+
+                  cursorColor="#E8870A"
+
+                  selectionColor="#E8870A"
+
+                  keyboardType="number-pad"
+
+                  maxLength={1}
+
+                  onChangeText={(text) => {
+
+                    const number = text.replace(/[^0-9]/g, "");
+
+                    const updated = [...otp];
+
+                    updated[index] = number;
+
+                    setOtp(updated);
+
+                    if (otpError) setOtpError("");
+
+                    if (number && index < 5) {
+                      inputRefs.current[index + 1]?.focus();
+                    }
+
+                  }}
+
+                  onKeyPress={({ nativeEvent }) => {
+
+                    if (
+                      nativeEvent.key === "Backspace"
+                      &&
+                      !otp[index]
+                      &&
+                      index > 0
+                    ) {
+                      inputRefs.current[index - 1]?.focus();
+                    }
+
+                  }}
+
+                />
+
+              ))}
+
+            </View>
             {otpError ? (
               <Text style={styles.errorText}>{otpError}</Text>
             ) : null}
@@ -240,7 +300,13 @@ const OtpVerify = () => {
 
           {/* Verify OTP button */}
           <View>
-            <TouchableOpacity style={styles.LoginStyle} onPress={verifyOTP}>
+            <TouchableOpacity style={[
+              styles.LoginStyle,
+              otp.join("").length < 6 && {
+                opacity: 0.5,
+              },
+            ]}
+              disabled={otp.length < 6} onPress={verifyOTP}>
               <Text style={styles.LoginText}>Verify OTP</Text>
             </TouchableOpacity>
           </View>
@@ -369,6 +435,7 @@ const styles = StyleSheet.create({
   maintext: {
     color: "white",
     fontSize: 20,
+    alignSelf: "center",
   },
   imagestyle: {
     justifyContent: "center",
@@ -390,7 +457,7 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     padding: 20,
     height: 280,
-    width: "85%",
+    width: "90%",
     borderRadius: 25,
     top: 80,
   },
@@ -402,4 +469,60 @@ const styles = StyleSheet.create({
     color: "#8B95A1",
     fontWeight: "700",
   },
+  otpContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 25,
+  },
+  otpInput: {
+    width: 46,
+    height: 56,
+    marginHorizontal: 4,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#D8DEE9",
+    backgroundColor: "#F8FAFC",
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#1A2744",
+    textAlign: "center",
+  },
+
+  otpError: {
+    borderColor: "#D32F2F",
+  },
+
+  otpBoxes: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  otpBox: {
+    width: 45,
+    height: 55,
+    borderRadius: 14,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 4,
+  },
+
+  activeOtpBox: {
+    borderColor: "#E8870A",
+    backgroundColor: "#FFF8EF",
+  },
+
+  errorOtpBox: {
+    borderColor: "#D32F2F",
+  },
+
+  otpDigit: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#1A2744",
+  },
+
+
 });
