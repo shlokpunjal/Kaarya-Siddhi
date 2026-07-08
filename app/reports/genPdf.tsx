@@ -1,83 +1,245 @@
 import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
+import { TaskPriority, TaskStatus } from '../../types/task';
+import { API_BASE_URL } from '../../constants/api';
+import BackButton from "../../components/backButton";
 
-const API_BASE = 'https://kaarya-siddhi.onrender.com';
+
+type FilterMode = 'status' | 'priority';
+
+const STATUSES: TaskStatus[] = ['overdue', 'pending', 'inReview', 'completed'];
+const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high'];
+
+const sanitizeDate = (value: string) => value.replace(/[–—−]/g, '-').trim();
 
 export default function GenPdf() {
   const { colors } = useTheme();
+
+  const [filterMode, setFilterMode] = useState<FilterMode>('status');
+  const [selectedValue, setSelectedValue] = useState<string>('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
-  const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [reportFileUri, setReportFileUri] = useState<string | null>(null);
 
-  const handleGenerate = () => {
-    setLoading(true);
+  const buildQuery = () => {
     const params = new URLSearchParams();
-    if (startDate) params.append('start_date', startDate);
-    if (endDate) params.append('end_date', endDate);
-    const url = `${API_BASE}/reports/tasks/pdf?${params.toString()}`;
-    setGeneratedUrl(url);
-    setLoading(false);
+    params.append('start_date', sanitizeDate(startDate));
+    params.append('end_date', sanitizeDate(endDate));
+    if (selectedValue) {
+      if (filterMode === 'status') params.append('status', selectedValue);
+      if (filterMode === 'priority') params.append('priority', selectedValue);
+    }
+    return params.toString();
   };
 
-  const handleOpen = () => {
-    if (generatedUrl) Linking.openURL(generatedUrl);
+  const handleGenerate = async () => {
+    setErrorMessage('');
+    setReportFileUri(null);
+
+    if (!startDate.trim() || !endDate.trim()) {
+      setErrorMessage('Please enter both a start and end date.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const token = await AsyncStorage.getItem('token');
+
+      if (!token) {
+        setErrorMessage('Your session has expired. Please log in again.');
+        return;
+      }
+
+      const url = `${API_BASE_URL}/reports/tasks/pdf?${buildQuery()}`;
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setErrorMessage(data.detail || 'Could not generate report.');
+        return;
+      }
+
+      const blob = await response.blob();
+      const base64Data: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      const fileName = `task_report_${startDate}_to_${endDate}.pdf`;
+      const file = new File(Paths.cache, fileName);
+
+      await file.write(base64Data, { encoding: 'base64' });
+
+      setReportFileUri(file.uri);
+    } catch (error) {
+      console.log(error);
+      setErrorMessage('Something went wrong while generating the report.');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleOpen = async () => {
+    if (!reportFileUri) return;
+
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(reportFileUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Task Report',
+      });
+    } else {
+      Alert.alert('Report saved', `Saved to: ${reportFileUri}`);
+    }
+  };
+
+  const optionsForMode = (): string[] => {
+    if (filterMode === 'status') return STATUSES;
+    if (filterMode === 'priority') return PRIORITIES;
+    return [];
+  };
+
+  const handleModeChange = (mode: FilterMode) => {
+    setFilterMode(mode);
+    setSelectedValue('');
+  };
+
+  const FILTER_TABS: { key: FilterMode; label: string }[] = [
+    { key: 'status', label: 'Status' },
+    { key: 'priority', label: 'Priority' },
+  ];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.base.background }]}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 4 }]}>
+        <BackButton />
+        <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 4, alignSelf: "center" }]}>
           Generate PDF Report
         </Text>
         <Text style={[typography.body, { color: colors.text.secondary, marginBottom: 22 }]}>
-          Select a date range to export tasks as PDF
+          Choose how you'd like to filter the task list
         </Text>
 
         <Text style={[typography.heading3, { color: colors.text.secondary, marginBottom: 10 }]}>
-          Date range
+          Filter by (optional)
+        </Text>
+        <View style={styles.row}>
+          {FILTER_TABS.map(({ key, label }) => (
+            <Pressable
+              key={key}
+              onPress={() => handleModeChange(key)}
+              style={[
+                styles.chip,
+                { backgroundColor: filterMode === key ? colors.brand.accent : colors.base.surfaceL2 },
+              ]}
+            >
+              <Text
+                style={[
+                  typography.label,
+                  { color: filterMode === key ? '#FFFFFF' : colors.text.primary },
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 20, marginBottom: 10 }]}>
+          Select value
+        </Text>
+        <View style={styles.row}>
+          {optionsForMode().map((value) => (
+            <Pressable
+              key={value}
+              onPress={() => setSelectedValue(value === selectedValue ? '' : value)}
+              style={[
+                styles.chip,
+                { backgroundColor: selectedValue === value ? colors.brand.primary : colors.base.surfaceL2 },
+              ]}
+            >
+              <Text
+                style={[
+                  typography.label,
+                  { color: selectedValue === value ? '#FFFFFF' : colors.text.primary },
+                ]}
+              >
+                {value}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 20, marginBottom: 10 }]}>
+          Date range (required)
         </Text>
         <View style={styles.dateRow}>
-          <View style={[styles.textInput, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
-            <Text style={[typography.label, { color: colors.text.secondary, marginBottom: 2 }]}>Start date</Text>
-            <Text style={[typography.body, { color: startDate ? colors.text.primary : colors.text.secondary }]}>
-              {startDate || 'YYYY-MM-DD'}
-            </Text>
-          </View>
-          <View style={[styles.textInput, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
-            <Text style={[typography.label, { color: colors.text.secondary, marginBottom: 2 }]}>End date</Text>
-            <Text style={[typography.body, { color: endDate ? colors.text.primary : colors.text.secondary }]}>
-              {endDate || 'YYYY-MM-DD'}
-            </Text>
-          </View>
+          <TextInput
+            placeholder="Start (YYYY-MM-DD)"
+            placeholderTextColor={colors.text.secondary}
+            value={startDate}
+            onChangeText={setStartDate}
+            style={[
+              styles.textInput,
+              typography.body,
+              { flex: 1, borderColor: colors.base.border, color: colors.text.primary, backgroundColor: colors.base.surfaceL1 },
+            ]}
+          />
+          <TextInput
+            placeholder="End (YYYY-MM-DD)"
+            placeholderTextColor={colors.text.secondary}
+            value={endDate}
+            onChangeText={setEndDate}
+            style={[
+              styles.textInput,
+              typography.body,
+              { flex: 1, borderColor: colors.base.border, color: colors.text.primary, backgroundColor: colors.base.surfaceL1 },
+            ]}
+          />
         </View>
 
-        <View style={styles.chipRow}>
-          <Pressable style={[styles.chip, { backgroundColor: colors.base.surfaceL2 }]} onPress={() => setStartDate('2026-06-18')}>
-            <Text style={[typography.label, { color: colors.text.primary }]}>Jun 18</Text>
-          </Pressable>
-          <Pressable style={[styles.chip, { backgroundColor: colors.base.surfaceL2 }]} onPress={() => setEndDate('2026-06-27')}>
-            <Text style={[typography.label, { color: colors.text.primary }]}>Jun 27</Text>
-          </Pressable>
-          <Pressable style={[styles.chip, { backgroundColor: colors.base.surfaceL2 }]} onPress={() => { setStartDate(''); setEndDate(''); setGeneratedUrl(null); }}>
-            <Text style={[typography.label, { color: colors.text.primary }]}>Clear</Text>
-          </Pressable>
-        </View>
+        {errorMessage ? (
+          <Text style={{ ...typography.body, color: '#D32F2F', marginTop: 14 }}>
+            {errorMessage}
+          </Text>
+        ) : null}
 
         <Pressable
-          style={[styles.generateButton, { backgroundColor: colors.brand.accent }]}
+          style={[styles.generateButton, { backgroundColor: colors.brand.accent, opacity: loading ? 0.7 : 1 }]}
           onPress={handleGenerate}
+          disabled={loading}
         >
           <Text style={[typography.subheading, { color: '#FFFFFF' }]}>
             {loading ? 'Generating...' : 'Generate Report'}
           </Text>
         </Pressable>
 
-        {generatedUrl && (
-          <View style={[styles.resultBox, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
+        {reportFileUri && (
+          <View
+            style={[
+              styles.resultBox,
+              { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border },
+            ]}
+          >
             <Text style={[typography.body, { color: colors.text.primary, marginBottom: 12 }]}>
               Report ready.
             </Text>
@@ -96,10 +258,10 @@ export default function GenPdf() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  dateRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  chipRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  textInput: { flex: 1, borderWidth: 1, borderRadius: 10, padding: 12 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  dateRow: { flexDirection: 'row', gap: 10 },
   chip: { paddingVertical: 9, paddingHorizontal: 16, borderRadius: 20 },
+  textInput: { borderWidth: 1, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 13 },
   generateButton: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 26 },
   resultBox: { marginTop: 20, borderRadius: 14, borderWidth: 1, padding: 16 },
   actionButton: { borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
