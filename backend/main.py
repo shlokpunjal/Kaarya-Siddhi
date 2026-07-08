@@ -799,8 +799,8 @@ async def logout(data: LogoutRequest):
 
 from routes.excel_report import router as excel_report_router   
 # from backend.routes.upload import router as upload_router    
-app.include_router(excel_report_router)   
+app.include_router(excel_report_router)    
 # app.include_router(upload_router)
 
-
-
+from routes.pdf_report import router as pdf_report_router
+app.include_router(pdf_report_router)
