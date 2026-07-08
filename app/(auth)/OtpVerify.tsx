@@ -12,16 +12,19 @@ import React, { useState, useRef, useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
-import { typography } from '../../theme/theme';
+import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
-
-
+import AnimatedBorderCard from "../../components/AnimatedBorderCard";
 
 // import { sendLoginNotification } from "../../utils/notifications";
 import { sendLoginNotification } from "../../utils/notifications";
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardTranslateY = useRef(new Animated.Value(60)).current;
+  const cardScale = useRef(new Animated.Value(0.95)).current;
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const [cooldown, setCooldown] = useState(30); // starts at 30 immediately
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -40,6 +43,27 @@ const OtpVerify = () => {
   // Auto-start the 30s cooldown when page loads
   useEffect(() => {
     startCooldown();
+    Animated.parallel([
+      Animated.timing(cardOpacity, {
+        toValue: 1,
+        duration: 450,
+        useNativeDriver: true,
+      }),
+
+      Animated.spring(cardTranslateY, {
+        toValue: 0,
+        friction: 7,
+        tension: 70,
+        useNativeDriver: true,
+      }),
+
+      Animated.spring(cardScale, {
+        toValue: 1,
+        friction: 8,
+        tension: 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
     setTimeout(() => {
       inputRefs.current[0]?.focus();
     }, 300);
@@ -62,8 +86,8 @@ const OtpVerify = () => {
     }, 1000);
   };
 
-  const verifyOTP = async () => {
-    const otpCode = otp.join("");
+  const verifyOTP = async (code?: string) => {
+    const otpCode = code ?? otp.join("");
     if (otpCode.length !== 6) {
       setOtpError("Enter a valid 6-digit OTP");
       return;
@@ -132,7 +156,7 @@ const OtpVerify = () => {
         if (data.role === "employee") {
           router.replace({
             pathname: "/(auth)/RequestAdmin",
-            params: { email: data.email, name },   // ← add name
+            params: { email: data.email, name }, // ← add name
           });
           return;
         }
@@ -144,7 +168,7 @@ const OtpVerify = () => {
 
       // ---------- LOGIN FLOW ----------
       sendLoginNotification(data.email).catch((err) =>
-        console.log("Login notification failed:", err)
+        console.log("Login notification failed:", err),
       );
 
       if (data.role === "admin") {
@@ -207,7 +231,9 @@ const OtpVerify = () => {
     <SafeAreaView>
       <View style={styles.mainbar}>
         <BackButton />
-        <Text style={[styles.maintext, typography.heading]}>OTP Verification</Text>
+        <Text style={[styles.maintext, typography.heading]}>
+          OTP Verification
+        </Text>
       </View>
       <View style={styles.mainStyle}>
         <View style={styles.imagestyle}>
@@ -218,47 +244,42 @@ const OtpVerify = () => {
         </View>
 
         {/* Card — grows when cooldown or messages are active */}
-        <View
+        
+        <Animated.View
           style={[
             styles.divi,
-            (isOnCooldown || otpError || resendMessage) &&
-            styles.diviExpanded,
+            (isOnCooldown || otpError || resendMessage) && styles.diviExpanded,
           ]}
         >
-          <Text style={styles.divtext}>Login to your workspace</Text>
+          <Text style={[styles.divtext]}>Login to your workspace</Text>
           <View>
             <View style={styles.otpContainer}>
-
               {otp.map((digit, index) => (
-
                 <TextInput
                   key={index}
-
                   ref={(ref) => {
                     inputRefs.current[index] = ref;
                   }}
-
                   style={[
                     styles.otpInput,
-                    otpError && styles.otpError
+
+                    focusedIndex === index && styles.activeOtpBox,
+
+                    digit && styles.filledOtpBox,
+
+                    otpError && styles.otpError,
                   ]}
-
+                  onFocus={() => setFocusedIndex(index)}
+                  onBlur={() => setFocusedIndex(-1)}
                   value={digit}
-
                   cursorColor="#E8870A"
-
                   selectionColor="#E8870A"
-
                   keyboardType="number-pad"
-
                   maxLength={1}
-
                   onChangeText={(text) => {
-
                     const number = text.replace(/[^0-9]/g, "");
 
                     const updated = [...otp];
-
                     updated[index] = number;
 
                     setOtp(updated);
@@ -266,47 +287,50 @@ const OtpVerify = () => {
                     if (otpError) setOtpError("");
 
                     if (number && index < 5) {
+                      setFocusedIndex(index + 1);
                       inputRefs.current[index + 1]?.focus();
                     }
 
+                    // Auto submit when all 6 digits are entered
+                    const otpCode = updated.join("");
+
+                    if (otpCode.length === 6) {
+                      setTimeout(() => {
+                        verifyOTP(otpCode);
+                      }, 100);
+                    }
                   }}
-
                   onKeyPress={({ nativeEvent }) => {
-
                     if (
-                      nativeEvent.key === "Backspace"
-                      &&
-                      !otp[index]
-                      &&
+                      nativeEvent.key === "Backspace" &&
+                      !otp[index] &&
                       index > 0
                     ) {
+                      setFocusedIndex(index - 1);
                       inputRefs.current[index - 1]?.focus();
                     }
-
                   }}
-
                 />
-
               ))}
-
             </View>
-            {otpError ? (
-              <Text style={styles.errorText}>{otpError}</Text>
-            ) : null}
+            {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
             {resendMessage ? (
               <Text style={styles.successText}>{resendMessage}</Text>
             ) : null}
           </View>
 
           {/* Verify OTP button */}
-          <View>
-            <TouchableOpacity style={[
-              styles.LoginStyle,
-              otp.join("").length < 6 && {
-                opacity: 0.5,
-              },
-            ]}
-              disabled={otp.length < 6} onPress={verifyOTP}>
+          <View style={{ width: "100%" }}>
+            <TouchableOpacity
+              style={[
+                styles.LoginStyle,
+                otp.join("").length < 6 && {
+                  opacity: 0.5,
+                },
+              ]}
+              disabled={otp.length < 6}
+              onPress={() => verifyOTP(otp.join(""))}
+            >
               <Text style={styles.LoginText}>Verify OTP</Text>
             </TouchableOpacity>
           </View>
@@ -322,7 +346,7 @@ const OtpVerify = () => {
               <Text style={styles.LoginText}>Resend OTP</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </Animated.View>
 
         {/* <View>
           <Text style={styles.createStyle}>Create new Account?</Text>
@@ -365,29 +389,49 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   LoginText: {
-    color: "white",
+    color: "#FFFFFF",
     fontWeight: "700",
-    fontSize: 15,
+    fontSize: 17,
+    letterSpacing: 0.4,
   },
   LoginStyle: {
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#1A2744",
-    height: 50,
-    width: 300,
-    borderRadius: 10,
-    elevation: 4,
-    top: 15,
+    height: 56,
+    width: "100%",
+    borderRadius: 18,
+    marginTop: 18,
+    shadowColor: "#1A2744",
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 8,
   },
   resendButton: {
+    width: "100%",
+    height: 56,
+    borderRadius: 18,
+
+    marginTop: 20,
+
     alignItems: "center",
     justifyContent: "center",
+
     backgroundColor: "#1A2744",
-    height: 50,
-    width: 300,
-    borderRadius: 10,
-    elevation: 4,
-    top: 30,
+
+    shadowColor: "#1A2744",
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+
+    elevation: 8,
   },
   resendText: {
     marginTop: 30,
@@ -454,35 +498,53 @@ const styles = StyleSheet.create({
   },
   divi: {
     alignItems: "center",
-    backgroundColor: "white",
-    padding: 20,
-    height: 280,
+    backgroundColor: "#FFFFFF",
     width: "90%",
-    borderRadius: 25,
+    borderRadius: 30,
+
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 24,
+
     top: 80,
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 12,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+
+    elevation: 12,
+
+    overflow: "visible",
   },
   diviExpanded: {
-    height: 300,
+    paddingBottom: 32,
   },
   divtext: {
-    fontSize: 20,
-    color: "#8B95A1",
+    fontSize: 22,
     fontWeight: "700",
+    color: "#1A2744",
+    marginBottom: 12,
   },
   otpContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 25,
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 18,
   },
   otpInput: {
-    width: 46,
-    height: 56,
+    width: 48,
+    height: 60,
     marginHorizontal: 4,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: "#D8DEE9",
-    backgroundColor: "#F8FAFC",
-    fontSize: 24,
+    backgroundColor: "#FFFFFF",
+    fontSize: 26,
     fontWeight: "700",
     color: "#1A2744",
     textAlign: "center",
@@ -512,6 +574,22 @@ const styles = StyleSheet.create({
   activeOtpBox: {
     borderColor: "#E8870A",
     backgroundColor: "#FFF8EF",
+    borderWidth: 2,
+
+    shadowColor: "#E8870A",
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+
+    elevation: 6,
+
+    transform: [{ scale: 1.05 }],
+  },
+  filledOtpBox: {
+    borderColor: "#E8870A",
   },
 
   errorOtpBox: {
@@ -523,6 +601,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1A2744",
   },
-
-
 });
