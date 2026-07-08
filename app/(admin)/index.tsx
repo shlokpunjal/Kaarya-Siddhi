@@ -10,7 +10,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 import { Task } from '../../types/task';
 import { getGreeting } from '../../utils/greeting';
-import NoTasks from '../(task)/notasks';
+import NoTasksAdmin from '../(task)/notasksAdmin';
 
 // Matches the actual `tasks` table columns
 type TaskRow = {
@@ -132,7 +132,7 @@ export default function Dashboard() {
     reviewTasks.length === 0 &&
     completedTasks.length === 0
   ) {
-    return <NoTasks />;
+    return <NoTasksAdmin />;
   }
 
   return (
