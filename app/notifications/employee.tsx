@@ -1,5 +1,3 @@
-// app/notifications/employee.tsx
-//
 // Employee's Notifications page.
 // - "Requests" section: the employee's own extension requests, live status
 //   (pending / accepted / rejected), synced in realtime via Supabase.
