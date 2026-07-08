@@ -3,11 +3,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-export default function NoTasks() {
+export default function NoTaskEmp() {
   const router = useRouter();
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF",marginTop:20}}>
+    <View style={{ flex: 1, backgroundColor: "#FFFFFF",marginTop:20 }}>
       {/* ── Header ── */}
       <SafeAreaView style={{ backgroundColor: "#1A2744" }} edges={["top"]}>
         <View style={styles.header}>
@@ -18,7 +18,7 @@ export default function NoTasks() {
       {/* ── Main content ── */}
       <View style={styles.content}>
         <Image
-          source={require("../../assets/images/notaskImage.png")}
+          source={require("../../assets/images/emp.png")}
           style={styles.illustration}
           resizeMode="contain"
         />
@@ -43,10 +43,10 @@ export default function NoTasks() {
 
 const styles = StyleSheet.create({
   header: {
-    height: 40,
+    height: 70,
     justifyContent: "center",
     paddingLeft: 24,
-    marginTop:20 
+
   },
   headerText: {
     color: "white",

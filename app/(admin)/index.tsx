@@ -372,6 +372,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 import { Task } from '../../types/task';
 import { getGreeting } from '../../utils/greeting';
+import NoTasks from '../(task)/notasks';
 
 // Matches the actual `tasks` table columns
 type TaskRow = {
@@ -485,6 +486,16 @@ export default function Dashboard() {
   const pendingTasks = tasks.filter(t => t.status === "pending");
   const reviewTasks = tasks.filter(t => t.status === "inReview");
   const completedTasks = tasks.filter(t => t.status === "completed");
+
+  // ── If every category is empty, show the NoTasks screen instead ──
+  if (
+    overdueTasks.length === 0 &&
+    pendingTasks.length === 0 &&
+    reviewTasks.length === 0 &&
+    completedTasks.length === 0
+  ) {
+    return <NoTasks />;
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
