@@ -7,7 +7,7 @@ export default function NoTaskEmp() {
   const router = useRouter();
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF",marginTop:20 }}>
+    <View style={{ flex: 1, backgroundColor: "#FFFFFF",marginTop:25 }}>
       {/* ── Header ── */}
       <SafeAreaView style={{ backgroundColor: "#1A2744" }} edges={["top"]}>
         <View style={styles.header}>
@@ -42,16 +42,18 @@ export default function NoTaskEmp() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    height: 70,
+ header: {
+    height: 30,
     justifyContent: "center",
     paddingLeft: 24,
-
+    marginTop:20,
+    marginLeft:-5
   },
   headerText: {
     color: "white",
     fontSize: 22,
     fontFamily: "Poppins-SemiBold",
+    marginTop:-40
   },
   content: {
     flex: 1,
