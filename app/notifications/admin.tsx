@@ -133,7 +133,6 @@ export default function AdminNotifications() {
             borderRadius: 16,
             padding: 16,
             marginBottom: 20,
-            boxShadow: "0px 0px 5px gray",
           }}
         >
           <View
@@ -141,13 +140,13 @@ export default function AdminNotifications() {
               height: 40,
               width: 40,
               borderRadius: 20,
-              backgroundColor: colors.brand.primary + "22",
+              backgroundColor: colors.brand.onPrimary + "22",
               alignItems: "center",
               justifyContent: "center",
               marginRight: 14,
             }}
           >
-            <Ionicons name="mail-outline" size={20} color={colors.brand.primary} />
+            <Ionicons name="mail" size={20} color={colors.brand.primary} />
           </View>
 
           <View style={{ flex: 1 }}>
