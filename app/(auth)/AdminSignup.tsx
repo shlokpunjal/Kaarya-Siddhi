@@ -3,16 +3,20 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
 import BackButton from "../../components/backButton";
+import ValidatedInput from "../../components/ValidatedInput";
+import { isValidEmail, isValidPhone, isValidName } from "../../constants/validators";
 
 
 export default function AdminSignup() {
@@ -21,6 +25,7 @@ export default function AdminSignup() {
   const [phone, setPhone] = useState("");
 
   const [loading, setLoading] = useState(false);
+
 
   const [errors, setErrors] = useState({
     name: "",
@@ -34,6 +39,9 @@ export default function AdminSignup() {
 
     if (!name.trim()) {
       newErrors.name = "Please enter your name";
+      isValid = false;
+    } else if (!isValidName(name)) {
+      newErrors.name = "Name should only contain letters";
       isValid = false;
     }
 
@@ -57,7 +65,6 @@ export default function AdminSignup() {
     setErrors(newErrors);
     return isValid;
   }
-
   async function createAccount() {
     if (!validate()) {
       return;
@@ -128,7 +135,7 @@ export default function AdminSignup() {
         pathname: "/(auth)/OtpVerify",
         params: {
           email,
-          name,        // ← add this
+          name,
           role: "admin",
           mode: "signup",
         },
@@ -151,105 +158,118 @@ export default function AdminSignup() {
         <Text style={[styles.headerText, typography.heading]}>Admin Signup</Text>
       </View>
 
-      <View style={styles.logoContainer}>
-        <Image
-          source={require("../../assets/images/logo.png")}
-          style={styles.logo}
-        />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.title}>Create Admin Account</Text>
-
-        <TextInput
-          style={[styles.input, errors.name ? styles.inputError : null]}
-          placeholder="Full Name"
-          value={name}
-          onChangeText={(text) => {
-            setName(text);
-            if (errors.name) setErrors((prev) => ({ ...prev, name: "" }));
-          }}
-        />
-        {errors.name ? (
-          <Text style={styles.errorText}>{errors.name}</Text>
-        ) : null}
-
-        <TextInput
-          style={[styles.input, errors.phone ? styles.inputError : null]}
-          placeholder="Phone Number"
-          keyboardType="phone-pad"
-          maxLength={10}
-          value={phone}
-          onChangeText={(text) => {
-            setPhone(text);
-            if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
-          }}
-        />
-        {errors.phone ? (
-          <Text style={styles.errorText}>{errors.phone}</Text>
-        ) : null}
-
-        <TextInput
-          style={[styles.input, errors.email ? styles.inputError : null]}
-          placeholder="Email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={(text) => {
-            setEmail(text);
-            if (errors.email) setErrors((prev) => ({ ...prev, email: "" }));
-          }}
-        />
-        {errors.email ? (
-          <Text style={styles.errorText}>{errors.email}</Text>
-        ) : null}
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={createAccount}
-          disabled={loading}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>Create Account</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-      <View style={styles.login}>
-        <Text style={styles.bottomText}>Already have an account?</Text>
-        <TouchableOpacity
-          onPress={() => router.replace("/(auth)/AdminLogin")}
-        >
-          <Text style={styles.loginT}>
-            Login
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.mainStyle}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require("../../assets/images/logo.png")}
+                style={styles.logo}
+              />
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.title}>Create Admin Account</Text>
+
+              <View style={{ width: "100%", alignItems: "center" }}>
+                <ValidatedInput
+                  value={name}
+                  placeholder="Full Name"
+                  onChangeText={(text) => {
+                    setName(text);
+                    if (errors.name) setErrors((prev) => ({ ...prev, name: "" }));
+                  }}
+                  validator={isValidName}
+                  errorMessage="Name should only contain letters"
+                  externalError={errors.name}
+                />
+
+                <ValidatedInput
+                  value={phone}
+                  placeholder="Phone Number"
+                  onChangeText={(text) => {
+                    setPhone(text);
+                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+                  }}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  validator={isValidPhone}
+                  errorMessage="Enter a valid 10-digit phone number"
+                  externalError={errors.phone}
+                />
+
+                <ValidatedInput
+                  value={email}
+                  placeholder="Email"
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (errors.email) setErrors((prev) => ({ ...prev, email: "" }));
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  validator={isValidEmail}
+                  errorMessage="Please enter a valid email"
+                  externalError={errors.email}
+                />
+              </View>
+
+              <View style={{ width: "100%" }}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  onPress={createAccount}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.buttonText}>Create Account</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.login}>
+              <Text style={styles.bottomText}>Already have an account?</Text>
+              <TouchableOpacity
+                onPress={() => router.replace("/(auth)/AdminLogin")}
+              >
+                <Text style={styles.loginT}>Login</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const PRIMARY = "#1A2744";
 const ACCENT = "#E8870A";
-const ERROR = "#D32F2F";
 
 const styles = StyleSheet.create({
-  loginButton: {
-    backgroundColor: ACCENT,
-    width: "50%",
-    height: 50,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 10,
-    marginLeft: 200,
-  },
-
   container: {
     flex: 1,
     backgroundColor: "#F8F9FC",
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
     alignItems: "center",
+  },
+
+  mainStyle: {
+    alignItems: "center",
+    width: "100%",
   },
 
   header: {
@@ -257,8 +277,6 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
     paddingVertical: 18,
     paddingHorizontal: 20,
-    alignSelf: "center"
-
   },
 
   headerText: {
@@ -270,89 +288,91 @@ const styles = StyleSheet.create({
 
   logoContainer: {
     marginTop: 35,
+    justifyContent: "center",
+    alignItems: "center",
+    height: 120,
+    width: 120,
+    borderRadius: 60,
+    backgroundColor: ACCENT,
   },
 
   logo: {
-    width: 120,
-    height: 120,
+    width: 115,
+    height: 115,
     borderRadius: 60,
   },
 
   card: {
     marginTop: 30,
+    alignItems: "center",
     width: "85%",
     backgroundColor: "white",
-    borderRadius: 20,
-    padding: 20,
-    elevation: 5,
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
+
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 10,
   },
 
   title: {
     textAlign: "center",
-    fontSize: 22,
+    fontSize: 18,
+    fontWeight: "700",
     color: PRIMARY,
-    marginBottom: 20,
-    fontFamily: "Poppins_600SemiBold",
-  },
-
-  input: {
-    height: 55,
-    backgroundColor: "#EEF2F7",
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    marginBottom: 10,
+    marginBottom: 4,
     fontFamily: "Poppins_400Regular",
-    borderWidth: 0.7,
-    borderColor: "#6B7280",
-    // borderColor: "transparent",
-  },
-
-  inputError: {
-    borderColor: ERROR,
-    backgroundColor: "#FDECEC",
-  },
-
-  errorText: {
-    color: ERROR,
-    fontSize: 12,
-    fontFamily: "Poppins_400Regular",
-    marginBottom: 10,
-    marginLeft: 4,
   },
 
   button: {
     backgroundColor: ACCENT,
-    height: 55,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 14,
+
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+
+  buttonDisabled: {
+    backgroundColor: "#6B7280",
+    shadowOpacity: 0,
+    elevation: 0,
   },
 
   buttonText: {
     color: "white",
     fontSize: 16,
-    fontFamily: "Poppins_600SemiBold",
+    fontWeight: "700",
+    fontFamily: "Poppins_400Regular",
+    letterSpacing: 0.3,
   },
 
   bottomText: {
-    marginTop: 25,
-    color: PRIMARY,
-    fontFamily: "Poppins_500Medium",
+    color: "#6B7280",
+    fontSize: 16,
+    fontFamily: "Poppins_400Regular",
+    marginTop: 30,
   },
-  login: {
-    color: PRIMARY,
-    fontFamily: "Poppins_500Medium",
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 0,
-    gap: 2,
 
+  login: {
+    alignItems: "center",
+    justifyContent: "center",
   },
+
   loginT: {
     color: PRIMARY,
     fontFamily: "Poppins_600SemiBold",
-    marginTop: 23.5,
+    marginTop: 4,
     textDecorationLine: "underline",
   },
 });

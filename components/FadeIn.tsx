@@ -5,10 +5,11 @@ type FadeInProps = {
   visible: boolean;
   children: React.ReactNode;
   duration?: number;
+  delay?: number;
   style?: any;
 };
 
-export default function FadeIn({ visible, children, duration = 250, style }: FadeInProps) {
+export default function FadeIn({ visible, children, duration = 250, delay = 0, style }: FadeInProps) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-4)).current;
 
@@ -18,11 +19,13 @@ export default function FadeIn({ visible, children, duration = 250, style }: Fad
         Animated.timing(opacity, {
           toValue: 1,
           duration,
+          delay,
           useNativeDriver: true,
         }),
         Animated.timing(translateY, {
           toValue: 0,
           duration,
+          delay,
           useNativeDriver: true,
         }),
       ]).start();

@@ -9,7 +9,7 @@ import { typography } from '../../theme/theme';
 import { TaskPriority, TaskStatus } from '../../types/task';
 import { API_BASE_URL } from '../../constants/api';
 import BackButton from "../../components/backButton";
-
+import * as SecureStore from 'expo-secure-store';
 
 type FilterMode = 'status' | 'priority';
 
@@ -52,8 +52,7 @@ export default function GenExcel() {
     try {
       setLoading(true);
 
-      const token = await AsyncStorage.getItem('token');
-
+const token = await SecureStore.getItemAsync('token');
       if (!token) {
         setErrorMessage('Your session has expired. Please log in again.');
         return;

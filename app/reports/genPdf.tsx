@@ -3,13 +3,12 @@ import { View, Text, Pressable, StyleSheet, ScrollView, TextInput, Alert } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 import { TaskPriority, TaskStatus } from '../../types/task';
 import { API_BASE_URL } from '../../constants/api';
 import BackButton from "../../components/backButton";
-
 
 type FilterMode = 'status' | 'priority';
 
@@ -52,8 +51,7 @@ export default function GenPdf() {
     try {
       setLoading(true);
 
-      const token = await AsyncStorage.getItem('token');
-
+      const token = await SecureStore.getItemAsync('token');
       if (!token) {
         setErrorMessage('Your session has expired. Please log in again.');
         return;
