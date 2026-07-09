@@ -22,6 +22,7 @@ export default function AdminNotifications() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const [otherNotifications, setOtherNotifications] = useState<any[]>([]); // populate this once you add admin-facing notification types
 
   // Resolve the logged-in admin's workspace the same way employee.tsx resolves userId:
   // email in AsyncStorage -> lookup against the `users` table.
@@ -176,23 +177,20 @@ export default function AdminNotifications() {
         </TouchableOpacity>
 
         {/* ---------- Room for future notification types ---------- */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 8,
-            marginTop: 10,
-            marginBottom: 12,
-          }}
-        >
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10, marginBottom: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Ionicons name="notifications-outline" size={18} color={colors.text.secondary} />
-          <Text style={{ ...typography.heading3, color: colors.text.secondary }}>
-            Other Notifications
-          </Text>
+          <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Other Notifications</Text>
         </View>
-        <Text style={{ ...typography.body, color: colors.text.secondary }}>
-          You're all caught up.
-        </Text>
+        {otherNotifications.length > 0 && (
+          <TouchableOpacity onPress={() => setOtherNotifications([])}>
+            <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <Text style={{ ...typography.body, color: colors.text.secondary }}>
+        {otherNotifications.length === 0 ? "You're all caught up." : ""}
+      </Text>
       </ScrollView>
     </SafeAreaView>
   );
