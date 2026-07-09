@@ -391,6 +391,7 @@ export default function AdminProfile() {
             title="Appearance"
             summary={THEME_OPTIONS.find((o) => o.value === mode)?.label}
             colors={colors}
+            last
           >
             <View style={styles.themeRow}>
               {THEME_OPTIONS.map((option) => {
