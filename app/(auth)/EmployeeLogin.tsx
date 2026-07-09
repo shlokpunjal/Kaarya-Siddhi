@@ -236,7 +236,7 @@ const EmployeeLogin = () => {
                       ? "Sending..."
                       : isOnCooldown
                         ? "OTP Sent"
-                        : "Send OTP"}
+                        : "Login"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   LoginText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "700",
+    // fontWeight: "700",
     fontFamily: "Poppins_400Regular",
     letterSpacing: 0.3,
   },
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   },
   divtext: {
     fontSize: 18,
-    fontWeight: "700",
+    // fontWeight: "700",
     color: "#1A2744",
     fontFamily: "Poppins_400Regular",
   },
