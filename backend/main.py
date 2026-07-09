@@ -22,6 +22,10 @@ import requests
 import secrets
 import hashlib
 
+from auth_utils import get_current_user
+
+import requests as http_requests  # avoid clashing with your existing 'requests' usage if any
+
 load_dotenv()
 
 app = FastAPI(title="Kaarya Siddhi API")
@@ -34,7 +38,7 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
 REFRESH_TOKEN_DAYS = 30
-ACCESS_TOKEN_MINUTES = 1
+ACCESS_TOKEN_MINUTES = 30
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
@@ -80,6 +84,24 @@ def get_current_user(authorization: str = Header(None)):
     token = authorization.split(" ")[1]
     payload = decode_access_token(token)
     return payload
+
+def send_push_notification(push_token: str, title: str, body: str):
+    if not push_token:
+        return
+    try:
+        http_requests.post(
+            "https://exp.host/--/api/v2/push/send",
+            json={
+                "to": push_token,
+                "title": title,
+                "body": body,
+                "sound": "default",
+            },
+            headers={"Content-Type": "application/json"},
+            timeout=10,
+        )
+    except Exception as e:
+        print(f"Push notification failed: {e}")
 
 
 ALLOWED_ORIGINS = [
@@ -184,6 +206,8 @@ class ConnectionRespond(BaseModel):
     admin_email: str
     accept: bool
 
+class SavePushTokenRequest(BaseModel):
+    push_token: str
 # removed auto append for fake usernames to be created
 def normalize_email(email: str):
     email = email.strip().lower()
@@ -299,6 +323,17 @@ The Kaarya Siddhi Team
     if response.status_code >= 400:
         raise Exception(f"Brevo send failed ({response.status_code}): {response.text}")
     
+    
+@app.post("/save-push-token")
+async def save_push_token(data: SavePushTokenRequest, user: dict = Depends(get_current_user)):
+    email = user.get("sub")
+
+    supabase.table("users").update({
+        "expo_push_token": data.push_token
+    }).eq("email", email).execute()
+
+    return {"success": True}
+
 # The fastAPI endpoint which is called when create account is clicked on the frontend side
 @app.post("/signup")
 async def signup(data: SignupRequest):
@@ -686,6 +721,21 @@ async def connection_respond(data: ConnectionRespond, current_user: dict = Depen
     }).eq("employee_email", employee_email).eq("admin_email", admin_email).execute()
 
     if not data.accept:
+        # Notify the employee their request was rejected
+        rejected_employee = (
+            supabase.table("users")
+            .select("*")
+            .eq("email", employee_email)
+            .execute()
+        )
+        if rejected_employee.data:
+            token = rejected_employee.data[0].get("expo_push_token")
+            send_push_notification(
+                token,
+                "Request Rejected",
+                f"{admin_email} has declined your connection request.",
+            )
+
         return {"success": True, "message": "Request Rejected"}
 
     admin = (
@@ -720,10 +770,17 @@ async def connection_respond(data: ConnectionRespond, current_user: dict = Depen
     )
     employee = employee.data[0]
 
-    # THIS WAS MISSING — the actual write that connects the employee to the workspace
     supabase.table("users").update({
         "workspace_id": workspace_id
     }).eq("email", employee_email).execute()
+
+    # Notify the employee their request was accepted
+    employee_token = employee.get("expo_push_token")
+    send_push_notification(
+        employee_token,
+        "Request Accepted",
+        f"{admin_email} has accepted your connection request.",
+    )
 
     return {
         "success": True,
