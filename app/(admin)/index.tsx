@@ -286,7 +286,7 @@ export default function Dashboard() {
           {showOverdue && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
               {overdueTasks.map((task) => (
-                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
+                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/taskDetailAdmin', params: { taskId: task.id } })}
                   style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
                   <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.overdue, alignItems: "center", justifyContent: "center" }}>
                     <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.overdue }} />
