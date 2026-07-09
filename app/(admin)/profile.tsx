@@ -391,6 +391,7 @@ export default function AdminProfile() {
             title="Appearance"
             summary={THEME_OPTIONS.find((o) => o.value === mode)?.label}
             colors={colors}
+            last
           >
             <View style={styles.themeRow}>
               {THEME_OPTIONS.map((option) => {
@@ -415,17 +416,6 @@ export default function AdminProfile() {
                 );
               })}
             </View>
-          </CollapsibleSection>
-
-          <CollapsibleSection icon="language-outline" title="Language" summary="English" colors={colors} last>
-            <Pressable
-              style={[styles.languageButton, { backgroundColor: colors.base.surfaceL2, borderColor: colors.base.border }]}
-              onPress={() => {}}
-            >
-              <Ionicons name="language-outline" size={20} color={colors.text.primary} />
-              <Text style={[typography.body, { color: colors.text.primary, marginLeft: 8 }]}>English</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} style={{ marginLeft: 'auto' }} />
-            </Pressable>
           </CollapsibleSection>
         </View>
 
