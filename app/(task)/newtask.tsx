@@ -38,6 +38,7 @@ export default function Newtask() {
   const router = useRouter();
 
   const [taskName, setTaskName] = useState("");
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   // Employee autocomplete
   const [assignToName, setAssignToName] = useState("");
@@ -56,24 +57,47 @@ export default function Newtask() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchEmployeeProfiles();
-  }, []);
+        initAdminAndEmployees();
+      }, []);
 
-  const fetchEmployeeProfiles = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("users")              // ← was "profiles"
-        .select("id, name")         // ← was "full_name" — check your users schema: it's `name`, not `full_name`
-        .eq("role", "employee")     // optional but recommended — see below
-        .order("name", { ascending: true });
-      if (error) throw error;
-      if (data) setEmployeesList(data);
-    } catch (err: any) {
-      console.error("Error loading employee directory:", err.message);
-    }
-  };
+      const initAdminAndEmployees = async () => {
+        try {
+          const email = await AsyncStorage.getItem("userEmail");
+          if (!email) return;
 
-  const handleSearchEmployee = (text: string) => {
+          const { data: currentUser, error: userLookupError } = await supabase
+            .from("users")
+            .select("id, workspace_id")
+            .eq("email", email)
+            .single();
+
+          if (userLookupError || !currentUser?.workspace_id) {
+            console.error("Could not resolve admin's workspace:", userLookupError?.message);
+            return;
+          }
+
+          setWorkspaceId(currentUser.workspace_id);
+          await fetchEmployeeProfiles(currentUser.workspace_id);
+        } catch (err: any) {
+          console.error("Error initializing admin/employee data:", err.message);
+        }
+      };
+
+      const fetchEmployeeProfiles = async (wsId: string) => {
+        try {
+          const { data, error } = await supabase
+            .from("users")
+            .select("id, name")
+            .eq("role", "employee")
+            .eq("workspace_id", wsId)   // ← only employees in the admin's own workspace
+            .order("name", { ascending: true });
+          if (error) throw error;
+          if (data) setEmployeesList(data);
+        } catch (err: any) {
+          console.error("Error loading employee directory:", err.message);
+        }
+      };
+        const handleSearchEmployee = (text: string) => {
     setAssignToName(text);
     setSelectedEmployeeId(null);
     if (text.trim() === "") {

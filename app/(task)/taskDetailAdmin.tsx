@@ -15,7 +15,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 
-export default function TaskDetail() {
+export default function TaskDetailAdmin() {
   const { colors } = useTheme();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
   const router = useRouter();
@@ -355,14 +355,9 @@ export default function TaskDetail() {
           )}
 
           {/* Submit Task Button */}
-         <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: "/(task)/complete",
-                params: { taskId: task.id },
-              })
-            }
-            disabled={task.status === "completed" || task.status === "inReview"}
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={submitting || task.status === "completed" || task.status === "inReview"}
             style={{
               backgroundColor:
                 task.status === "completed" || task.status === "inReview"
@@ -376,7 +371,7 @@ export default function TaskDetail() {
               opacity: submitting ? 0.7 : 1,
             }}
           >
-                      {submitting ? (
+            {submitting ? (
               <ActivityIndicator color={colors.base.surfaceL1} />
             ) : (
               <Text
@@ -389,7 +384,7 @@ export default function TaskDetail() {
                   ? "Already Completed"
                   : task.status === "inReview"
                   ? "Under Review"
-                  : "Review or Complete"}
+                  : "Submit Task"}
               </Text>
             )}
           </TouchableOpacity>
