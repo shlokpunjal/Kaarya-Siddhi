@@ -52,7 +52,7 @@ export default function GenExcel() {
     try {
       setLoading(true);
 
-const token = await SecureStore.getItemAsync('token');
+      const token = await SecureStore.getItemAsync('token');
       if (!token) {
         setErrorMessage('Your session has expired. Please log in again.');
         return;
