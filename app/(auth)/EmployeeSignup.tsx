@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   title: {
     textAlign: "center",
     fontSize: 18,
-    fontWeight: "700",
+    // fontWeight: "700",
     color: PRIMARY,
     marginBottom: 4,
     fontFamily: "Poppins_400Regular",
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "700",
+    // fontWeight: "700",
     fontFamily: "Poppins_400Regular",
     letterSpacing: 0.3,
   },

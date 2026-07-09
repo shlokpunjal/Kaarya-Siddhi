@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   title: {
     marginTop: 20,
     fontSize: 20,
-    fontWeight: "700",
+    // fontWeight: "700",
     color: PRIMARY,
     fontFamily: "Poppins_400Regular",
     textAlign: "center",
