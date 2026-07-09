@@ -26,6 +26,8 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { API_BASE_URL } from "../../constants/api";
+
+import * as SecureStore from "expo-secure-store";
 type ConnectionRow = {
   id: string;
   employee_email: string;
@@ -67,9 +69,13 @@ export default function AdminRequestsList() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
-  const [extensionRequests, setExtensionRequests] = useState<ExtensionRequestRow[]>([]);
+  const [extensionRequests, setExtensionRequests] = useState<
+    ExtensionRequestRow[]
+  >([]);
   const [loading, setLoading] = useState(true);
-  const [decidingConnectionId, setDecidingConnectionId] = useState<string | null>(null);
+  const [decidingConnectionId, setDecidingConnectionId] = useState<
+    string | null
+  >(null);
 
   const connectionsChannelRef = useRef<RealtimeChannel | null>(null);
   const extensionChannelRef = useRef<RealtimeChannel | null>(null);
@@ -129,14 +135,17 @@ export default function AdminRequestsList() {
   const fetchAll = useCallback(async () => {
     if (!adminEmail || !workspaceId) return;
     setLoading(true);
-    await Promise.all([fetchConnections(adminEmail), fetchExtensionRequests(workspaceId)]);
+    await Promise.all([
+      fetchConnections(adminEmail),
+      fetchExtensionRequests(workspaceId),
+    ]);
     setLoading(false);
   }, [adminEmail, workspaceId, fetchConnections, fetchExtensionRequests]);
 
   useFocusEffect(
     useCallback(() => {
       fetchAll();
-    }, [fetchAll])
+    }, [fetchAll]),
   );
 
   // Realtime: connections, scoped to this admin's email
@@ -155,7 +164,7 @@ export default function AdminRequestsList() {
         },
         () => {
           fetchConnections(adminEmail);
-        }
+        },
       )
       .subscribe();
 
@@ -185,7 +194,7 @@ export default function AdminRequestsList() {
         },
         () => {
           fetchExtensionRequests(workspaceId);
-        }
+        },
       )
       .subscribe();
 
@@ -201,15 +210,23 @@ export default function AdminRequestsList() {
 
   const decideConnection = async (
     employeeEmail: string,
-    decision: "accepted" | "rejected"
+    decision: "accepted" | "rejected",
   ) => {
     if (!adminEmail) return;
     setDecidingConnectionId(employeeEmail);
 
     try {
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) {
+        throw new Error("Your session has expired. Please log in again.");
+      }
+
       const res = await fetch(`${API_BASE_URL}/connection-respond`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           employee_email: employeeEmail,
           admin_email: adminEmail,
@@ -227,7 +244,9 @@ export default function AdminRequestsList() {
     }
   };
   const pendingConnections = connections.filter((c) => c.status === "pending");
-  const pendingExtensions = extensionRequests.filter((r) => r.status === "pending");
+  const pendingExtensions = extensionRequests.filter(
+    (r) => r.status === "pending",
+  );
   const totalPending = pendingConnections.length + pendingExtensions.length;
 
   return (
@@ -263,8 +282,14 @@ export default function AdminRequestsList() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Ionicons name="mail-outline" size={20} color={colors.text.secondary} />
-          <Text style={{ ...typography.heading, color: colors.text.primary }}>Requests</Text>
+          <Ionicons
+            name="mail-outline"
+            size={20}
+            color={colors.text.secondary}
+          />
+          <Text style={{ ...typography.heading, color: colors.text.primary }}>
+            Requests
+          </Text>
           {totalPending > 0 && (
             <View
               style={{
@@ -274,7 +299,9 @@ export default function AdminRequestsList() {
                 paddingVertical: 2,
               }}
             >
-              <Text style={{ ...typography.label, color: colors.status.pending }}>
+              <Text
+                style={{ ...typography.label, color: colors.status.pending }}
+              >
                 {totalPending} pending
               </Text>
             </View>
@@ -290,15 +317,30 @@ export default function AdminRequestsList() {
       </View>
 
       {loading ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        >
           <ActivityIndicator size="large" color={colors.brand.primary} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 4 }}>
           {/* ---------- Connection Requests ---------- */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <Ionicons name="people-outline" size={16} color={colors.text.secondary} />
-            <Text style={{ ...typography.heading3, color: colors.text.secondary }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 12,
+            }}
+          >
+            <Ionicons
+              name="people-outline"
+              size={16}
+              color={colors.text.secondary}
+            />
+            <Text
+              style={{ ...typography.heading3, color: colors.text.secondary }}
+            >
               Connection Requests
             </Text>
             {pendingConnections.length > 0 && (
@@ -310,7 +352,9 @@ export default function AdminRequestsList() {
                   paddingVertical: 2,
                 }}
               >
-                <Text style={{ ...typography.label, color: colors.status.pending }}>
+                <Text
+                  style={{ ...typography.label, color: colors.status.pending }}
+                >
                   {pendingConnections.length} pending
                 </Text>
               </View>
@@ -318,7 +362,13 @@ export default function AdminRequestsList() {
           </View>
 
           {connections.length === 0 && (
-            <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 24 }}>
+            <Text
+              style={{
+                ...typography.body,
+                color: colors.text.secondary,
+                marginBottom: 24,
+              }}
+            >
               No connection requests yet.
             </Text>
           )}
@@ -342,10 +392,25 @@ export default function AdminRequestsList() {
                   justifyContent: "space-between",
                 }}
               >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
-                  <Ionicons name="person-circle-outline" size={22} color={colors.text.secondary} />
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    flex: 1,
+                  }}
+                >
+                  <Ionicons
+                    name="person-circle-outline"
+                    size={22}
+                    color={colors.text.secondary}
+                  />
                   <Text
-                    style={{ ...typography.heading3, color: colors.text.primary, flexShrink: 1 }}
+                    style={{
+                      ...typography.heading3,
+                      color: colors.text.primary,
+                      flexShrink: 1,
+                    }}
                     numberOfLines={1}
                   >
                     {c.employee_email}
@@ -375,7 +440,9 @@ export default function AdminRequestsList() {
               {c.status === "pending" && (
                 <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
                   <TouchableOpacity
-                    onPress={() => decideConnection(c.employee_email, "accepted")}
+                    onPress={() =>
+                      decideConnection(c.employee_email, "accepted")
+                    }
                     disabled={decidingConnectionId === c.employee_email}
                     style={{
                       flex: 1,
@@ -384,15 +451,23 @@ export default function AdminRequestsList() {
                       alignItems: "center",
                       justifyContent: "center",
                       backgroundColor: colors.status.completed,
-                      opacity: decidingConnectionId === c.employee_email ? 0.7 : 1,
+                      opacity:
+                        decidingConnectionId === c.employee_email ? 0.7 : 1,
                     }}
                   >
-                    <Text style={{ ...typography.label, color: colors.base.surfaceL1 }}>
+                    <Text
+                      style={{
+                        ...typography.label,
+                        color: colors.base.surfaceL1,
+                      }}
+                    >
                       Accept
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => decideConnection(c.employee_email, "rejected")}
+                    onPress={() =>
+                      decideConnection(c.employee_email, "rejected")
+                    }
                     disabled={decidingConnectionId === c.employee_email}
                     style={{
                       flex: 1,
@@ -401,10 +476,16 @@ export default function AdminRequestsList() {
                       alignItems: "center",
                       justifyContent: "center",
                       backgroundColor: colors.status.overdue,
-                      opacity: decidingConnectionId === c.employee_email ? 0.7 : 1,
+                      opacity:
+                        decidingConnectionId === c.employee_email ? 0.7 : 1,
                     }}
                   >
-                    <Text style={{ ...typography.label, color: colors.base.surfaceL1 }}>
+                    <Text
+                      style={{
+                        ...typography.label,
+                        color: colors.base.surfaceL1,
+                      }}
+                    >
                       Reject
                     </Text>
                   </TouchableOpacity>
@@ -423,8 +504,14 @@ export default function AdminRequestsList() {
               marginBottom: 12,
             }}
           >
-            <Ionicons name="document-text-outline" size={16} color={colors.text.secondary} />
-            <Text style={{ ...typography.heading3, color: colors.text.secondary }}>
+            <Ionicons
+              name="document-text-outline"
+              size={16}
+              color={colors.text.secondary}
+            />
+            <Text
+              style={{ ...typography.heading3, color: colors.text.secondary }}
+            >
               Extend Deadline Requests
             </Text>
             {pendingExtensions.length > 0 && (
@@ -436,7 +523,9 @@ export default function AdminRequestsList() {
                   paddingVertical: 2,
                 }}
               >
-                <Text style={{ ...typography.label, color: colors.status.pending }}>
+                <Text
+                  style={{ ...typography.label, color: colors.status.pending }}
+                >
                   {pendingExtensions.length} pending
                 </Text>
               </View>
@@ -474,17 +563,31 @@ export default function AdminRequestsList() {
                   justifyContent: "space-between",
                 }}
               >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    flex: 1,
+                  }}
+                >
                   <View
                     style={{
                       height: 8,
                       width: 8,
                       borderRadius: 4,
-                      backgroundColor: priorityColor(colors, req.tasks?.priority),
+                      backgroundColor: priorityColor(
+                        colors,
+                        req.tasks?.priority,
+                      ),
                     }}
                   />
                   <Text
-                    style={{ ...typography.heading3, color: colors.text.primary, flexShrink: 1 }}
+                    style={{
+                      ...typography.heading3,
+                      color: colors.text.primary,
+                      flexShrink: 1,
+                    }}
                     numberOfLines={1}
                   >
                     {req.tasks?.title ?? "Untitled Task"}

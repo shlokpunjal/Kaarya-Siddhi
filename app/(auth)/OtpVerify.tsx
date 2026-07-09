@@ -18,6 +18,7 @@ import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
 import AnimatedBorderCard from "../../components/AnimatedBorderCard";
+import { registerPushToken } from "../../utils/pushToken";
 
 // import { sendLoginNotification } from "../../utils/notifications";
 import { sendLoginNotification } from "../../utils/notifications";
@@ -127,6 +128,7 @@ const OtpVerify = () => {
         data.workspace_id,
         data.refresh_token
       ); console.log("✅ Save session completed");
+      registerPushToken().catch((err) => console.log("Push token registration failed:", err));
 
       console.log("OTP DATA:", data);
 
