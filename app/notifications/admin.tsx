@@ -22,6 +22,7 @@ export default function AdminNotifications() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const [otherNotifications, setOtherNotifications] = useState<any[]>([]); // populate this once you add admin-facing notification types
 
   // Resolve the logged-in admin's workspace the same way employee.tsx resolves userId:
   // email in AsyncStorage -> lookup against the `users` table.
@@ -133,7 +134,6 @@ export default function AdminNotifications() {
             borderRadius: 16,
             padding: 16,
             marginBottom: 20,
-            boxShadow: "0px 0px 5px gray",
           }}
         >
           <View
@@ -141,13 +141,13 @@ export default function AdminNotifications() {
               height: 40,
               width: 40,
               borderRadius: 20,
-              backgroundColor: colors.brand.primary + "22",
+              backgroundColor: colors.brand.onPrimary + "22",
               alignItems: "center",
               justifyContent: "center",
               marginRight: 14,
             }}
           >
-            <Ionicons name="mail-outline" size={20} color={colors.brand.primary} />
+            <Ionicons name="mail" size={20} color={colors.brand.primary} />
           </View>
 
           <View style={{ flex: 1 }}>
@@ -177,23 +177,20 @@ export default function AdminNotifications() {
         </TouchableOpacity>
 
         {/* ---------- Room for future notification types ---------- */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 8,
-            marginTop: 10,
-            marginBottom: 12,
-          }}
-        >
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10, marginBottom: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Ionicons name="notifications-outline" size={18} color={colors.text.secondary} />
-          <Text style={{ ...typography.heading3, color: colors.text.secondary }}>
-            Other Notifications
-          </Text>
+          <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Other Notifications</Text>
         </View>
-        <Text style={{ ...typography.body, color: colors.text.secondary }}>
-          You're all caught up.
-        </Text>
+        {otherNotifications.length > 0 && (
+          <TouchableOpacity onPress={() => setOtherNotifications([])}>
+            <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <Text style={{ ...typography.body, color: colors.text.secondary }}>
+        {otherNotifications.length === 0 ? "You're all caught up." : ""}
+      </Text>
       </ScrollView>
     </SafeAreaView>
   );

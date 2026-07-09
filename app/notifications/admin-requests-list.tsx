@@ -3,20 +3,14 @@
 // Bottom sheet opened from the "Requests" box on app/notifications/admin.tsx.
 // Two sections:
 //   1. Connection Requests — from `connections` table, scoped to this admin's
-//      own email (admin_email). Accept/Reject happens inline on the card
-//      (no separate review screen exists for these).
+//      own email (admin_email). Accept/Reject happens inline on the card.
+//      Has its own "Clear All" (clears only accepted/rejected connections).
 //   2. Extend Deadline Requests — from `extension_requests`, scoped to this
 //      admin's workspace_id. Tapping a card opens admin-request-review.tsx.
+//      Has its own "Clear All" (clears only accepted/rejected extensions).
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -31,6 +25,7 @@ import * as SecureStore from "expo-secure-store";
 type ConnectionRow = {
   id: string;
   employee_email: string;
+  employee_name?: string;
   admin_email: string;
   status: string;
   created_at: string;
@@ -61,13 +56,16 @@ const priorityColor = (colors: any, priority?: string) => {
   return colors.status.completed;
 };
 
+const isDecided = (status: string) => status === "accepted" || status === "rejected";
+
+const clearedKey = (wsId: string) => `adminRequestsCleared_${wsId}`;
+
 export default function AdminRequestsList() {
   const { colors } = useTheme();
   const router = useRouter();
 
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
-
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
   const [extensionRequests, setExtensionRequests] = useState<
     ExtensionRequestRow[]
@@ -80,7 +78,6 @@ export default function AdminRequestsList() {
   const connectionsChannelRef = useRef<RealtimeChannel | null>(null);
   const extensionChannelRef = useRef<RealtimeChannel | null>(null);
 
-  // Resolve the logged-in admin's email + workspace_id.
   useEffect(() => {
     (async () => {
       const email = await AsyncStorage.getItem("userEmail");
@@ -88,12 +85,7 @@ export default function AdminRequestsList() {
         setLoading(false);
         return;
       }
-      const { data, error } = await supabase
-        .from("users")
-        .select("workspace_id")
-        .eq("email", email)
-        .single();
-
+      const { data, error } = await supabase.from("users").select("workspace_id").eq("email", email).single();
       if (error || !data) {
         console.error("Could not resolve workspace for email:", email);
         setLoading(false);
@@ -104,7 +96,7 @@ export default function AdminRequestsList() {
     })();
   }, []);
 
-  const fetchConnections = useCallback(async (email: string) => {
+  const fetchConnections = useCallback(async (email: string): Promise<ConnectionRow[]> => {
     const { data, error } = await supabase
       .from("connections")
       .select("*")
@@ -113,12 +105,29 @@ export default function AdminRequestsList() {
 
     if (error) {
       console.error("Error fetching connection requests:", error.message);
-    } else {
-      setConnections((data as ConnectionRow[]) ?? []);
+      return [];
     }
+
+    const rows = (data as ConnectionRow[]) ?? [];
+    const emails = rows.map((r) => r.employee_email);
+    let namesByEmail: Record<string, string> = {};
+
+    if (emails.length > 0) {
+      const { data: userRows, error: userErr } = await supabase
+        .from("users")
+        .select("email, name")
+        .in("email", emails);
+      if (userErr) {
+        console.error("Error fetching employee names:", userErr.message);
+      } else {
+        namesByEmail = Object.fromEntries((userRows ?? []).map((u: any) => [u.email, u.name]));
+      }
+    }
+
+    return rows.map((r) => ({ ...r, employee_name: namesByEmail[r.employee_email] ?? r.employee_email }));
   }, []);
 
-  const fetchExtensionRequests = useCallback(async (wsId: string) => {
+  const fetchExtensionRequests = useCallback(async (wsId: string): Promise<ExtensionRequestRow[]> => {
     const { data, error } = await supabase
       .from("extension_requests")
       .select("*, tasks(title, priority)")
@@ -127,9 +136,9 @@ export default function AdminRequestsList() {
 
     if (error) {
       console.error("Error fetching extension requests:", error.message);
-    } else {
-      setExtensionRequests((data as ExtensionRequestRow[]) ?? []);
+      return [];
     }
+    return (data as ExtensionRequestRow[]) ?? [];
   }, []);
 
   const fetchAll = useCallback(async () => {
@@ -148,10 +157,8 @@ export default function AdminRequestsList() {
     }, [fetchAll]),
   );
 
-  // Realtime: connections, scoped to this admin's email
   useEffect(() => {
     if (!adminEmail) return;
-
     const channel = supabase
       .channel(`connections_admin_${adminEmail}`)
       .on(
@@ -167,21 +174,17 @@ export default function AdminRequestsList() {
         },
       )
       .subscribe();
-
     connectionsChannelRef.current = channel;
-
     return () => {
       if (connectionsChannelRef.current) {
         supabase.removeChannel(connectionsChannelRef.current);
         connectionsChannelRef.current = null;
       }
     };
-  }, [adminEmail, fetchConnections]);
+  }, [adminEmail, fetchAll]);
 
-  // Realtime: extension requests, scoped to this admin's workspace
   useEffect(() => {
     if (!workspaceId) return;
-
     const channel = supabase
       .channel(`extension_requests_admin_${workspaceId}`)
       .on(
@@ -197,16 +200,14 @@ export default function AdminRequestsList() {
         },
       )
       .subscribe();
-
     extensionChannelRef.current = channel;
-
     return () => {
       if (extensionChannelRef.current) {
         supabase.removeChannel(extensionChannelRef.current);
         extensionChannelRef.current = null;
       }
     };
-  }, [workspaceId, fetchExtensionRequests]);
+  }, [workspaceId, fetchAll]);
 
   const decideConnection = async (
     employeeEmail: string,
@@ -214,7 +215,6 @@ export default function AdminRequestsList() {
   ) => {
     if (!adminEmail) return;
     setDecidingConnectionId(employeeEmail);
-
     try {
       const token = await SecureStore.getItemAsync("token");
       if (!token) {
@@ -234,9 +234,7 @@ export default function AdminRequestsList() {
         }),
       });
       const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.detail || "Could not update request.");
-      }
+      if (!res.ok) throw new Error(json.detail || "Could not update request.");
     } catch (err: any) {
       Alert.alert("Could not update", err.message ?? "Something went wrong.");
     } finally {
@@ -251,36 +249,14 @@ export default function AdminRequestsList() {
 
   return (
     <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: colors.base.background,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        overflow: "hidden",
-      }}
+      style={{ flex: 1, backgroundColor: colors.base.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden" }}
     >
-      {/* Drag handle */}
       <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 4 }}>
-        <View
-          style={{
-            width: 40,
-            height: 4,
-            borderRadius: 2,
-            backgroundColor: colors.base.border,
-          }}
-        />
+        <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.base.border }} />
       </View>
 
-      {/* Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: 20,
-          paddingBottom: 12,
-        }}
-      >
+      {/* Header — just title + close, no badges or clear-all here */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 12 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Ionicons
             name="mail-outline"
@@ -307,13 +283,7 @@ export default function AdminRequestsList() {
             </View>
           )}
         </View>
-
-        <Ionicons
-          onPress={() => router.back()}
-          name="close"
-          size={24}
-          color={colors.text.secondary}
-        />
+        <Ionicons onPress={() => router.back()} name="close" size={24} color={colors.text.secondary} />
       </View>
 
       {loading ? (
@@ -376,14 +346,7 @@ export default function AdminRequestsList() {
           {connections.map((c) => (
             <View
               key={c.employee_email}
-              style={{
-                backgroundColor: colors.base.surfaceL1,
-                borderColor: colors.base.border,
-                borderWidth: 1,
-                borderRadius: 16,
-                padding: 16,
-                marginBottom: 14,
-              }}
+              style={{ backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border, borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 14 }}
             >
               <View
                 style={{
@@ -417,21 +380,8 @@ export default function AdminRequestsList() {
                   </Text>
                 </View>
 
-                <View
-                  style={{
-                    backgroundColor: statusColor(colors, c.status) + "22",
-                    borderRadius: 10,
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                  }}
-                >
-                  <Text
-                    style={{
-                      ...typography.label,
-                      color: statusColor(colors, c.status),
-                      textTransform: "capitalize",
-                    }}
-                  >
+                <View style={{ backgroundColor: statusColor(colors, c.status) + "22", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <Text style={{ ...typography.label, color: statusColor(colors, c.status), textTransform: "capitalize" }}>
                     {c.status}
                   </Text>
                 </View>
@@ -533,28 +483,14 @@ export default function AdminRequestsList() {
           </View>
 
           {extensionRequests.length === 0 && (
-            <Text style={{ ...typography.body, color: colors.text.secondary }}>
-              No extension requests yet.
-            </Text>
+            <Text style={{ ...typography.body, color: colors.text.secondary }}>No extension requests yet.</Text>
           )}
 
           {extensionRequests.map((req) => (
             <TouchableOpacity
               key={req.id}
-              onPress={() =>
-                router.push({
-                  pathname: "/notifications/admin-request-review",
-                  params: { requestId: req.id },
-                })
-              }
-              style={{
-                backgroundColor: colors.base.surfaceL1,
-                borderColor: colors.base.border,
-                borderWidth: 1,
-                borderRadius: 16,
-                padding: 16,
-                marginBottom: 14,
-              }}
+              onPress={() => router.push({ pathname: "/notifications/admin-request-review", params: { requestId: req.id } })}
+              style={{ backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border, borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 14 }}
             >
               <View
                 style={{
@@ -594,21 +530,8 @@ export default function AdminRequestsList() {
                   </Text>
                 </View>
 
-                <View
-                  style={{
-                    backgroundColor: statusColor(colors, req.status) + "22",
-                    borderRadius: 10,
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                  }}
-                >
-                  <Text
-                    style={{
-                      ...typography.label,
-                      color: statusColor(colors, req.status),
-                      textTransform: "capitalize",
-                    }}
-                  >
+                <View style={{ backgroundColor: statusColor(colors, req.status) + "22", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <Text style={{ ...typography.label, color: statusColor(colors, req.status), textTransform: "capitalize" }}>
                     {req.status}
                   </Text>
                 </View>

@@ -88,6 +88,7 @@ export default function ExtendDeadline() {
     const { error } = await supabase.from("extension_requests").insert({
       task_id: task.id,
       requested_by: task.assigned_to,
+      workspace_id: task.workspace_id,
       current_deadline: task.deadline,
       requested_deadline: newDeadline.toISOString().split("T")[0],
       reason: reason.trim(),
