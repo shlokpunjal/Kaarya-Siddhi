@@ -1,13 +1,14 @@
-
 import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -16,6 +17,8 @@ import { typography } from '../../theme/theme';
 import FadeIn from "../../components/FadeIn";
 import BackButton from "../../components/backButton";
 import { authFetch } from "../../utils/authFetch";
+import ValidatedInput from "../../components/ValidatedInput";
+import { isValidEmail } from "../../constants/validators";
 
 
 export default function RequestAdmin() {
@@ -106,64 +109,79 @@ export default function RequestAdmin() {
         </Text>
       </View>
 
-      <View style={styles.logoContainer}>
-        <Image
-          source={require("../../assets/images/logo.png")}
-          style={styles.logo}
-        />
-      </View>
-
-      <View style={styles.card}>
-
-        <Text style={styles.title}>
-          Enter your Admin's Email
-        </Text>
-
-        <TextInput
-          style={[styles.input, error ? styles.inputError : null]}
-          placeholder="Admin Email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={adminEmail}
-          onChangeText={(text) => {
-            setAdminEmail(text);
-            if (error) setError("");
-          }}
-        />
-        <FadeIn visible={!!error}>
-          <Text style={styles.errorText}>{error}</Text>
-        </FadeIn>
-        <FadeIn visible={!!successMessage}>
-          <Text style={styles.successText}>{successMessage}</Text>
-        </FadeIn>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={sendRequest}
-          disabled={loading}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>
-              Send Request
-            </Text>
-          )}
-        </TouchableOpacity>
+          <View style={styles.mainStyle}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require("../../assets/images/logo.png")}
+                style={styles.logo}
+              />
+            </View>
 
-      </View>
+            <View style={styles.card}>
+              <Text style={styles.title}>
+                Enter your Admin's Email
+              </Text>
 
-      <TouchableOpacity onPress={handleSkip} style={styles.skipContainer}>
-        <Text style={styles.skipText}>Skip</Text>
-      </TouchableOpacity>
+              <View style={{ width: "100%", alignItems: "center" }}>
+                <ValidatedInput
+                  value={adminEmail}
+                  placeholder="Admin Email"
+                  onChangeText={(text) => {
+                    setAdminEmail(text);
+                    if (error) setError("");
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  validator={isValidEmail}
+                  errorMessage="Please enter a valid email"
+                  externalError={error}
+                />
+              </View>
 
+              <FadeIn visible={!!successMessage}>
+                <Text style={styles.successText}>{successMessage}</Text>
+              </FadeIn>
+
+              <View style={{ width: "100%" }}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  onPress={sendRequest}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.buttonText}>
+                      Send Request
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity onPress={handleSkip} style={styles.skipContainer}>
+              <Text style={styles.skipText}>Skip</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const PRIMARY = "#1A2744";
 const ACCENT = "#E8870A";
-const ERROR = "#D32F2F";
 const SUCCESS = "#2E7D32";
 
 const styles = StyleSheet.create({
@@ -171,7 +189,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F7F8FC",
-    alignItems: "center"
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
+    alignItems: "center",
+  },
+
+  mainStyle: {
+    alignItems: "center",
+    width: "100%",
   },
 
   header: {
@@ -188,89 +216,96 @@ const styles = StyleSheet.create({
   },
 
   logoContainer: {
-    marginTop: 40
+    marginTop: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    height: 120,
+    width: 120,
+    borderRadius: 60,
+    backgroundColor: ACCENT,
   },
 
   logo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60
+    width: 115,
+    height: 115,
+    borderRadius: 60,
   },
 
   card: {
     marginTop: 35,
-    width: "88%",
+    alignItems: "center",
+    width: "85%",
     backgroundColor: "white",
-    borderRadius: 20,
-    padding: 20,
-    elevation: 5
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
+
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 10,
   },
 
   title: {
     textAlign: "center",
-    fontSize: 20,
+    fontSize: 18,
+    fontWeight: "700",
     color: PRIMARY,
-    marginBottom: 18,
-    fontFamily: "Poppins_600SemiBold"
-  },
-
-  input: {
-    backgroundColor: "#EEF2F7",
-    height: 55,
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    marginBottom: 18,
+    marginBottom: 4,
     fontFamily: "Poppins_400Regular",
-    borderWidth: 1,
-    borderColor: "transparent"
-  },
-
-  inputError: {
-    borderColor: ERROR,
-    backgroundColor: "#FDECEC"
-  },
-
-  errorText: {
-    color: ERROR,
-    fontSize: 12,
-    fontFamily: "Poppins_400Regular",
-    marginBottom: 12,
-    marginLeft: 4
   },
 
   successText: {
     color: SUCCESS,
     fontSize: 12,
     fontFamily: "Poppins_400Regular",
-    marginBottom: 14,
-    marginLeft: 4
+    marginTop: 4,
+    marginLeft: 4,
+    alignSelf: "flex-start",
   },
 
   button: {
     backgroundColor: ACCENT,
-    height: 55,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 16,
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
+    marginTop: 14,
+
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+
+  buttonDisabled: {
+    backgroundColor: "#6B7280",
+    shadowOpacity: 0,
+    elevation: 0,
   },
 
   buttonText: {
     color: "white",
     fontSize: 16,
-    fontFamily: "Poppins_600SemiBold"
+    fontWeight: "700",
+    fontFamily: "Poppins_400Regular",
+    letterSpacing: 0.3,
   },
 
   skipContainer: {
-    width: "80%",
+    width: "85%",
     alignItems: "flex-end",
-    marginTop: 14
+    marginTop: 20,
   },
 
   skipText: {
     color: PRIMARY,
     fontSize: 14,
     fontFamily: "Poppins_500Medium",
-    textDecorationLine: "underline"
-  }
+    textDecorationLine: "underline",
+  },
 
 });
