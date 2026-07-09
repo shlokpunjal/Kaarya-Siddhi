@@ -232,7 +232,7 @@ export default function EmployeeProfile() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.brand.primary} />
+        <ActivityIndicator size="large" color={colors.brand.accent} />
       </SafeAreaView>
     );
   }
@@ -413,17 +413,6 @@ export default function EmployeeProfile() {
                 );
               })}
             </View>
-          </CollapsibleSection>
-
-          <CollapsibleSection icon="language-outline" title="Language" summary="English" colors={colors} last>
-            <Pressable
-              style={[styles.languageButton, { backgroundColor: colors.base.surfaceL2, borderColor: colors.base.border }]}
-              onPress={() => {}}
-            >
-              <Ionicons name="language-outline" size={20} color={colors.text.primary} />
-              <Text style={[typography.body, { color: colors.text.primary, marginLeft: 8 }]}>English</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} style={{ marginLeft: 'auto' }} />
-            </Pressable>
           </CollapsibleSection>
         </View>
 
