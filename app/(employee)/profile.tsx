@@ -1,18 +1,31 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Image, Modal, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../../lib/supabase';
+import { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  TextInput,
+  Alert,
+  Image,
+  Modal,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
-import { typography } from '../../theme/theme';
-import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
-import CollapsibleSection from '../../components/CollapsibleSection';
-import ConfirmModal from '../../components/confirmModal';
+import { typography } from "../../theme/theme";
+import { useTheme, useThemeMode, ThemeMode } from "../../context/ThemeContext";
+import CollapsibleSection from "../../components/CollapsibleSection";
+import ConfirmModal from "../../components/confirmModal";
+import { router } from "expo-router";
 
 const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+const CLOUDINARY_UPLOAD_PRESET =
+  process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
 
 type UserRow = {
   id: string;
@@ -24,10 +37,14 @@ type UserRow = {
   profile_pic_url: string | null;
 };
 
-const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { value: 'light', label: 'Light', icon: 'sunny-outline' },
-  { value: 'dark', label: 'Dark', icon: 'moon-outline' },
-  { value: 'system', label: 'System', icon: 'phone-portrait-outline' },
+const THEME_OPTIONS: {
+  value: ThemeMode;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { value: "light", label: "Light", icon: "sunny-outline" },
+  { value: "dark", label: "Dark", icon: "moon-outline" },
+  { value: "system", label: "System", icon: "phone-portrait-outline" },
 ];
 
 const AVATAR_SIZE = 84;
@@ -44,9 +61,12 @@ export default function EmployeeProfile() {
   const [uploading, setUploading] = useState(false);
 
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState('');
-  const [contact, setContact] = useState('');
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState("");
+  const [contact, setContact] = useState("");
+  const [email, setEmail] = useState("");
+  const [connectionStatus, setConnectionStatus] = useState<
+    "none" | "pending" | "accepted"
+  >("none");
   const [adminName, setAdminName] = useState<string | null>(null);
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -60,48 +80,57 @@ export default function EmployeeProfile() {
   const fetchCurrentUser = async () => {
     setLoading(true);
 
-    const savedEmail = await AsyncStorage.getItem('userEmail');
+    const savedEmail = await AsyncStorage.getItem("userEmail");
 
     if (!savedEmail) {
       setLoading(false);
       return;
     }
 
-    const { data: connection, error: connError } = await supabase
-      .from('connections')
-      .select('admin_email')
-      .eq('employee_email', savedEmail)
-      .eq('status', 'accepted')
-      .maybeSingle();
+    const { data: connections, error: connError } = await supabase
+      .from("connections")
+      .select("admin_email, status")
+      .eq("employee_email", savedEmail)
+      .order("created_at", { ascending: false })
+      .limit(1);
 
-    if (connError) console.log('Connection query error:', connError);
+    if (connError) console.log("Connection query error:", connError);
 
-    if (connection?.admin_email) {
+    const latestConnection = connections?.[0];
+
+    if (latestConnection?.status === "accepted") {
+      setConnectionStatus("accepted");
+
       const { data: adminUser } = await supabase
-        .from('users')
-        .select('name')
-        .eq('email', connection.admin_email)
+        .from("users")
+        .select("name")
+        .eq("email", latestConnection.admin_email)
         .maybeSingle();
 
-      setAdminName(adminUser?.name ?? connection.admin_email);
+      setAdminName(adminUser?.name ?? latestConnection.admin_email);
+    } else if (latestConnection?.status === "pending") {
+      setConnectionStatus("pending");
+    } else {
+      setConnectionStatus("none");
     }
-
     const { data, error } = await supabase
-      .from('users')
-      .select('id, name, email, mobile_number, department, designation, profile_pic_url')
-      .eq('email', savedEmail)
+      .from("users")
+      .select(
+        "id, name, email, mobile_number, department, designation, profile_pic_url",
+      )
+      .eq("email", savedEmail)
       .single();
 
     if (error) {
-      console.error('Profile fetch error:', error.message);
+      console.error("Profile fetch error:", error.message);
       setLoading(false);
       return;
     }
 
     setCurrentUser(data);
-    setName(data.name ?? '');
-    setContact(data.mobile_number ?? '');
-    setEmail(data.email ?? '');
+    setName(data.name ?? "");
+    setContact(data.mobile_number ?? "");
+    setEmail(data.email ?? "");
     setAvatarUri(data.profile_pic_url ?? null);
     setLoading(false);
   };
@@ -116,22 +145,24 @@ export default function EmployeeProfile() {
       setSaving(true);
 
       const { error } = await supabase
-        .from('users')
+        .from("users")
         .update({
           name: name.trim(),
           mobile_number: contact.trim(),
           email: email.trim(),
         })
-        .eq('id', currentUser.id);
+        .eq("id", currentUser.id);
 
       if (error) throw error;
 
-      await AsyncStorage.setItem('userEmail', email.trim());
+      await AsyncStorage.setItem("userEmail", email.trim());
 
-      setCurrentUser((prev) => (prev ? { ...prev, name, mobile_number: contact, email } : prev));
+      setCurrentUser((prev) =>
+        prev ? { ...prev, name, mobile_number: contact, email } : prev,
+      );
       setEditing(false);
     } catch (error: any) {
-      Alert.alert('Could not save', error?.message || 'Something went wrong.');
+      Alert.alert("Could not save", error?.message || "Something went wrong.");
     } finally {
       setSaving(false);
     }
@@ -143,36 +174,42 @@ export default function EmployeeProfile() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Delete Account',
-      'This permanently deletes your account and all associated data. This cannot be undone.',
+      "Delete Account",
+      "This permanently deletes your account and all associated data. This cannot be undone.",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             if (!currentUser) return;
-            const { error } = await supabase.from('users').delete().eq('id', currentUser.id);
+            const { error } = await supabase
+              .from("users")
+              .delete()
+              .eq("id", currentUser.id);
             if (error) {
-              Alert.alert('Could not delete account', error.message);
+              Alert.alert("Could not delete account", error.message);
               return;
             }
             logout();
           },
         },
-      ]
+      ],
     );
   };
 
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Please allow photo library access to set a profile picture.');
+      Alert.alert(
+        "Permission needed",
+        "Please allow photo library access to set a profile picture.",
+      );
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -186,52 +223,65 @@ export default function EmployeeProfile() {
 
     try {
       const formData = new FormData();
-      formData.append('file', {
+      formData.append("file", {
         uri: localUri,
-        type: 'image/jpeg',
+        type: "image/jpeg",
         name: `avatar_${currentUser!.id}.jpg`,
       } as any);
-      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-      formData.append('folder', 'profile_pics');
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      formData.append("folder", "profile_pics");
 
       const uploadRes = await fetch(
         `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: 'POST', body: formData }
+        { method: "POST", body: formData },
       );
       const uploadData = await uploadRes.json();
 
       if (!uploadData.secure_url) {
-        throw new Error(uploadData.error?.message || 'Cloudinary upload failed');
+        throw new Error(
+          uploadData.error?.message || "Cloudinary upload failed",
+        );
       }
 
       const { error } = await supabase
-        .from('users')
+        .from("users")
         .update({ profile_pic_url: uploadData.secure_url })
-        .eq('id', currentUser!.id);
+        .eq("id", currentUser!.id);
 
       if (error) throw error;
 
       setAvatarUri(uploadData.secure_url);
-      setCurrentUser((prev) => (prev ? { ...prev, profile_pic_url: uploadData.secure_url } : prev));
+      setCurrentUser((prev) =>
+        prev ? { ...prev, profile_pic_url: uploadData.secure_url } : prev,
+      );
     } catch (err: any) {
-      Alert.alert('Upload failed', err.message || 'Could not upload photo.');
+      Alert.alert("Upload failed", err.message || "Could not upload photo.");
       setAvatarUri(currentUser?.profile_pic_url ?? null); // revert preview
     } finally {
       setUploading(false);
     }
   };
 
-  const initials = (name || currentUser?.name || '')
-    .split(' ')
+  const initials = (name || currentUser?.name || "")
+    .split(" ")
     .filter(Boolean)
     .map((part) => part[0])
-    .join('')
+    .join("")
     .slice(0, 2)
     .toUpperCase();
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }]}>
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: colors.base.background,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
         <ActivityIndicator size="large" color={colors.brand.accent} />
       </SafeAreaView>
     );
@@ -239,7 +289,16 @@ export default function EmployeeProfile() {
 
   if (!currentUser) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }]}>
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: colors.base.background,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
         <Text style={[typography.body, { color: colors.text.primary }]}>
           Could not load your profile. Please try logging in again.
         </Text>
@@ -248,35 +307,129 @@ export default function EmployeeProfile() {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background }]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.base.background }]}
+    >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
-          <Text style={[typography.heading, { color: colors.text.primary }]}>Profile</Text>
-          <View style={[styles.roleBadge, { backgroundColor: colors.base.surfaceL2, borderColor: colors.base.border }]}>
-            <Text style={[typography.label, { color: colors.brand.accent }]}>Employee</Text>
+          <Text style={[typography.heading, { color: colors.text.primary }]}>
+            Profile
+          </Text>
+          <View
+            style={[
+              styles.roleBadge,
+              {
+                backgroundColor: colors.base.surfaceL2,
+                borderColor: colors.base.border,
+              },
+            ]}
+          >
+            <Text style={[typography.label, { color: colors.brand.accent }]}>
+              Employee
+            </Text>
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}>
+        {connectionStatus !== "accepted" && (
+          <View
+            style={[
+              styles.connectionBanner,
+              {
+                backgroundColor: colors.base.surfaceL1,
+                borderColor: colors.brand.accent,
+              },
+            ]}
+          >
+            <View style={styles.connectionBannerRow}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={20}
+                color={colors.brand.accent}
+              />
+              <Text
+                style={[
+                  typography.body,
+                  { color: colors.text.primary, marginLeft: 8, flex: 1 },
+                ]}
+              >
+                {connectionStatus === "pending"
+                  ? "Your request to join an admin's workspace is pending approval."
+                  : "You're not connected to any admin yet."}
+              </Text>
+            </View>
+
+            {connectionStatus === "none" && (
+              <Pressable
+                style={[
+                  styles.requestAdminButton,
+                  { backgroundColor: colors.brand.accent },
+                ]}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(auth)/RequestAdmin",
+                    params: { email: currentUser.email },
+                  })
+                }
+              >
+                <Ionicons name="link-outline" size={16} color="#FFFFFF" />
+                <Text
+                  style={[
+                    typography.label,
+                    { color: "#FFFFFF", marginLeft: 6 },
+                  ]}
+                >
+                  Request Admin
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.base.surfaceL1,
+              borderColor: colors.base.border,
+            },
+          ]}
+        >
           <View style={styles.cardTopRow}>
             <Pressable
               style={[
                 styles.editPill,
                 {
                   borderColor: colors.brand.accent,
-                  backgroundColor: editing ? colors.brand.accent : 'transparent',
+                  backgroundColor: editing
+                    ? colors.brand.accent
+                    : "transparent",
                 },
               ]}
               onPress={editing ? handleSave : () => setEditing(true)}
               disabled={saving}
             >
               {saving ? (
-                <ActivityIndicator size="small" color={editing ? '#FFFFFF' : colors.brand.accent} />
+                <ActivityIndicator
+                  size="small"
+                  color={editing ? "#FFFFFF" : colors.brand.accent}
+                />
               ) : (
                 <>
-                  <Ionicons name={editing ? 'checkmark' : 'pencil'} size={13} color={editing ? '#FFFFFF' : colors.brand.accent} />
-                  <Text style={[typography.label, { color: editing ? '#FFFFFF' : colors.brand.accent, marginLeft: 4 }]}>
-                    {editing ? 'Save' : 'Edit Profile'}
+                  <Ionicons
+                    name={editing ? "checkmark" : "pencil"}
+                    size={13}
+                    color={editing ? "#FFFFFF" : colors.brand.accent}
+                  />
+                  <Text
+                    style={[
+                      typography.label,
+                      {
+                        color: editing ? "#FFFFFF" : colors.brand.accent,
+                        marginLeft: 4,
+                      },
+                    ]}
+                  >
+                    {editing ? "Save" : "Edit Profile"}
                   </Text>
                 </>
               )}
@@ -294,12 +447,28 @@ export default function EmployeeProfile() {
                   }
                 }}
               >
-                <View style={[styles.avatarRing, { borderColor: colors.brand.accent }]}>
+                <View
+                  style={[
+                    styles.avatarRing,
+                    { borderColor: colors.brand.accent },
+                  ]}
+                >
                   {avatarUri ? (
-                    <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                    <Image
+                      source={{ uri: avatarUri }}
+                      style={styles.avatarImage}
+                    />
                   ) : (
-                    <View style={[styles.avatarImage, styles.avatarFallback, { backgroundColor: colors.brand.accent }]}>
-                      <Text style={[typography.heading, { color: '#FFFFFF' }]}>{initials}</Text>
+                    <View
+                      style={[
+                        styles.avatarImage,
+                        styles.avatarFallback,
+                        { backgroundColor: colors.brand.accent },
+                      ]}
+                    >
+                      <Text style={[typography.heading, { color: "#FFFFFF" }]}>
+                        {initials}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -310,10 +479,10 @@ export default function EmployeeProfile() {
                   style={[
                     StyleSheet.absoluteFill,
                     {
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      alignItems: "center",
+                      justifyContent: "center",
                       borderRadius: RING_SIZE / 2,
-                      backgroundColor: 'rgba(0,0,0,0.35)',
+                      backgroundColor: "rgba(0,0,0,0.35)",
                     },
                   ]}
                 >
@@ -323,7 +492,13 @@ export default function EmployeeProfile() {
 
               {editing && (
                 <Pressable
-                  style={[styles.cameraBadge, { backgroundColor: colors.brand.primary, borderColor: colors.base.surfaceL1 }]}
+                  style={[
+                    styles.cameraBadge,
+                    {
+                      backgroundColor: colors.brand.primary,
+                      borderColor: colors.base.surfaceL1,
+                    },
+                  ]}
                   onPress={pickAvatar}
                   hitSlop={8}
                 >
@@ -332,58 +507,147 @@ export default function EmployeeProfile() {
               )}
             </View>
 
-            <Text style={[typography.subheading, { color: colors.text.primary, marginTop: 12 }]} numberOfLines={1}>
+            <Text
+              style={[
+                typography.subheading,
+                { color: colors.text.primary, marginTop: 12 },
+              ]}
+              numberOfLines={1}
+            >
               {name}
             </Text>
-            <Text style={[typography.body, { color: colors.text.secondary, marginTop: 2 }]}>
-              {currentUser.designation ?? '—'}
+            <Text
+              style={[
+                typography.body,
+                { color: colors.text.secondary, marginTop: 2 },
+              ]}
+            >
+              {currentUser.designation ?? "—"}
             </Text>
           </View>
 
           <View style={styles.fieldsGroup}>
-            <View style={[styles.fieldRow, { borderBottomColor: colors.base.border }]}>
-              <Text style={[typography.label, { color: colors.text.secondary }]}>Email id</Text>
+            <View
+              style={[
+                styles.fieldRow,
+                { borderBottomColor: colors.base.border },
+              ]}
+            >
+              <Text
+                style={[typography.label, { color: colors.text.secondary }]}
+              >
+                Email id
+              </Text>
               {editing ? (
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
-                  style={[styles.input, typography.body, { borderColor: colors.base.border, color: colors.text.primary }]}
+                  style={[
+                    styles.input,
+                    typography.body,
+                    {
+                      borderColor: colors.base.border,
+                      color: colors.text.primary,
+                    },
+                  ]}
                 />
               ) : (
-                <Text style={[typography.body, { color: colors.text.primary, marginTop: 4 }]}>{email}</Text>
+                <Text
+                  style={[
+                    typography.body,
+                    { color: colors.text.primary, marginTop: 4 },
+                  ]}
+                >
+                  {email}
+                </Text>
               )}
             </View>
 
-            <View style={[styles.fieldRow, { borderBottomColor: colors.base.border }]}>
-              <Text style={[typography.label, { color: colors.text.secondary }]}>Contact</Text>
+            <View
+              style={[
+                styles.fieldRow,
+                { borderBottomColor: colors.base.border },
+              ]}
+            >
+              <Text
+                style={[typography.label, { color: colors.text.secondary }]}
+              >
+                Contact
+              </Text>
               {editing ? (
                 <TextInput
                   value={contact}
                   onChangeText={setContact}
-                  style={[styles.input, typography.body, { borderColor: colors.base.border, color: colors.text.primary }]}
+                  style={[
+                    styles.input,
+                    typography.body,
+                    {
+                      borderColor: colors.base.border,
+                      color: colors.text.primary,
+                    },
+                  ]}
                 />
               ) : (
-                <Text style={[typography.body, { color: colors.text.primary, marginTop: 4 }]}>{contact}</Text>
+                <Text
+                  style={[
+                    typography.body,
+                    { color: colors.text.primary, marginTop: 4 },
+                  ]}
+                >
+                  {contact}
+                </Text>
               )}
             </View>
 
-            <View style={[styles.fieldRow, { borderBottomColor: colors.base.border }]}>
-              <Text style={[typography.label, { color: colors.text.secondary }]}>Department</Text>
-              <Text style={[typography.body, { color: colors.text.primary, marginTop: 4 }]}>
-                {currentUser.department ?? '—'}
+            <View
+              style={[
+                styles.fieldRow,
+                { borderBottomColor: colors.base.border },
+              ]}
+            >
+              <Text
+                style={[typography.label, { color: colors.text.secondary }]}
+              >
+                Department
+              </Text>
+              <Text
+                style={[
+                  typography.body,
+                  { color: colors.text.primary, marginTop: 4 },
+                ]}
+              >
+                {currentUser.department ?? "—"}
               </Text>
             </View>
 
             <View style={[styles.fieldRow, { borderBottomWidth: 0 }]}>
-              <Text style={[typography.label, { color: colors.text.secondary }]}>Reporting to</Text>
-              <Text style={[typography.body, { color: colors.text.primary, marginTop: 4 }]}>
-                {adminName ?? '—'}
+              <Text
+                style={[typography.label, { color: colors.text.secondary }]}
+              >
+                Reporting to
+              </Text>
+              <Text
+                style={[
+                  typography.body,
+                  { color: colors.text.primary, marginTop: 4 },
+                ]}
+              >
+                {adminName ?? "—"}
               </Text>
             </View>
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border, paddingVertical: 4 }]}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.base.surfaceL1,
+              borderColor: colors.base.border,
+              paddingVertical: 4,
+            },
+          ]}
+        >
           <CollapsibleSection
             icon="color-palette-outline"
             title="Appearance"
@@ -401,13 +665,29 @@ export default function EmployeeProfile() {
                     style={[
                       styles.themeOption,
                       {
-                        backgroundColor: selected ? colors.brand.accent : colors.base.surfaceL2,
-                        borderColor: selected ? colors.brand.accent : colors.base.border,
+                        backgroundColor: selected
+                          ? colors.brand.accent
+                          : colors.base.surfaceL2,
+                        borderColor: selected
+                          ? colors.brand.accent
+                          : colors.base.border,
                       },
                     ]}
                   >
-                    <Ionicons name={option.icon} size={22} color={selected ? '#FFFFFF' : colors.text.primary} />
-                    <Text style={[typography.label, { color: selected ? '#FFFFFF' : colors.text.primary, marginTop: 4 }]}>
+                    <Ionicons
+                      name={option.icon}
+                      size={22}
+                      color={selected ? "#FFFFFF" : colors.text.primary}
+                    />
+                    <Text
+                      style={[
+                        typography.label,
+                        {
+                          color: selected ? "#FFFFFF" : colors.text.primary,
+                          marginTop: 4,
+                        },
+                      ]}
+                    >
                       {option.label}
                     </Text>
                   </Pressable>
@@ -417,21 +697,51 @@ export default function EmployeeProfile() {
           </CollapsibleSection>
         </View>
 
-        <Pressable style={[styles.logoutRow, { backgroundColor: colors.brand.primary }]} onPress={handleLogout}>
+        <Pressable
+          style={[styles.logoutRow, { backgroundColor: colors.brand.primary }]}
+          onPress={handleLogout}
+        >
           <Ionicons name="log-out-outline" size={18} color="#ffffff" />
-          <Text style={[typography.heading3, { color: '#ffffff', marginLeft: 8 }]}>Log Out</Text>
+          <Text
+            style={[typography.heading3, { color: "#ffffff", marginLeft: 8 }]}
+          >
+            Log Out
+          </Text>
         </Pressable>
 
         <Pressable style={styles.deleteRow} onPress={handleDeleteAccount}>
           <Ionicons name="trash-outline" size={18} color="#FFFFFF" />
-          <Text style={[typography.heading3, { color: '#FFFFFF', marginLeft: 8 }]}>Delete Account</Text>
+          <Text
+            style={[typography.heading3, { color: "#FFFFFF", marginLeft: 8 }]}
+          >
+            Delete Account
+          </Text>
         </Pressable>
       </ScrollView>
 
-      <Modal visible={showImage} transparent animationType="fade" onRequestClose={() => setShowImage(false)}>
-        <Pressable style={styles.modalBackground} onPress={() => setShowImage(false)}>
-          <Ionicons name="close" size={30} color="#FFFFFF" style={styles.closeModalButton} />
-          {avatarUri && <Image source={{ uri: avatarUri }} style={styles.fullscreenImage} resizeMode="contain" />}
+      <Modal
+        visible={showImage}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowImage(false)}
+      >
+        <Pressable
+          style={styles.modalBackground}
+          onPress={() => setShowImage(false)}
+        >
+          <Ionicons
+            name="close"
+            size={30}
+            color="#FFFFFF"
+            style={styles.closeModalButton}
+          />
+          {avatarUri && (
+            <Image
+              source={{ uri: avatarUri }}
+              style={styles.fullscreenImage}
+              resizeMode="contain"
+            />
+          )}
         </Pressable>
       </Modal>
 
@@ -456,72 +766,121 @@ export default function EmployeeProfile() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 40 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  roleBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
   card: { borderRadius: 18, borderWidth: 2, padding: 18, marginBottom: 16 },
-  cardTopRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  cardTopRow: { flexDirection: "row", justifyContent: "flex-end" },
   editPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
   },
-  avatarSection: { alignItems: 'center', marginTop: 4, marginBottom: 18 },
-  avatarWrap: { position: 'relative', width: RING_SIZE, height: RING_SIZE },
+  avatarSection: { alignItems: "center", marginTop: 4, marginBottom: 18 },
+  avatarWrap: { position: "relative", width: RING_SIZE, height: RING_SIZE },
   avatarRing: {
     width: RING_SIZE,
     height: RING_SIZE,
     borderRadius: RING_SIZE / 2,
     borderWidth: 2.5,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  avatarImage: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 },
-  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
+  avatarImage: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+  },
+  avatarFallback: { alignItems: "center", justifyContent: "center" },
   cameraBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: -2,
     right: -2,
     width: 26,
     height: 26,
     borderRadius: 13,
     borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   fieldsGroup: { marginTop: 4 },
   fieldRow: { borderBottomWidth: 1, paddingVertical: 12 },
-  input: { borderWidth: 1, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginTop: 4 },
-  themeRow: { flexDirection: 'row', gap: 10 },
-  themeOption: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 14, alignItems: 'center' },
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 4,
+  },
+  themeRow: { flexDirection: "row", gap: 10 },
+  themeOption: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
   languageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 12,
     borderWidth: 1,
     paddingVertical: 12,
     paddingHorizontal: 14,
   },
   logoutRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 14,
     marginTop: 4,
     borderRadius: 14,
   },
   deleteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#C53030',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#C53030",
     borderRadius: 14,
     paddingVertical: 14,
     marginTop: 12,
   },
-  modalBackground: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.9)', justifyContent: 'center', alignItems: 'center' },
-  closeModalButton: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
-  fullscreenImage: { width: '90%', height: '70%' },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeModalButton: { position: "absolute", top: 50, right: 20, zIndex: 10 },
+  fullscreenImage: { width: "90%", height: "70%" },
+  connectionBanner: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+    marginBottom: 16,
+  },
+  connectionBannerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  requestAdminButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    paddingVertical: 10,
+    marginTop: 12,
+  },
 });

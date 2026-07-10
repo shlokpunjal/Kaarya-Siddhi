@@ -587,6 +587,9 @@ async def connect_request(data: ConnectRequest, current_user: dict = Depends(get
             detail="Employee account not found."
         )
 
+    print("========== CONNECT REQUEST ==========")
+    print("Employee:", employee_email)
+    print("Admin:", admin_email)
     # Admin must exist
     admin = (
         supabase.table("users")
@@ -595,7 +598,7 @@ async def connect_request(data: ConnectRequest, current_user: dict = Depends(get
         .eq("role", "admin")
         .execute()
     )
-
+    print("Admin query result:", admin.data)
     if not admin.data:
         raise HTTPException(
             status_code=404,
