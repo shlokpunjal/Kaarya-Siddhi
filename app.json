@@ -24,7 +24,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/logo-transparent.png",
+          "image": "./assets/images/logo.png",
           "imageWidth": 140,
           "resizeMode": "contain",
           "backgroundColor": "#1A2744"
@@ -35,7 +35,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "81041415-44f0-473d-8df5-6743d7054c77"
+        "projectId": "d4226724-f800-484d-bed7-9ddb1fa6a52a"
       }
     }
   }
