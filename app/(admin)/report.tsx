@@ -56,6 +56,26 @@ export default function Report() {
           </Text>
         </View>
       </Pressable>
+
+      <Pressable
+        style={[
+          styles.optionCard,
+          { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border },
+        ]}
+        onPress={() => router.push('/reports/eoffice')}
+      >
+        <View style={[styles.iconBadge, { backgroundColor: colors.brand.accent }]}>
+          <Text style={styles.iconBadgeText}>eOF</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[typography.subheading, { color: colors.text.primary }]}>
+            eOffice Files
+          </Text>
+          <Text style={[typography.label, { color: colors.text.secondary, marginTop: 2 }]}>
+            Track pending files across offices
+          </Text>
+        </View>
+      </Pressable>
     </SafeAreaView>
   );
 }
