@@ -239,38 +239,34 @@ export default function AdminRequestsList() {
     };
   }, [workspaceId, fetchAll]);
 
-  const decideConnection = async (
-    employeeEmail: string,
-    decision: "accepted" | "rejected",
-  ) => {
-    if (!adminEmail) return;
-    setDecidingConnectionId(employeeEmail);
-    try {
-      const token = await SecureStore.getItemAsync("token");
-      if (!token) {
-        throw new Error("Your session has expired. Please log in again.");
-      }
+// ... inside the component, replace decideConnection:
 
-      const res = await fetch(`${API_BASE_URL}/connection-respond`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          employee_email: employeeEmail,
-          admin_email: adminEmail,
-          accept: decision === "accepted",
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.detail || "Could not update request.");
-    } catch (err: any) {
-      Alert.alert("Could not update", err.message ?? "Something went wrong.");
-    } finally {
-      setDecidingConnectionId(null);
+const decideConnection = async (employeeEmail: string, decision: "accepted" | "rejected") => {
+  if (!adminEmail) return;
+  setDecidingConnectionId(employeeEmail);
+  try {
+    const token = await SecureStore.getItemAsync("token");
+    if (!token) {
+      throw new Error("Your session has expired. Please log in again.");
     }
-  };
+
+    const res = await fetch(`${API_BASE_URL}/connection-respond`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ employee_email: employeeEmail, admin_email: adminEmail, accept: decision === "accepted" }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.detail || "Could not update request.");
+  } catch (err: any) {
+    Alert.alert("Could not update", err.message ?? "Something went wrong.");
+  } finally {
+    setDecidingConnectionId(null);
+  }
+};
+
   const clearAllConnections = async () => {
     if (!workspaceId) return;
 
