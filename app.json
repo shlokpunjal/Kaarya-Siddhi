@@ -4,6 +4,7 @@
     "slug": "Kaarya-Siddhi",
     "scheme": "kaaryasiddhi",
     "version": "1.0.0",
+    "icon": "./assets/images/logo.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -11,7 +12,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/logo.png",
+        "backgroundColor": "#1A2744"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.pshlok.KaaryaSiddhi"
