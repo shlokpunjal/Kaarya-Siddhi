@@ -21,6 +21,7 @@ import { isValidEmail, isValidPhone, isValidName } from "../../constants/validat
 
 export default function AdminSignup() {
   const [name, setName] = useState("");
+  const [department, setDepartment] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
@@ -29,12 +30,13 @@ export default function AdminSignup() {
 
   const [errors, setErrors] = useState({
     name: "",
+    department: "",
     phone: "",
     email: "",
   });
 
   function validate() {
-    const newErrors = { name: "", phone: "", email: "" };
+    const newErrors = { name: "", department: "", phone: "", email: "" };
     let isValid = true;
 
     if (!name.trim()) {
@@ -42,6 +44,11 @@ export default function AdminSignup() {
       isValid = false;
     } else if (!isValidName(name)) {
       newErrors.name = "Name should only contain letters";
+      isValid = false;
+    }
+
+    if (!department.trim()) {
+      newErrors.department = "Please enter your department";
       isValid = false;
     }
 
@@ -72,7 +79,7 @@ export default function AdminSignup() {
 
     try {
       setLoading(true);
-      setErrors({ name: "", phone: "", email: "" });
+      setErrors({ name: "", department: "", phone: "", email: "" });
 
       // Create Account
       const signupResponse = await fetch(`${API_BASE_URL}/signup`, {
@@ -82,6 +89,7 @@ export default function AdminSignup() {
         },
         body: JSON.stringify({
           name,
+          department,
           email,
           phone,
           role: "admin",
@@ -190,6 +198,16 @@ export default function AdminSignup() {
                   validator={isValidName}
                   errorMessage="Name should only contain letters"
                   externalError={errors.name}
+                />
+
+                <ValidatedInput
+                  value={department}
+                  placeholder="Department"
+                  onChangeText={(text) => {
+                    setDepartment(text);
+                    if (errors.department) setErrors((prev) => ({ ...prev, department: "" }));
+                  }}
+                  externalError={errors.department}
                 />
 
                 <ValidatedInput
