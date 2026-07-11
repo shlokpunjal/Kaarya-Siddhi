@@ -34,17 +34,17 @@ export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true)
   const splashOpacity = useRef(new Animated.Value(1)).current
 
-  useEffect(() => {
-    async function test() {
-      console.log('🔄 Testing Supabase...')
+  // useEffect(() => {
+  //   async function test() {
+  //     console.log('🔄 Testing Supabase...')
 
-      const { data, error } = await supabase.from('users').select('*')
+  //     const { data, error } = await supabase.from('users').select('*')
 
-      // console.log('DATA:', JSON.stringify(data))
-      console.log('ERROR:', JSON.stringify(error))
-    }
-    test()
-  }, [])
+  //     // console.log('DATA:', JSON.stringify(data))
+  //     console.log('ERROR:', JSON.stringify(error))
+  //   }
+  //   test()
+  // }, [])
 
   useEffect(() => {
     if (!fontsLoaded) return
