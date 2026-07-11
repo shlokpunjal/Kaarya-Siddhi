@@ -22,6 +22,7 @@ interface ValidatedInputProps extends TextInputProps {
   validator?: (value: string) => boolean;
   errorMessage?: string;
   externalError?: string;
+  helperText?: string;          // NEW
   containerStyle?: StyleProp<ViewStyle>;
 }
 
@@ -32,6 +33,7 @@ const ValidatedInput: React.FC<ValidatedInputProps> = ({
   errorMessage = "Invalid value",
   externalError,
   containerStyle,
+  helperText,                   // NEW
   onBlur,
   onFocus,
   ...rest
@@ -106,14 +108,24 @@ const ValidatedInput: React.FC<ValidatedInputProps> = ({
           <Ionicons name="close-circle" size={21} color={ERROR} style={styles.icon} />
         )}
       </View>
-      {displayError ? <Text style={styles.errorText}>{displayError}</Text> : null}
-    </View>
+      {displayError ? (
+        <Text style={styles.errorText}>{displayError}</Text>
+      ) : helperText ? (
+        <Text style={styles.helperText}>{helperText}</Text>
+      ) : null}    </View>
   );
 };
 
 export default ValidatedInput;
 
 const styles = StyleSheet.create({
+  helperText: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    marginTop: 4,
+    marginLeft: 4,
+  },
   inputWrapper: {
     position: "relative",
     justifyContent: "center",

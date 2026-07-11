@@ -17,11 +17,9 @@ import { useAuth } from "../../context/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
-import AnimatedBorderCard from "../../components/AnimatedBorderCard";
 import { registerPushToken } from "../../utils/pushToken";
-import LoadingBorderTrace from "../../components/LoadingBorderTrace";
+import TrainLoadingAnimation from "../../components/TrainLoadingAnimation";
 
-// import { sendLoginNotification } from "../../utils/notifications";
 import { sendLoginNotification } from "../../utils/notifications";
 
 const OtpVerify = () => {
@@ -32,7 +30,7 @@ const OtpVerify = () => {
   const cardTranslateY = useRef(new Animated.Value(60)).current;
   const cardScale = useRef(new Animated.Value(0.95)).current;
   const inputRefs = useRef<(TextInput | null)[]>([]);
-  const [cooldown, setCooldown] = useState(30); // starts at 30 immediately
+  const [cooldown, setCooldown] = useState(30);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { email, ph, role, mode, name } = useLocalSearchParams<{
     email: string;
@@ -46,7 +44,6 @@ const OtpVerify = () => {
   const [otpError, setOtpError] = useState("");
   const [resendMessage, setResendMessage] = useState("");
 
-  // Auto-start the 30s cooldown when page loads
   useEffect(() => {
     startCooldown();
     Animated.parallel([
@@ -55,14 +52,12 @@ const OtpVerify = () => {
         duration: 450,
         useNativeDriver: true,
       }),
-
       Animated.spring(cardTranslateY, {
         toValue: 0,
         friction: 7,
         tension: 70,
         useNativeDriver: true,
       }),
-
       Animated.spring(cardScale, {
         toValue: 1,
         friction: 8,
@@ -80,7 +75,6 @@ const OtpVerify = () => {
 
   const startCooldown = () => {
     setCooldown(30);
-
     intervalRef.current = setInterval(() => {
       setCooldown((prev) => {
         if (prev <= 1) {
@@ -93,13 +87,16 @@ const OtpVerify = () => {
   };
 
   const verifyOTP = async (code?: string) => {
-    if (isVerifying) return; // block duplicate calls (auto-submit + manual tap racing)
+    if (isVerifying) return;
 
     const otpCode = code ?? otp.join("");
     if (otpCode.length !== 6) {
       setOtpError("Enter a valid 6-digit OTP");
       return;
     }
+
+    const MIN_VISIBLE_MS = 900;
+    const startTime = Date.now();
 
     try {
       setIsVerifying(true);
@@ -119,12 +116,31 @@ const OtpVerify = () => {
       const data = await response.json();
 
       if (!response.ok) {
+        const elapsed = Date.now() - startTime;
+        if (elapsed < MIN_VISIBLE_MS) {
+          await new Promise((res) => setTimeout(res, MIN_VISIBLE_MS - elapsed));
+        }
+
+        const detail = (data.detail || "").toLowerCase();
+
+        // Name got taken by someone else during the OTP window —
+        // this isn't a wrong-OTP issue, so send them back to signup
+        if (detail.includes("name was just taken")) {
+          const backPath =
+            role === "admin" ? "/(auth)/AdminSignup" : "/(auth)/EmployeeSignup";
+
+          router.replace({
+            pathname: backPath,
+            params: {
+              prefillNameTaken: "1",
+            },
+          });
+          return;
+        }
+
         setOtpError(data.detail || "Invalid OTP");
         return;
       }
-
-      console.log("Before saveSession");
-
       await saveSession(
         data.token,
         ph?.toString() ?? "",
@@ -133,25 +149,15 @@ const OtpVerify = () => {
         data.workspace_id,
         data.refresh_token
       );
-      console.log("✅ Save session completed");
       registerPushToken().catch((err) =>
         console.log("Push token registration failed:", err)
       );
 
-      console.log("OTP DATA:", data);
-      console.log("MODE:", mode);
-      console.log("ROLE:", data.role);
-      console.log("WORKSPACE:", data.workspace_id);
+      const elapsed = Date.now() - startTime;
+      if (elapsed < MIN_VISIBLE_MS) {
+        await new Promise((res) => setTimeout(res, MIN_VISIBLE_MS - elapsed));
+      }
 
-      console.log("After saveSession");
-      const SecureStore = require("expo-secure-store");
-
-      console.log(
-        "Access Token After Save:",
-        await SecureStore.getItemAsync("token")
-      );
-
-      // ---------- SIGNUP FLOW → go through onboarding first ----------
       if (mode === "signup") {
         if (data.role === "admin") {
           router.replace({
@@ -170,11 +176,6 @@ const OtpVerify = () => {
         }
       }
 
-      console.log("MODE:", mode);
-      console.log("ROLE:", data.role);
-      console.log("WORKSPACE:", data.workspace_id);
-
-      // ---------- LOGIN FLOW ----------
       sendLoginNotification(data.email).catch((err) =>
         console.log("Login notification failed:", err)
       );
@@ -191,20 +192,20 @@ const OtpVerify = () => {
         });
         return;
       }
-      console.log("Going employee dashboard");
 
       router.replace("/(employee)");
     } catch (error: any) {
       console.log("FULL ERROR:", error);
-      console.log("ERROR MESSAGE:", error?.message);
-      console.log("ERROR STACK:", error?.stack);
-
-      console.log(error);
+      const elapsed = Date.now() - startTime;
+      if (elapsed < MIN_VISIBLE_MS) {
+        await new Promise((res) => setTimeout(res, MIN_VISIBLE_MS - elapsed));
+      }
       setOtpError("Verification failed. Please try again.");
     } finally {
       setIsVerifying(false);
     }
   };
+
   const resendOTP = async () => {
     try {
       setOtpError("");
@@ -235,6 +236,7 @@ const OtpVerify = () => {
       setOtpError("Unable to resend OTP.");
     }
   };
+
   const isOnCooldown = cooldown > 0;
 
   return (
@@ -263,120 +265,113 @@ const OtpVerify = () => {
                 style={styles.imageStyling}
               />
             </View>
-
-            {/* Card — grows when cooldown or messages are active */}
-            <LoadingBorderTrace
-              active={isVerifying}
-              borderRadius={24}
-              color="#E8870A"
-              style={styles.cardWrapper}
+            <View style={styles.trainAboveCard}>
+              <TrainLoadingAnimation active={isVerifying} />
+            </View>
+            {/* Card — restored to its original standalone styling, no wrapper */}
+            <Animated.View
+              style={[
+                styles.divi,
+                (isOnCooldown || otpError || resendMessage) && styles.diviExpanded,
+              ]}
             >
-              <Animated.View
-                style={[
-                  styles.divi,
-                  (isOnCooldown || otpError || resendMessage) && styles.diviExpanded,
-                  { width: "100%", marginTop: 0 },
-                ]}
-              >
-                <Text style={[styles.divtext]}>Login to your workspace</Text>
-                <View>
-                  <View style={styles.otpContainer}>
-                    {otp.map((digit, index) => (
-                      <TextInput
-                        key={index}
-                        ref={(ref) => {
-                          inputRefs.current[index] = ref;
-                        }}
-                        style={[
-                          styles.otpInput,
-                          focusedIndex === index && styles.activeOtpBox,
-                          digit && styles.filledOtpBox,
-                          otpError && styles.otpError,
-                        ]}
-                        onFocus={() => setFocusedIndex(index)}
-                        onBlur={() => setFocusedIndex(-1)}
-                        value={digit}
-                        cursorColor="#E8870A"
-                        selectionColor="#E8870A"
-                        keyboardType="number-pad"
-                        maxLength={1}
-                        onChangeText={(text) => {
-                          const number = text.replace(/[^0-9]/g, "");
+              {/* <TrainLoadingAnimation active={isVerifying} /> */}
 
-                          const updated = [...otp];
-                          updated[index] = number;
+              <Text style={[styles.divtext]}>Login to your workspace</Text>
 
-                          setOtp(updated);
+              <View>
+                <View style={styles.otpContainer}>
+                  {otp.map((digit, index) => (
+                    <TextInput
+                      key={index}
+                      ref={(ref) => {
+                        inputRefs.current[index] = ref;
+                      }}
+                      style={[
+                        styles.otpInput,
+                        focusedIndex === index && styles.activeOtpBox,
+                        digit && styles.filledOtpBox,
+                        otpError && styles.otpError,
+                      ]}
+                      onFocus={() => setFocusedIndex(index)}
+                      onBlur={() => setFocusedIndex(-1)}
+                      value={digit}
+                      cursorColor="#E8870A"
+                      selectionColor="#E8870A"
+                      keyboardType="number-pad"
+                      maxLength={1}
+                      onChangeText={(text) => {
+                        const number = text.replace(/[^0-9]/g, "");
 
-                          if (otpError) setOtpError("");
+                        const updated = [...otp];
+                        updated[index] = number;
 
-                          if (number && index < 5) {
-                            setFocusedIndex(index + 1);
-                            inputRefs.current[index + 1]?.focus();
-                          }
+                        setOtp(updated);
 
-                          // Auto submit when all 6 digits are entered
-                          const otpCode = updated.join("");
+                        if (otpError) setOtpError("");
 
-                          if (otpCode.length === 6) {
-                            setTimeout(() => {
-                              verifyOTP(otpCode);
-                            }, 100);
-                          }
-                        }}
-                        onKeyPress={({ nativeEvent }) => {
-                          if (
-                            nativeEvent.key === "Backspace" &&
-                            !otp[index] &&
-                            index > 0
-                          ) {
-                            setFocusedIndex(index - 1);
-                            inputRefs.current[index - 1]?.focus();
-                          }
-                        }}
-                      />
-                    ))}
-                  </View>
-                  {otpError ? (
-                    <Text style={styles.errorText}>{otpError}</Text>
-                  ) : null}
-                  {resendMessage ? (
-                    <Text style={styles.successText}>{resendMessage}</Text>
-                  ) : null}
+                        if (number && index < 5) {
+                          setFocusedIndex(index + 1);
+                          inputRefs.current[index + 1]?.focus();
+                        }
+
+                        const otpCode = updated.join("");
+
+                        if (otpCode.length === 6) {
+                          setTimeout(() => {
+                            verifyOTP(otpCode);
+                          }, 100);
+                        }
+                      }}
+                      onKeyPress={({ nativeEvent }) => {
+                        if (
+                          nativeEvent.key === "Backspace" &&
+                          !otp[index] &&
+                          index > 0
+                        ) {
+                          setFocusedIndex(index - 1);
+                          inputRefs.current[index - 1]?.focus();
+                        }
+                      }}
+                    />
+                  ))}
                 </View>
+                {otpError ? (
+                  <Text style={styles.errorText}>{otpError}</Text>
+                ) : null}
+                {resendMessage ? (
+                  <Text style={styles.successText}>{resendMessage}</Text>
+                ) : null}
+              </View>
 
-                {/* Verify OTP button */}
-                <View style={{ width: "100%" }}>
-                  <TouchableOpacity
-                    style={[
-                      styles.LoginStyle,
-                      (otp.join("").length < 6 || isVerifying) && { opacity: 0.5 },
-                    ]}
-                    disabled={otp.join("").length < 6 || isVerifying}
-                    onPress={() => verifyOTP(otp.join(""))}
-                  >
-                    <Text style={styles.LoginText}>
-                      {isVerifying ? "Verifying..." : "Verify OTP"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+              <View style={{ width: "100%" }}>
+                <TouchableOpacity
+                  style={[
+                    styles.LoginStyle,
+                    (otp.join("").length < 6 || isVerifying) && { opacity: 0.5 },
+                  ]}
+                  disabled={otp.join("").length < 6 || isVerifying}
+                  onPress={() => verifyOTP(otp.join(""))}
+                >
+                  <Text style={styles.LoginText}>
+                    {isVerifying ? "Verifying..." : "Verify OTP"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-                {/* Countdown text — visible during cooldown */}
-                {isOnCooldown && (
-                  <Text style={styles.resendText}>Resend in : {cooldown}</Text>
-                )}
+              {isOnCooldown && (
+                <Text style={styles.resendText}>Resend in : {cooldown}</Text>
+              )}
 
-                {/* Resend button — appears only after cooldown ends */}
-                {!isOnCooldown && (
-                  <TouchableOpacity
-                    style={styles.resendButton}
-                    onPress={resendOTP}
-                  >
-                    <Text style={styles.LoginText}>Resend OTP</Text>
-                  </TouchableOpacity>
-                )}
-              </Animated.View>
-            </LoadingBorderTrace>
+              {!isOnCooldown && (
+                <TouchableOpacity
+                  style={styles.resendButton}
+                  onPress={resendOTP}
+                >
+                  <Text style={styles.LoginText}>Resend OTP</Text>
+                </TouchableOpacity>
+              )}
+            </Animated.View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -390,9 +385,9 @@ const ERROR = "#D32F2F";
 const SUCCESS = "#2E7D32";
 
 const styles = StyleSheet.create({
-  cardWrapper: {
-    width: "85%",
-    marginTop: 60,
+  trainAboveCard: {
+    width: "85%", // matches card width so it measures correctly and aligns with the card below
+    marginTop: 30,
   },
   scrollContent: {
     flexGrow: 1,
@@ -400,7 +395,6 @@ const styles = StyleSheet.create({
   },
   setText: {
     color: "white",
-    // fontWeight: "700",
     fontSize: 15,
   },
   SetStyle: {
@@ -416,12 +410,10 @@ const styles = StyleSheet.create({
   createStyle: {
     color: "#6B7280",
     top: 150,
-    // fontWeight: "700",
     fontSize: 16,
   },
   LoginText: {
     color: "#FFFFFF",
-    // fontWeight: "700",
     fontSize: 16,
     letterSpacing: 0.3,
   },
@@ -526,7 +518,7 @@ const styles = StyleSheet.create({
     paddingTop: 22,
     paddingBottom: 18,
 
-    marginTop: 60,
+    marginTop: 10,
 
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
@@ -542,9 +534,9 @@ const styles = StyleSheet.create({
   },
   divtext: {
     fontSize: 18,
-    // fontWeight: "700",
     color: "#1A2744",
     marginBottom: 8,
+    fontFamily: "Poppins_400Regular",
   },
   otpContainer: {
     flexDirection: "row",
@@ -562,7 +554,6 @@ const styles = StyleSheet.create({
     borderColor: "#D8DEE9",
     backgroundColor: "#FFFFFF",
     fontSize: 22,
-    // fontWeight: "700",
     color: "#1A2744",
     textAlign: "center",
   },
@@ -612,7 +603,6 @@ const styles = StyleSheet.create({
 
   otpDigit: {
     fontSize: 22,
-    // fontWeight: "700",
     color: "#1A2744",
   },
 });
