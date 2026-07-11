@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+// import React, { useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useState, useEffect, useRef } from "react";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
@@ -24,6 +25,8 @@ export default function AdminSignup() {
   const [department, setDepartment] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [nameChecking, setNameChecking] = useState(false);
+
 
   const [loading, setLoading] = useState(false);
 
@@ -34,6 +37,40 @@ export default function AdminSignup() {
     phone: "",
     email: "",
   });
+
+  const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
+
+    if (!name.trim() || !isValidName(name)) {
+      return;
+    }
+
+    nameDebounceRef.current = setTimeout(async () => {
+      try {
+        setNameChecking(true);
+        const res = await fetch(`${API_BASE_URL}/check-name`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), role: "admin" }),
+        });
+        const data = await res.json();
+
+        if (res.ok && !data.available) {
+          setErrors((prev) => ({ ...prev, name: "This name is already taken" }));
+        }
+      } catch (err) {
+        // fail silently — don't block typing on a network hiccup
+      } finally {
+        setNameChecking(false);
+      }
+    }, 500);
+
+    return () => {
+      if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
+    };
+  }, [name]);
 
   function validate() {
     const newErrors = { name: "", department: "", phone: "", email: "" };
@@ -99,15 +136,12 @@ export default function AdminSignup() {
       const signupData = await signupResponse.json();
 
       if (!signupResponse.ok) {
-        // Show inline error instead of Alert
-        if (
-          signupData.detail &&
-          signupData.detail.toLowerCase().includes("exist")
-        ) {
-          setErrors((prev) => ({
-            ...prev,
-            email: "The user already exists",
-          }));
+        const detail = (signupData.detail || "").toLowerCase();
+
+        if (detail.includes("already exists")) {
+          setErrors((prev) => ({ ...prev, email: "The user already exists" }));
+        } else if (detail.includes("name is already taken")) {
+          setErrors((prev) => ({ ...prev, name: "This name is already taken" }));
         } else {
           setErrors((prev) => ({
             ...prev,
@@ -198,6 +232,7 @@ export default function AdminSignup() {
                   validator={isValidName}
                   errorMessage="Name should only contain letters"
                   externalError={errors.name}
+                  helperText={nameChecking ? "Checking availability..." : ""}
                 />
 
                 <ValidatedInput

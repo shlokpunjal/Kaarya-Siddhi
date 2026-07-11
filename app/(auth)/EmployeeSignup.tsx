@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+// import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   Platform,
 } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
@@ -23,7 +24,7 @@ export default function EmployeeSignup() {
   const [department, setDepartment] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-
+  const [nameChecking, setNameChecking] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [errors, setErrors] = useState({
@@ -35,6 +36,39 @@ export default function EmployeeSignup() {
 
   // Card-level error (e.g. "user already exists") shown below the card
   const [cardError, setCardError] = useState("");
+  const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
+
+    if (!name.trim() || !isValidName(name)) {
+      return;
+    }
+
+    nameDebounceRef.current = setTimeout(async () => {
+      try {
+        setNameChecking(true);
+        const res = await fetch(`${API_BASE_URL}/check-name`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), role: "employee" }),
+        });
+        const data = await res.json();
+
+        if (res.ok && !data.available) {
+          setErrors((prev) => ({ ...prev, name: "This name is already taken" }));
+        }
+      } catch (err) {
+        // fail silently — don't block typing on a network hiccup
+      } finally {
+        setNameChecking(false);
+      }
+    }, 500);
+
+    return () => {
+      if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
+    };
+  }, [name]);
 
   function validate() {
     const newErrors = {
@@ -122,14 +156,18 @@ export default function EmployeeSignup() {
             ...prev,
             phone: signupData.detail,
           }));
-        } else if (detail.includes("exist")) {
+        } else if (detail.includes("name is already taken")) {
+          setErrors((prev) => ({
+            ...prev,
+            name: "This name is already taken",
+          }));
+        } else if (detail.includes("already exists")) {
           setCardError("The user already exists");
         } else {
           setCardError(signupData.detail || "Signup failed");
         }
         return;
       }
-
       const otpResponse = await fetch(`${API_BASE_URL}/send-otp`, {
         method: "POST",
         headers: {

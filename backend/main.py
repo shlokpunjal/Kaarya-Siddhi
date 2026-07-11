@@ -208,6 +208,11 @@ class ConnectionRespond(BaseModel):
 
 class SavePushTokenRequest(BaseModel):
     push_token: str
+
+class CheckNameRequest(BaseModel):
+    name: str
+    role: str
+
 # removed auto append for fake usernames to be created
 def normalize_email(email: str):
     email = email.strip().lower()
@@ -334,11 +339,31 @@ async def save_push_token(data: SavePushTokenRequest, user: dict = Depends(get_c
 
     return {"success": True}
 
+
+@app.post("/check-name")
+async def check_name(data: CheckNameRequest):
+    name = data.name.strip()
+
+    if not name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty.")
+
+    existing = (
+        supabase.table("users")
+        .select("id")
+        .ilike("name", name)
+        .eq("role", data.role)
+        .execute()
+    )
+
+    return {"available": len(existing.data) == 0}
+
+
 # The fastAPI endpoint which is called when create account is clicked on the frontend side
 @app.post("/signup")
 async def signup(data: SignupRequest):
 
     data.email = normalize_email(data.email)
+    data.name = data.name.strip()
 
     existing = (
         supabase.table("users")
@@ -350,6 +375,18 @@ async def signup(data: SignupRequest):
     if existing.data:
         raise HTTPException(status_code=400, detail="Account already exists.")
 
+    # NEW: per-role name uniqueness check
+    name_check = (
+        supabase.table("users")
+        .select("id")
+        .ilike("name", data.name)
+        .eq("role", data.role)
+        .execute()
+    )
+
+    if name_check.data:
+        raise HTTPException(status_code=409, detail="This name is already taken.")
+
     pending_data = {
         "name": data.name,
         "phone": data.phone,
@@ -357,7 +394,6 @@ async def signup(data: SignupRequest):
         "department": data.department,
     }
 
-    # Upsert so re-attempting signup before OTP verification just overwrites cleanly
     supabase.table("otp_sessions").upsert({
         "email": data.email,
         "otp": "",
@@ -366,6 +402,7 @@ async def signup(data: SignupRequest):
     }).execute()
 
     return {"success": True, "message": "Signup staged. Please verify OTP."}
+
 
 @app.post("/login")
 async def login(data: LoginRequest):
@@ -512,6 +549,22 @@ async def verify_otp(data: VerifyOTPRequest):
     pending = session_row.get("pending_signup")
 
     if pending:
+        # NEW: re-check name uniqueness right before creating the account
+        name_recheck = (
+            supabase.table("users")
+            .select("id")
+            .ilike("name", pending["name"])
+            .eq("role", pending["role"])
+            .execute()
+        )
+
+        if name_recheck.data:
+            supabase.table("otp_sessions").delete().eq("email", data.email).execute()
+            raise HTTPException(
+                status_code=409,
+                detail="This name was just taken by someone else. Please go back and choose a different name."
+            )
+
         supabase.table("users").insert({
             "name": pending["name"],
             "email": data.email,
@@ -535,37 +588,6 @@ async def verify_otp(data: VerifyOTPRequest):
             supabase.table("users").update({
                 "workspace_id": workspace_id
             }).eq("email", data.email).execute()
-
-    supabase.table("otp_sessions").delete().eq("email", data.email).execute()
-
-    user = (
-        supabase.table("users")
-        .select("*")
-        .eq("email", data.email)
-        .execute()
-    )
-
-    if not user.data:
-        raise HTTPException(status_code=404, detail="Account not found.")
-
-    user = user.data[0]
-
-    access_token = create_access_token(
-        email=user["email"],
-        role=user["role"],
-        workspace_id=user.get("workspace_id"),
-    )
-    refresh_token = create_refresh_token(user["email"])
-    return {
-        "success": True,
-        "token": access_token,
-        "refresh_token": refresh_token,
-        "id": user["id"],
-        "email": user["email"],
-        "role": user["role"],
-        "workspace_id": user.get("workspace_id"),
-        "is_profile_setup": user.get("is_profile_setup", False),
-    }
 
 @app.post("/connect-request")
 async def connect_request(data: ConnectRequest, current_user: dict = Depends(get_current_user)):
