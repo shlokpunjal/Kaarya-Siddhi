@@ -468,10 +468,11 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
+import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
 
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
-interface Task { title: string; descp: string; category: TaskCategory; }
+interface Task { id: string; title: string; descp: string; category: TaskCategory; }
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const MONTH_NAMES = [
@@ -527,7 +528,8 @@ function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
   rows.forEach((row) => {
     if (!row.deadline) return;
     const dateKey = row.deadline.slice(0, 10); // YYYY-MM-DD from timestamp
-    const task: Task = {
+   const task: Task = {
+      id: row.id,
       title: row.title,
       descp: row.description ?? "",
       category: mapStatusToCategory(row.status),
@@ -541,6 +543,7 @@ function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
 export default function CalendarScreen() {
   const { colors } = useTheme();
   const { brand, base, text, status } = colors;
+  const router = useRouter();
 
   const todayISO = new Date().toISOString().split("T")[0];
   const todayY   = parseInt(todayISO.slice(0, 4), 10);
@@ -689,6 +692,9 @@ export default function CalendarScreen() {
             </Pressable>
           </View>
 
+          {/*Divider */}
+          <View style={[s.monthDivider, { backgroundColor: base.border }]} />
+
           {/* Weekday labels row — no individual borders, just a bottom divider */}
           <View style={[s.weekRow, { borderBottomColor: base.border }]}>
             {DAYS.map((d, i) => (
@@ -697,7 +703,7 @@ export default function CalendarScreen() {
                 style={[
                   s.weekDay,
                   { color: text.secondary },
-                  i === 6 && { color: status.overdue },
+                  i === 6 && { color: status.overdue, fontFamily: "Poppins-SemiBold" },
                 ]}
               >
                 {d}
@@ -724,7 +730,9 @@ export default function CalendarScreen() {
                     const isSel     = ds === selected;
                     const cats      = getCats(ds);
                     const hasTasks  = cats.length > 0 && isCurrent;
-                    const isLastCol = colIdx === 6;
+                   const isLastCol  = colIdx === 6;
+                    const isFirstCol = colIdx === 0;
+                    const cellIsLastRow = isLastRow;
 
                     const onPress = () => {
                       const y = parseInt(ds.slice(0, 4), 10);
@@ -736,65 +744,75 @@ export default function CalendarScreen() {
                       setSelected(ds);
                     };
 
-                    return (
-                      <Pressable
-                        key={ds}
-                        onPress={onPress}
-                        style={[
-                          s.cell,
-                          // Column divider — always applied (today no longer
-                          // overrides/fights this, which was causing the
-                          // misaligned-row glitch on whichever row held "today")
-                          {
-                            borderRightColor: base.border,
-                            borderRightWidth: isLastCol ? 0 : 1,
-                          },
-                          isSel && isCurrent && { backgroundColor: base.surfaceL2 },
-                        ]}
-                      >
-                        {/* Today: drawn as a free-floating overlay ring instead
-                            of a real border, so it never merges with / offsets
-                            the shared row & column divider borders */}
-                        {isToday && (
+                  return (
+                        <Pressable
+                          key={ds}
+                          onPress={onPress}
+                          style={[
+                            s.cell,
+                            {
+                              borderRightColor: base.border,
+                              borderRightWidth: isLastCol ? 0 : 1,
+                            },
+                          ]}
+                        >
+                          {isToday && (
                           <View
                             pointerEvents="none"
-                            style={[s.todayRing, { borderColor: brand.accent }]}
+                            style={[
+                              s.todayBox,
+                              { backgroundColor: brand.accent },
+                              cellIsLastRow && { bottom: 0 },
+                              isFirstCol && { left: 0 },
+                              isLastCol && { right: 0 },
+                            ]}
                           />
                         )}
 
-                        {/* Selected: accent top bar */}
-                        {isSel && isCurrent && (
-                          <View style={[s.selBar, { backgroundColor: brand.accent }]} />
+                        {isSel && isCurrent && !isToday && (
+                          <View
+                            pointerEvents="none"
+                            style={[
+                              s.selectedBox,
+                              { borderColor: brand.accent },
+                              cellIsLastRow && { bottom: 0 },
+                              isFirstCol && { left: 0 },
+                              isLastCol && { right: 0 },
+                            ]}
+                          />
                         )}
 
-                        {/* Date number — centered, dots stacked below */}
-                        <View style={s.cellInner}>
-                          <Text
-                            style={[
-                              s.cellNum,
-                              { color: isCurrent ? text.primary : text.secondary },
-                              !isCurrent && { opacity: 0.28 },
-                              isToday && { color: brand.accent, fontFamily: "Poppins-SemiBold" },
-                              colIdx === 6 && isCurrent && { color: status.overdue },
-                            ]}
-                          >
-                            {parseInt(ds.slice(8), 10)}
-                          </Text>
+                          {/* Date number — centered, dots stacked below */}
+                          <View style={s.cellInner}>
+                            <Text
+                              style={[
+                                s.cellNum,
+                                { color: isCurrent ? text.primary : text.secondary },
+                                !isCurrent && { opacity: 0.28 },
+                                colIdx === 6 && isCurrent && {
+                                  color: status.overdue,
+                                  fontFamily: "Poppins-SemiBold",
+                                },
+                                isToday && { color: "#FFFFFF", fontFamily: "Poppins-SemiBold" },
+                              ]}
+                            >
+                              {parseInt(ds.slice(8), 10)}
+                            </Text>
 
-                          {/* Category dots — below number */}
-                          {hasTasks && (
-                            <View style={s.dotsRow}>
-                              {cats.map(cat => (
-                                <View
-                                  key={cat}
-                                  style={[s.dot, { backgroundColor: categoryColor[cat] }]}
-                                />
-                              ))}
-                            </View>
-                          )}
-                        </View>
-                      </Pressable>
-                    );
+                            {/* Category dots — below number */}
+                            {hasTasks && (
+                              <View style={s.dotsRow}>
+                                {cats.map(cat => (
+                                  <View
+                                    key={cat}
+                                    style={[s.dot, { backgroundColor: categoryColor[cat] }]}
+                                  />
+                                ))}
+                              </View>
+                            )}
+                          </View>
+                        </Pressable>
+                      );
                   })}
                 </View>
               );
@@ -825,8 +843,11 @@ export default function CalendarScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.taskScroll}>
           {tasksMap[selected]?.length ? (
             tasksMap[selected].map((task, i) => (
-              <View
-                key={i}
+              <Pressable
+                key={task.id ?? i}
+                onPress={() =>
+                  router.push({ pathname: "/(task)/task-detail", params: { taskId: task.id } })
+                }
                 style={[
                   s.taskCard,
                   {
@@ -845,7 +866,7 @@ export default function CalendarScreen() {
                   </View>
                 </View>
                 <Text style={[s.taskDesc, { color: text.secondary }]}>{task.descp}</Text>
-              </View>
+              </Pressable>
             ))
           ) : (
             <View style={[s.emptyState, { borderColor: base.border }]}>
@@ -895,7 +916,7 @@ const s = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 4,
   },
-  arrow:      { fontSize: 26, lineHeight: 28, fontFamily: "Poppins-Regular" },
+  arrow:      { fontSize: 34, lineHeight: 36, fontFamily: "Poppins-Regular" },
   monthTitle: { fontSize: 28, fontFamily: "Poppins-SemiBold" },
 
   /* Weekday header */
@@ -920,7 +941,13 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
   },
 
-  /* Individual cell */
+  /* Divider line between month nav and weekday labels */
+  monthDivider: {
+    height: 1,
+    marginHorizontal: 0,
+    marginBottom:8,
+  },
+
   cell: {
     flex: 1,
     height: 46,
@@ -928,28 +955,30 @@ const s = StyleSheet.create({
     alignItems: "center",       // horizontally center content
     paddingTop: 0,
     paddingLeft: 0,
-    overflow: "hidden",
     position: "relative",
   },
 
-  /* Today ring — absolute overlay, decoupled from grid divider borders */
-  todayRing: {
+  /* Today — bleeds 1px past the cell's own edges so it fully covers the
+     grid divider lines instead of leaving a sliver visible around it */
+  todayBox: {
     position: "absolute",
-    top: 1,
-    left: 1,
-    right: 1,
-    bottom: 1,
-    borderWidth: 1.5,
+    top: -1,
+    left: -1,
+    right: -1,
+    bottom: -1,
     borderRadius: 4,
   },
 
-  /* Full-width 2px accent bar at top when selected */
-  selBar: {
+  /* Selected (non-today) — same 1px bleed, border only, no fill */
+  selectedBox: {
     position: "absolute",
-    top: 0, left: 0, right: 0,
-    height: 2,
+    top: -1,
+    left: -1,
+    right: -1,
+    bottom: -1,
+    borderWidth: 2,
+    borderRadius: 4,
   },
-
   /* Date + dots column, centered in cell */
   cellInner: {
     alignItems: "center",
