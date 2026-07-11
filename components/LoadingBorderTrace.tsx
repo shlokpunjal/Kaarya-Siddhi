@@ -6,6 +6,7 @@ import {
   LayoutChangeEvent,
   StyleProp,
   ViewStyle,
+  Easing,
 } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 
@@ -27,97 +28,106 @@ const LoadingBorderTrace: React.FC<LoadingBorderTraceProps> = ({
   style,
 }) => {
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const dashOffset = useRef(new Animated.Value(0)).current;
+  const progress = useRef(new Animated.Value(0)).current;
   const loopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
-    if (width !== size.width || height !== size.height) {
-      setSize({ width, height });
-    }
+    // Only update state on a meaningful size change, not sub-pixel jitter
+    setSize((prev) => {
+      if (Math.abs(width - prev.width) > 1 || Math.abs(height - prev.height) > 1) {
+        return { width, height };
+      }
+      return prev;
+    });
   };
 
+  const w = size.width;
+  const h = size.height;
+  const r = Math.min(borderRadius, w / 2, h / 2);
   const perimeter =
-    size.width > 0
-      ? 2 * (size.width - 2 * borderRadius) +
-        2 * (size.height - 2 * borderRadius) +
-        2 * Math.PI * borderRadius
-      : 0;
+    w > 0 && h > 0 ? 2 * (w - 2 * r) + 2 * (h - 2 * r) + 2 * Math.PI * r : 0;
+  const cometLength = perimeter * 0.22;
+  const gapLength = Math.max(perimeter - cometLength, 1);
 
-  const segmentLength = perimeter * 0.28; // length of the glowing comet trail
-
+  // IMPORTANT: only depend on `active`, never on `perimeter`/size —
+  // otherwise every layout re-measure restarts the loop back to 0
   useEffect(() => {
-    if (active && perimeter > 0) {
-      dashOffset.setValue(0);
+    loopRef.current?.stop();
+
+    if (active) {
+      progress.setValue(0);
       loopRef.current = Animated.loop(
-        Animated.timing(dashOffset, {
-          toValue: -perimeter,
-          duration: 1600,
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: 1400,
+          easing: Easing.linear,
           useNativeDriver: false,
         })
       );
       loopRef.current.start();
     } else {
-      loopRef.current?.stop();
-      dashOffset.setValue(0);
+      progress.setValue(0);
     }
 
     return () => {
       loopRef.current?.stop();
     };
-  }, [active, perimeter]);
+  }, [active]);
+
+  const dashOffset = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -(cometLength + gapLength)],
+  });
 
   return (
     <View style={style} onLayout={onLayout}>
-      {active && size.width > 0 && (
+      {active && w > 0 && h > 0 && (
         <Svg
-          width={size.width}
-          height={size.height}
+          width={w}
+          height={h}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         >
-          {/* Outer soft glow */}
           <AnimatedRect
-            x={1}
-            y={1}
-            width={size.width - 2}
-            height={size.height - 2}
-            rx={borderRadius}
+            x={2}
+            y={2}
+            width={w - 4}
+            height={h - 4}
+            rx={r}
             fill="none"
             stroke={color}
-            strokeWidth={9}
-            strokeOpacity={0.22}
-            strokeDasharray={`${segmentLength}, ${perimeter}`}
-            strokeDashoffset={dashOffset as unknown as number}
+            strokeWidth={12}
+            strokeOpacity={0.25}
+            strokeDasharray={`${cometLength}, ${gapLength}`}
+            strokeDashoffset={dashOffset}
             strokeLinecap="round"
           />
-          {/* Mid glow */}
           <AnimatedRect
-            x={1}
-            y={1}
-            width={size.width - 2}
-            height={size.height - 2}
-            rx={borderRadius}
+            x={2}
+            y={2}
+            width={w - 4}
+            height={h - 4}
+            rx={r}
             fill="none"
             stroke={color}
-            strokeWidth={5}
-            strokeOpacity={0.55}
-            strokeDasharray={`${segmentLength}, ${perimeter}`}
-            strokeDashoffset={dashOffset as unknown as number}
+            strokeWidth={6}
+            strokeOpacity={0.6}
+            strokeDasharray={`${cometLength}, ${gapLength}`}
+            strokeDashoffset={dashOffset}
             strokeLinecap="round"
           />
-          {/* Bright core */}
           <AnimatedRect
-            x={1}
-            y={1}
-            width={size.width - 2}
-            height={size.height - 2}
-            rx={borderRadius}
+            x={2}
+            y={2}
+            width={w - 4}
+            height={h - 4}
+            rx={r}
             fill="none"
-            stroke={color}
-            strokeWidth={2.5}
-            strokeDasharray={`${segmentLength}, ${perimeter}`}
-            strokeDashoffset={dashOffset as unknown as number}
+            stroke="#FFD9A0"
+            strokeWidth={3}
+            strokeDasharray={`${cometLength}, ${gapLength}`}
+            strokeDashoffset={dashOffset}
             strokeLinecap="round"
           />
         </Svg>
