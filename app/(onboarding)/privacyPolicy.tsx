@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
+import { useState, useRef } from "react";
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, NativeSyntheticEvent, NativeScrollEvent, LayoutChangeEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import ProgressDots from "../../components/progressDots";
@@ -12,13 +12,51 @@ export default function PrivacyPolicy() {
   const { role, name } = useLocalSearchParams<{ role: string; name?: string }>();
   const [hasScrolledToEnd, setHasScrolledToEnd] = useState(false);
 
+  const scrollViewHeight = useRef(0);
+  const contentHeight = useRef(0);
+
   const goBack = () => router.back();
 
+  const checkIfScrolledToEnd = (offsetY: number) => {
+    if (hasScrolledToEnd) return;
+
+    const distanceFromBottom =
+      contentHeight.current - (scrollViewHeight.current + offsetY);
+
+    // Generous buffer to account for platform rounding/momentum differences
+    if (distanceFromBottom <= 40) {
+      setHasScrolledToEnd(true);
+    }
+  };
+
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
-    const reachedBottom =
-      layoutMeasurement.height + contentOffset.y >= contentSize.height - 20;
-    if (reachedBottom) setHasScrolledToEnd(true);
+    checkIfScrolledToEnd(e.nativeEvent.contentOffset.y);
+  };
+
+  const handleMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    checkIfScrolledToEnd(e.nativeEvent.contentOffset.y);
+  };
+
+  const handleScrollViewLayout = (e: LayoutChangeEvent) => {
+    scrollViewHeight.current = e.nativeEvent.layout.height;
+    checkForShortContent();
+  };
+
+  const handleContentSizeChange = (_w: number, h: number) => {
+    contentHeight.current = h;
+    checkForShortContent();
+  };
+
+  // If the policy text is short enough to fit without scrolling at all,
+  // don't leave the user stuck unable to trigger onScroll.
+  const checkForShortContent = () => {
+    if (
+      scrollViewHeight.current > 0 &&
+      contentHeight.current > 0 &&
+      contentHeight.current <= scrollViewHeight.current + 10
+    ) {
+      setHasScrolledToEnd(true);
+    }
   };
 
   const handleAccept = () => {
@@ -35,8 +73,11 @@ export default function PrivacyPolicy() {
         <ScrollView
           style={styles.scrollArea}
           contentContainerStyle={styles.scrollContent}
+          onLayout={handleScrollViewLayout}
+          onContentSizeChange={handleContentSizeChange}
           onScroll={handleScroll}
-          scrollEventThrottle={100}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+          scrollEventThrottle={16}
         >
           <Text style={[styles.policyText, typography.body]}>{PRIVACY_POLICY_TEXT}</Text>
         </ScrollView>
