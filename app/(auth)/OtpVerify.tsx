@@ -30,6 +30,7 @@ const OtpVerify = () => {
   const cardTranslateY = useRef(new Animated.Value(60)).current;
   const cardScale = useRef(new Animated.Value(0.95)).current;
   const inputRefs = useRef<(TextInput | null)[]>([]);
+  const isVerifyingRef = useRef(false);
   const [cooldown, setCooldown] = useState(30);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { email, ph, role, mode, name } = useLocalSearchParams<{
@@ -87,13 +88,15 @@ const OtpVerify = () => {
   };
 
   const verifyOTP = async (code?: string) => {
-    if (isVerifying) return;
+    if (isVerifyingRef.current) return;
 
     const otpCode = code ?? otp.join("");
     if (otpCode.length !== 6) {
       setOtpError("Enter a valid 6-digit OTP");
       return;
     }
+
+    isVerifyingRef.current = true;
 
     const MIN_VISIBLE_MS = 900;
     const startTime = Date.now();
@@ -203,6 +206,8 @@ const OtpVerify = () => {
       setOtpError("Verification failed. Please try again.");
     } finally {
       setIsVerifying(false);
+      isVerifyingRef.current = false;
+
     }
   };
 
@@ -309,6 +314,8 @@ const OtpVerify = () => {
                         setOtp(updated);
 
                         if (otpError) setOtpError("");
+                        if (resendMessage) setResendMessage("");
+
 
                         if (number && index < 5) {
                           setFocusedIndex(index + 1);
