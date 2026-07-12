@@ -4,8 +4,9 @@ export type EofficeFile = {
   file_no: string;
   pending_office: string;
   pending_with: string;
-  pending_since: string; // ISO timestamp, drives the days-pending calc
-  remark: string | null;
+  pending_since: string;
+  remark: string;
   completed: boolean;
+  completed_at: string | null;
   created_at: string;
 };
