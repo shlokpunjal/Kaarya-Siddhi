@@ -13,7 +13,8 @@ import { supabase } from '../lib/supabase'
 import { ThemeProvider } from '../context/ThemeContext';
 import { typography } from '../theme/theme';
 import { AuthProvider } from "../context/AuthContext";
-
+import { enableScreens } from 'react-native-screens';
+enableScreens(false);
 SplashScreen.preventAutoHideAsync();
 
 const BRAND_PRIMARY = '#1A2744';
@@ -75,7 +76,7 @@ export default function RootLayout() {
     <AuthProvider>
 
       <ThemeProvider>
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: BRAND_PRIMARY } }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(onboarding)" />
