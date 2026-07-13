@@ -257,8 +257,9 @@ export default function Dashboard() {
         <View style={{ flexDirection: "row", gap: 20 }}>
           <View style={{ marginLeft: 33, flex: 1, marginRight: 33 }}>
             <TouchableOpacity
-              onPress={() => router.push("/newtaskemp")}
+              onPress={() => router.push("(task)/newtaskemp")}
               style={{
+                
                 backgroundColor: colors.brand.accent, padding: 14,
                 width: "100%", height: 60, borderRadius: 32,
                 flexDirection: "row", marginTop: -1, justifyContent: 'center', alignItems: 'center',

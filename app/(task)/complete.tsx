@@ -76,29 +76,33 @@ export default function Complete() {
   };
 
   // ── Mark the task complete → shows up as completed for admin & employee ─────
-  const handleMarkComplete = async () => {
-    try {
-      setSubmitting("complete");
+ // ── Mark the task complete → shows up as completed for admin & employee ─────
+const handleMarkComplete = async () => {
+  try {
+    setSubmitting("complete");
 
-      const { error } = await supabase
-        .from("tasks")
-        .update({
-          status: "completed",
-          suggestion: null,
-        })
-        .eq("id", taskId);
+    const { error } = await supabase
+      .from("tasks")
+      .update({
+        status: "completed",
+        suggestion: null,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", taskId);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      Alert.alert("Task completed", "This task has been marked as complete.", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
-    } catch (error: any) {
-      Alert.alert("Could not complete task", error?.message || "Something went wrong.");
-    } finally {
-      setSubmitting(null);
-    }
-  };
+    Alert.alert(
+      "Task completed",
+      "This task has been marked as complete. It will be automatically deleted 15 days from now.",
+      [{ text: "OK", onPress: () => router.back() }]
+    );
+  } catch (error: any) {
+    Alert.alert("Could not complete task", error?.message || "Something went wrong.");
+  } finally {
+    setSubmitting(null);
+  }
+};
 
   if (loading) {
     return (
