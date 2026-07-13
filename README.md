@@ -48,16 +48,12 @@ Kaarya-Siddhi/
 │   └── index.tsx           # Entry point: redirects based on auth + role
 ├── backend/
 │   ├── routes/
-│   │   ├── excel_report.py # GET /reports/tasks/excel — filtered Excel generation
-│   │   └── pdf_report.py   # GET /reports/tasks/pdf — in progress
+│   │   ├── excel_report.py # GET /reports/tasks/excel 
+│   │   └── pdf_report.py   # GET /reports/tasks/pdf 
 │   ├── main.py             # FastAPI app entry
-│   ├── mock_data.py        # Temporary mock tasks (replace with real DB queries)
 │   └── requirements.txt
 ├── context/
 │   └── ThemeContext.tsx    # Theme provider: Light / Dark / System with persistence
-├── data/
-│   ├── mockTasks.ts        # Frontend mock task data
-│   └── mockCurrentUser.ts  # Frontend mock user data
 ├── theme/
 │   └── theme.ts            # Design tokens: colors, typography, lightTheme, darkTheme
 ├── types/
