@@ -19,6 +19,7 @@ export default function NotificationsLayout() {
       <Stack.Screen name="employee-request-detail" />
       <Stack.Screen name="admin" />
       <Stack.Screen name="admin-request-review" />
+      <Stack.Screen name="admin-connection-review" />
 
       <Stack.Screen
         name="admin-requests-list"

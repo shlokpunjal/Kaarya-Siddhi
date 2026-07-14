@@ -1,13 +1,9 @@
 // app/notifications/employee.tsx
 //
-// Employee's Notifications page.
-// - No separate "Requests" list — the employee doesn't need to check pending
-//   status here, since the task-detail page already shows the Extend Deadline
-//   button dimmed while a request is pending.
-// - "Other Notifications" shows only DECIDED (accepted/rejected) extension
-//   requests, so the employee finds out once the admin has responded.
-//   Tapping a card opens employee-request-detail.tsx. Has its own Clear All,
-//   which just dismisses locally (AsyncStorage) — doesn't delete real data.
+// Reads DECIDED notifications only (connection_accepted/rejected,
+// extension_accepted/rejected) — pending items never appear here since the
+// employee already sees pending status on the task-detail screen itself.
+// Clear All performs a real delete from the notifications table.
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
@@ -20,26 +16,25 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 
-type ExtensionNotification = {
+type NotifRow = {
   id: string;
-  status: "accepted" | "rejected";
-  admin_note: string | null;
-  decided_at: string | null;
-  tasks: { title: string } | null;
+  type: "connection_accepted" | "connection_rejected" | "extension_accepted" | "extension_rejected";
+  message: string;
+  created_at: string;
+  metadata: any;
 };
 
-const clearedKey = (userId: string) => `employeeNotifsCleared_${userId}`;
-
-const statusMeta = (colors: any, status: string) =>
-  status === "accepted"
-    ? { color: colors.status.completed, icon: "checkmark-circle-outline" as const, verb: "accepted" }
-    : { color: colors.status.overdue, icon: "close-circle-outline" as const, verb: "rejected" };
+const notifMeta = (colors: any, type: NotifRow["type"]) => {
+  if (type === "connection_accepted" || type === "extension_accepted")
+    return { color: colors.status.completed, icon: "checkmark-circle-outline" as const };
+  return { color: colors.status.overdue, icon: "close-circle-outline" as const };
+};
 
 export default function EmployeeNotifications() {
   const { colors } = useTheme();
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<ExtensionNotification[]>([]);
+  const [notifications, setNotifications] = useState<NotifRow[]>([]);
   const [loading, setLoading] = useState(true);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -47,33 +42,26 @@ export default function EmployeeNotifications() {
     (async () => {
       const email = await AsyncStorage.getItem("userEmail");
       if (!email) return;
-      const { data, error } = await supabase.from("users").select("id").eq("email", email).single();
-      if (error || !data) {
-        console.error("Could not resolve user id for email:", email);
-        return;
-      }
-      setUserId(data.id);
+      const { data } = await supabase.from("users").select("id").eq("email", email).single();
+      if (data) setUserId(data.id);
     })();
   }, []);
 
   const fetchNotifications = useCallback(async (id: string) => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("extension_requests")
-      .select("id, status, admin_note, decided_at, tasks(title)")
-      .eq("requested_by", id)
-      .neq("status", "pending")
-      .order("decided_at", { ascending: false });
+      .from("notifications")
+      .select("id, type, message, created_at, metadata")
+      .eq("user_id", id)
+      .in("type", ["connection_accepted", "connection_rejected", "extension_accepted", "extension_rejected"])
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching notifications:", error.message);
       setLoading(false);
       return;
     }
-
-    const raw = await AsyncStorage.getItem(clearedKey(id));
-    const cleared: string[] = raw ? JSON.parse(raw) : [];
-    setNotifications(((data as any[]) ?? []).filter((n) => !cleared.includes(n.id)));
+    setNotifications((data as NotifRow[]) ?? []);
     setLoading(false);
   }, []);
 
@@ -86,10 +74,10 @@ export default function EmployeeNotifications() {
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
-      .channel(`extension_requests_employee_notifs_${userId}`)
+      .channel(`employee_notifs_${userId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "extension_requests", filter: `requested_by=eq.${userId}` },
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
         () => fetchNotifications(userId)
       )
       .subscribe();
@@ -103,12 +91,24 @@ export default function EmployeeNotifications() {
   }, [userId, fetchNotifications]);
 
   const clearAll = async () => {
-    if (!userId) return;
-    const raw = await AsyncStorage.getItem(clearedKey(userId));
-    const existing: string[] = raw ? JSON.parse(raw) : [];
-    const updated = Array.from(new Set([...existing, ...notifications.map((n) => n.id)]));
-    await AsyncStorage.setItem(clearedKey(userId), JSON.stringify(updated));
+    if (!userId || notifications.length === 0) return;
+    const ids = notifications.map((n) => n.id);
+    const { error } = await supabase.from("notifications").delete().in("id", ids);
+    if (error) {
+      console.error("Failed to clear notifications:", error.message);
+      return;
+    }
     setNotifications([]);
+  };
+
+  const handlePress = (n: NotifRow) => {
+    if (n.type === "extension_accepted" || n.type === "extension_rejected") {
+      router.push({
+        pathname: "/notifications/employee-request-detail",
+        params: { requestId: n.metadata?.extension_request_id },
+      });
+    }
+    // Connection notifications have no dedicated detail screen — just informational.
   };
 
   return (
@@ -132,7 +132,7 @@ export default function EmployeeNotifications() {
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Ionicons name="notifications-outline" size={18} color={colors.text.secondary} />
-            <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Other Notifications</Text>
+            <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Notifications</Text>
           </View>
           {notifications.length > 0 && (
             <TouchableOpacity onPress={clearAll}>
@@ -146,13 +146,13 @@ export default function EmployeeNotifications() {
         )}
 
         {notifications.map((n) => {
-          const meta = statusMeta(colors, n.status);
+          const meta = notifMeta(colors, n.type);
+          const isExtension = n.type.startsWith("extension");
           return (
             <TouchableOpacity
               key={n.id}
-              onPress={() =>
-                router.push({ pathname: "/notifications/employee-request-detail", params: { requestId: n.id } })
-              }
+              onPress={() => handlePress(n)}
+              disabled={!isExtension}
               style={{
                 flexDirection: "row",
                 alignItems: "flex-start",
@@ -167,17 +167,14 @@ export default function EmployeeNotifications() {
             >
               <Ionicons name={meta.icon} size={20} color={meta.color} style={{ marginTop: 2 }} />
               <View style={{ flex: 1 }}>
-                <Text style={{ ...typography.heading3, color: colors.text.primary }}>
-                  {n.tasks?.title ?? "Untitled Task"}
+                <Text style={{ ...typography.body, color: colors.text.primary }}>{n.message}</Text>
+                <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 4 }}>
+                  {new Date(n.created_at).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
                 </Text>
-                <Text style={{ ...typography.label, color: meta.color, marginTop: 2 }}>
-                  Your extension request was {meta.verb}
-                </Text>
-                {n.decided_at && (
-                  <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 4 }}>
-                    {new Date(n.decided_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                  </Text>
-                )}
               </View>
             </TouchableOpacity>
           );

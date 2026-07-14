@@ -23,15 +23,6 @@
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
-
 export async function sendLoginNotification(name: string) {
   // Don't try notification APIs that aren't supported in Expo Go
   if (Constants.appOwnership === "expo") {
