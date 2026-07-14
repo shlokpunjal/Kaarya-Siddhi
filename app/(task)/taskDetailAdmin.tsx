@@ -1,6 +1,4 @@
 
-<<<<<<< HEAD
-=======
 export default function TaskDetailAdmin() {
   const { colors } = useTheme();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
@@ -432,4 +430,3 @@ export default function TaskDetailAdmin() {
     </SafeAreaView>
   );
 }
->>>>>>> 4485cc83362acaa0d63d65fe7d006f44ba28083b

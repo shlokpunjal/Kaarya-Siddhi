@@ -1,6 +1,7 @@
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import { API_BASE_URL } from "../constants/api";
 
 export async function registerPushToken() {
@@ -22,11 +23,21 @@ export async function registerPushToken() {
     return;
   }
 
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default",
+      importance: Notifications.AndroidImportance.MAX,
+    });
+  }
+
   const tokenData = await Notifications.getExpoPushTokenAsync();
   const pushToken = tokenData.data;
 
-  const authToken = await AsyncStorage.getItem("token");
-  if (!authToken) return;
+  const authToken = await SecureStore.getItemAsync("token");
+  if (!authToken) {
+    console.log("No auth token found — cannot save push token yet.");
+    return;
+  }
 
   try {
     await fetch(`${API_BASE_URL}/save-push-token`, {
