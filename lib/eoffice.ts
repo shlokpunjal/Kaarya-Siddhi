@@ -43,6 +43,7 @@ export async function createEofficeFile(input: {
   file_no: string;
   pending_office: string;
   pending_with: string;
+  pending_since: string;
   remark: string;
 }): Promise<EofficeFile> {
   const { data: existing, error: srError } = await supabase
@@ -62,7 +63,7 @@ export async function createEofficeFile(input: {
       file_no: input.file_no,
       pending_office: input.pending_office,
       pending_with: input.pending_with,
-      pending_since: new Date().toISOString(),
+      pending_since: input.pending_since,
       remark: input.remark || null,
       completed: false,
     })

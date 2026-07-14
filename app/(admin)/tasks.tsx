@@ -31,7 +31,7 @@ type TaskRow = {
   deadline: string;
 };
 
-type ManagedEmployee = { id: string; email: string };
+type ManagedEmployee = { id: string; name: string; email: string };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   overdue: 'Overdue',
@@ -80,7 +80,6 @@ export default function AdminTasks() {
     setLoading(true);
 
     const adminEmail = await AsyncStorage.getItem('userEmail');
-    // console.log('DEBUG adminEmail:', JSON.stringify(adminEmail)); for debugging
 
     if (!adminEmail) {
       router.replace('/(auth)/LoginChoice');
@@ -106,10 +105,12 @@ export default function AdminTasks() {
       .eq('created_by', currentAdmin.id)
       .order('deadline', { ascending: true });
 
+    let fetchedTasks: Task[] = [];
     if (taskError) {
       console.error('Error fetching tasks list:', taskError.message);
     } else {
-      setTasks((taskRows ?? []).map(mapRowToTask));
+      fetchedTasks = (taskRows ?? []).map(mapRowToTask);
+      setTasks(fetchedTasks);
     }
 
     // ── This admin's connected employees, for names + the filter list ────
@@ -119,29 +120,48 @@ export default function AdminTasks() {
       .eq('admin_email', adminEmail)
       .eq('status', 'accepted');
 
+    let connectedEmployees: ManagedEmployee[] = [];
     if (connError) {
       console.error('Error fetching team:', connError.message);
     } else {
       const employeeEmails = (connections ?? []).map((c) => c.employee_email);
-      // console.log('DEBUG connections found:', connections);
-      // console.log('DEBUG employees set:', employeeEmails); for debugging
 
       if (employeeEmails.length > 0) {
         const { data: users, error: usersError } = await supabase
           .from('users')
-          .select('id, email')
+          .select('id, name, email')
           .in('email', employeeEmails);
 
         if (usersError) {
           console.error('Error fetching team emails:', usersError.message);
         } else {
-          setEmployees(
-            (users ?? []).map((u) => ({
-              id: u.id,
-              email: u.email,
-            }))
-          );
+          connectedEmployees = (users ?? []).map((u) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+          }));
         }
+      }
+    }
+
+    setEmployees(connectedEmployees);
+
+    // ── Resolve names for every assignee on these tasks, even if no longer connected ──
+    const assignedIds = Array.from(new Set(fetchedTasks.map((t) => t.assignedTo)));
+    const knownIds = new Set(connectedEmployees.map((e) => e.id));
+    const missingIds = assignedIds.filter((id) => !knownIds.has(id));
+
+    if (missingIds.length > 0) {
+      const { data: extraUsers, error: extraError } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .in('id', missingIds);
+
+      if (extraError) {
+        console.error('Error resolving extra assignee names:', extraError.message);
+      } else {
+        const extras = (extraUsers ?? []).map((u) => ({ id: u.id, name: u.name, email: u.email }));
+        setEmployees((prev) => [...prev, ...extras]);
       }
     }
 
@@ -167,7 +187,10 @@ export default function AdminTasks() {
     setModalVisible(false);
   };
 
-  const employeeEmail = (id: string) => employees.find((e) => e.id === id)?.email ?? id;
+  const employeeDisplayName = (id: string) => {
+    const match = employees.find((e) => e.id === id);
+    return match?.name || match?.email || id;
+  };
 
   const getVisibleTasks = () => {
     let list = [...tasks];
@@ -205,7 +228,7 @@ export default function AdminTasks() {
           (t.label ?? '').toLowerCase().includes(query) ||
           t.priority.toLowerCase().includes(query) ||
           STATUS_LABELS[t.status].toLowerCase().includes(query) ||
-          employeeEmail(t.assignedTo).toLowerCase().includes(query)
+          employeeDisplayName(t.assignedTo).toLowerCase().includes(query)
         );
       });
     }
@@ -319,7 +342,7 @@ export default function AdminTasks() {
                 </View>
               </View>
               <Text style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}>
-                {employeeEmail(task.assignedTo)} · {task.label} · {task.priority.toUpperCase()} · Due {task.dueDate}
+                {employeeDisplayName(task.assignedTo)} · {task.label} · {task.priority.toUpperCase()} · Due {task.dueDate}
               </Text>
             </Pressable>
           ))
@@ -379,7 +402,7 @@ export default function AdminTasks() {
               </Text>
               <View style={styles.chipRow}>
                 {employees.map((emp) => (
-                  <Chip key={emp.id} label={emp.email} type="employee" value={emp.id} />
+                  <Chip key={emp.id} label={emp.name || emp.email} type="employee" value={emp.id} />
                 ))}
               </View>
             </ScrollView>
