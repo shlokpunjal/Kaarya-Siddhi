@@ -315,6 +315,33 @@ useEffect(() => {
             </Text>
           </View>
 
+          {/* Auto-deletion notice — shown only when the task is completed */}
+         {task.status === "completed" && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 8,
+                backgroundColor: colors.base.surfaceL2,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: colors.status.overdue,
+                padding: 10,
+                marginBottom: 16,
+              }}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color={colors.status.overdue}
+                style={{ marginTop: 1 }}
+              />
+              <Text style={{ ...typography.label, color: colors.status.overdue, flex: 1 }}>
+                This will be deleted after 15 days.
+              </Text>
+            </View>
+          )}
+
           {/* Divider */}
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
@@ -323,7 +350,7 @@ useEffect(() => {
             Description
           </Text>
           <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 20 }}>
-            {task.description ?? "No description provided."}
+            {task.description?.trim().replace(/\n{3,}/g, '\n\n') || "No description provided."}
           </Text>
 
           {/* Deadline */}
