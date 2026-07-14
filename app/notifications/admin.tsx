@@ -1,8 +1,8 @@
 // Admin's Notifications page.
 // - "Requests" box: tap to open app/notifications/admin-requests-list.tsx,
 //   presented as a bottom sheet, which contains two sections — Connection
-//   Requests and Extend Deadline Requests — both scoped to this admin's
-//   workspace only.
+//   Requests (from `notifications`) and Extend Deadline Requests (read
+//   directly from `extension_requests`, scoped to this admin's workspace).
 // - "Other Notifications" section: placeholder for future notification types.
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
@@ -20,55 +20,100 @@ export default function AdminNotifications() {
   const { colors } = useTheme();
   const router = useRouter();
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const notifChannelRef = useRef<RealtimeChannel | null>(null);
+  const extensionChannelRef = useRef<RealtimeChannel | null>(null);
   const [otherNotifications, setOtherNotifications] = useState<any[]>([]); // populate this once you add admin-facing notification types
 
-  // Resolve the logged-in admin's workspace the same way employee.tsx resolves userId:
-  // email in AsyncStorage -> lookup against the `users` table.
+  // Resolve the logged-in admin's id + workspace: email in AsyncStorage ->
+  // lookup against the `users` table.
   useEffect(() => {
     (async () => {
       const email = await AsyncStorage.getItem("userEmail");
       if (!email) return;
       const { data, error } = await supabase
         .from("users")
-        .select("workspace_id")
+        .select("id, workspace_id")
         .eq("email", email)
         .single();
 
       if (error || !data) {
-        console.error("Could not resolve workspace for email:", email);
+        console.error("Could not resolve admin user for email:", email);
         return;
       }
+      setAdminUserId(data.id);
       setWorkspaceId(data.workspace_id);
     })();
   }, []);
 
-  const fetchPendingCount = useCallback(async (wsId: string) => {
-    // NOTE: this currently only counts pending extension requests.
-    // Once the connections-table schema is confirmed, this should also add
-    // pending connection requests for the same workspace.
-    const { count, error } = await supabase
+  const fetchPendingCount = useCallback(async () => {
+    const email = await AsyncStorage.getItem("userEmail");
+    if (!email) return;
+    const { data: userRow } = await supabase
+      .from("users")
+      .select("id, workspace_id")
+      .eq("email", email)
+      .single();
+    if (!userRow) return;
+
+    const { count: connCount, error: connError } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userRow.id)
+      .eq("type", "connection_request");
+
+    if (connError) console.error("Error fetching connection count:", connError.message);
+
+    const { count: extCount, error: extError } = await supabase
       .from("extension_requests")
       .select("id", { count: "exact", head: true })
-      .eq("workspace_id", wsId)
+      .eq("workspace_id", userRow.workspace_id)
       .eq("status", "pending");
 
-    if (error) {
-      console.error("Error fetching pending count:", error.message);
-    } else {
-      setPendingCount(count ?? 0);
-    }
+    if (extError) console.error("Error fetching extension count:", extError.message);
+
+    setPendingCount((connCount ?? 0) + (extCount ?? 0));
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      if (workspaceId) fetchPendingCount(workspaceId);
-    }, [workspaceId, fetchPendingCount])
+      fetchPendingCount();
+    }, [fetchPendingCount])
   );
 
-  // Realtime: keep the badge accurate. extension_requests.workspace_id lets us
-  // filter the subscription directly to this admin's workspace.
+  // Realtime: keep the badge accurate — connection requests via notifications,
+  // scoped to this admin's own user id.
+  useEffect(() => {
+    if (!adminUserId) return;
+
+    const channel = supabase
+      .channel(`notifications_admin_badge_${adminUserId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${adminUserId}`,
+        },
+        () => {
+          fetchPendingCount();
+        }
+      )
+      .subscribe();
+
+    notifChannelRef.current = channel;
+
+    return () => {
+      if (notifChannelRef.current) {
+        supabase.removeChannel(notifChannelRef.current);
+        notifChannelRef.current = null;
+      }
+    };
+  }, [adminUserId, fetchPendingCount]);
+
+  // Realtime: extension requests via extension_requests, scoped to workspace.
   useEffect(() => {
     if (!workspaceId) return;
 
@@ -83,17 +128,17 @@ export default function AdminNotifications() {
           filter: `workspace_id=eq.${workspaceId}`,
         },
         () => {
-          fetchPendingCount(workspaceId);
+          fetchPendingCount();
         }
       )
       .subscribe();
 
-    channelRef.current = channel;
+    extensionChannelRef.current = channel;
 
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+      if (extensionChannelRef.current) {
+        supabase.removeChannel(extensionChannelRef.current);
+        extensionChannelRef.current = null;
       }
     };
   }, [workspaceId, fetchPendingCount]);
@@ -177,20 +222,20 @@ export default function AdminNotifications() {
         </TouchableOpacity>
 
         {/* ---------- Room for future notification types ---------- */}
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10, marginBottom: 12 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Ionicons name="notifications-outline" size={18} color={colors.text.secondary} />
-          <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Other Notifications</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10, marginBottom: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="notifications-outline" size={18} color={colors.text.secondary} />
+            <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Other Notifications</Text>
+          </View>
+          {otherNotifications.length > 0 && (
+            <TouchableOpacity onPress={() => setOtherNotifications([])}>
+              <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        {otherNotifications.length > 0 && (
-          <TouchableOpacity onPress={() => setOtherNotifications([])}>
-            <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      <Text style={{ ...typography.body, color: colors.text.secondary }}>
-        {otherNotifications.length === 0 ? "You're all caught up." : ""}
-      </Text>
+        <Text style={{ ...typography.body, color: colors.text.secondary }}>
+          {otherNotifications.length === 0 ? "You're all caught up." : ""}
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );

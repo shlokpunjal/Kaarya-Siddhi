@@ -1051,18 +1051,22 @@ def get_current_user(authorization: str = Header(None)):
     payload = decode_access_token(token)
     return payload
 
-def send_push_notification(push_token: str, title: str, body: str):
+def send_push_notification(push_token: str, title: str, body: str, data: dict | None = None):
     if not push_token:
         return
     try:
+        payload = {
+            "to": push_token,
+            "title": title,
+            "body": body,
+            "sound": "default",
+        }
+        if data:
+            payload["data"] = data
+
         http_requests.post(
             "https://exp.host/--/api/v2/push/send",
-            json={
-                "to": push_token,
-                "title": title,
-                "body": body,
-                "sound": "default",
-            },
+            json=payload,
             headers={"Content-Type": "application/json"},
             timeout=10,
         )
@@ -1668,6 +1672,34 @@ async def connect_request(data: ConnectRequest, current_user: dict = Depends(get
             "status": "pending"
         }).execute()
 
+    # Notify the admin: new connection request
+    admin_row = admin.data[0]
+    supabase.table("notifications").insert({
+        "user_id": admin_row["id"],
+        "task_id": None,
+        "type": "connection_request",
+        "message": f"{employee_email} wants to connect with you.",
+        "is_read": False,
+        "metadata": {"employee_email": employee_email, "admin_email": admin_email},
+    }).execute()
+  # inside connect_request — notify the admin
+    send_push_notification(
+    admin_row.get("expo_push_token"),
+    "New Connection Request",
+    f"{employee_email} wants to connect with you.",
+    data={"type": "connection_request", "employee_email": employee_email, "admin_email": admin_email},
+)
+    # Notify the employee: request sent, pending
+    employee_row = employee
+    supabase.table("notifications").insert({
+        "user_id": employee_row["id"],
+        "task_id": None,
+        "type": "connection_pending",
+        "message": f"Your connection request to {admin_email} is pending.",
+        "is_read": False,
+        "metadata": {"employee_email": employee_email, "admin_email": admin_email},
+    }).execute()
+
     return {
         "success": True,
         "message": "Connection request sent."
@@ -1742,6 +1774,12 @@ async def connection_respond(data: ConnectionRespond, current_user: dict = Depen
         "status": new_status
     }).eq("employee_email", employee_email).eq("admin_email", admin_email).execute()
 
+    # Clean up the pending notifications for both parties regardless of outcome
+    supabase.table("notifications").delete() \
+        .in_("type", ["connection_request", "connection_pending"]) \
+        .contains("metadata", {"employee_email": employee_email, "admin_email": admin_email}) \
+        .execute()
+
     if not data.accept:
         # Notify the employee their request was rejected
         rejected_employee = (
@@ -1751,15 +1789,25 @@ async def connection_respond(data: ConnectionRespond, current_user: dict = Depen
             .execute()
         )
         if rejected_employee.data:
-            token = rejected_employee.data[0].get("expo_push_token")
-            send_push_notification(
-                token,
-                "Request Rejected",
-                f"{admin_email} has declined your connection request.",
-            )
+            emp_row = rejected_employee.data[0]
+            supabase.table("notifications").insert({
+                "user_id": emp_row["id"],
+                "task_id": None,
+                "type": "connection_rejected",
+                "message": f"{admin_email} has declined your connection request.",
+                "is_read": False,
+                "metadata": {"employee_email": employee_email, "admin_email": admin_email},
+            }).execute()
+            token = emp_row.get("expo_push_token")
+          # inside connection_respond — rejected branch, notify the employee
+        send_push_notification(
+            token,
+            "Request Rejected",
+            f"{admin_email} has declined your connection request.",
+            data={"type": "connection_rejected", "employee_email": employee_email, "admin_email": admin_email},
+        )
 
         return {"success": True, "message": "Request Rejected"}
-
     admin = (
         supabase.table("users")
         .select("*")
@@ -1796,14 +1844,23 @@ async def connection_respond(data: ConnectionRespond, current_user: dict = Depen
         "workspace_id": workspace_id
     }).eq("email", employee_email).execute()
 
-    # Notify the employee their request was accepted
+   # Notify the employee their request was accepted
+    supabase.table("notifications").insert({
+        "user_id": employee["id"],
+        "task_id": None,
+        "type": "connection_accepted",
+        "message": f"{admin_email} has accepted your connection request.",
+        "is_read": False,
+        "metadata": {"employee_email": employee_email, "admin_email": admin_email},
+    }).execute()
+
     employee_token = employee.get("expo_push_token")
     send_push_notification(
         employee_token,
         "Request Accepted",
         f"{admin_email} has accepted your connection request.",
+        data={"type": "connection_accepted", "employee_email": employee_email, "admin_email": admin_email},
     )
-
     return {
         "success": True,
         "message": "Employee Connected Successfully",

@@ -2,6 +2,11 @@
 //
 // Requires: npx expo install @react-native-community/datetimepicker
 // Requires: extension_requests.sql run against your Supabase project
+//
+// On submit, the request row itself is the only thing written — no
+// `notifications` row is created for it. Admins are alerted via a push-only
+// send (sendPushOnly), and the admin's Requests screen reads pending
+// extension requests straight from extension_requests, scoped to workspace.
 
 import React, { useState } from "react";
 import {
@@ -21,6 +26,8 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { sendPushOnly } from "../../lib/notify";
+
 
 export default function ExtendDeadline() {
   const { colors } = useTheme();
@@ -85,16 +92,42 @@ export default function ExtendDeadline() {
 
     setSubmitting(true);
 
-    const { error } = await supabase.from("extension_requests").insert({
-      task_id: task.id,
-      requested_by: task.assigned_to,
-      workspace_id: task.workspace_id,
-      current_deadline: task.deadline,
-      requested_deadline: newDeadline.toISOString().split("T")[0],
-      reason: reason.trim(),
-    });
+    const { error, data: insertedRows } = await supabase
+      .from("extension_requests")
+      .insert({
+        task_id: task.id,
+        requested_by: task.assigned_to,
+        workspace_id: task.workspace_id,
+        current_deadline: task.deadline,
+        requested_deadline: newDeadline.toISOString().split("T")[0],
+        reason: reason.trim(),
+      })
+      .select()
+      .single();
 
     setSubmitting(false);
+
+    if (!error && insertedRows) {
+      // Alert every admin in this workspace via push only — the request
+      // itself already lives in extension_requests, which the admin's
+      // Requests screen reads directly. No notifications row is created.
+      const { data: admins } = await supabase
+        .from("users")
+        .select("id")
+        .eq("workspace_id", task.workspace_id)
+        .eq("role", "admin");
+
+      if (admins) {
+        for (const admin of admins) {
+          await sendPushOnly(
+            admin.id,
+            "New Extension Request",
+            `A new deadline extension was requested for "${task.title}".`,
+            { type: "extension_request", extension_request_id: insertedRows.id, taskId: task.id }
+          );
+        }
+      }
+    }
 
     if (error) {
       // unique index "one_pending_request_per_task" throws code 23505 if one already exists

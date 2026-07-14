@@ -515,6 +515,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { createNotification } from "../../lib/notify";
 
 const statusMeta = (colors: any, status: string) => {
   if (status === "accepted")
@@ -641,6 +642,25 @@ export default function AdminRequestReview() {
     }
 
     setRequest((prev: any) => ({ ...prev, status: pendingDecision, admin_note: noteToSave, decided_at: decidedAt }));
+
+    // Remove the pending notification (for all admins who received it) and
+    // notify the employee of the decision.
+    await supabase
+      .from("notifications")
+      .delete()
+      .eq("type", "extension_request")
+      .contains("metadata", { extension_request_id: request.id });
+
+    await createNotification({
+      userId: request.requested_by,
+      type: pendingDecision === "accepted" ? "extension_accepted" : "extension_rejected",
+      message:
+        pendingDecision === "accepted"
+          ? `Your extension request for "${request.tasks?.title ?? "your task"}" was accepted.`
+          : `Your extension request for "${request.tasks?.title ?? "your task"}" was rejected.`,
+      taskId: request.task_id,
+      metadata: { extension_request_id: request.id },
+    });
 
     Alert.alert(
       pendingDecision === "accepted" ? "Request accepted" : "Request rejected",
