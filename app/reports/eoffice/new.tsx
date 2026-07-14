@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, FlatList, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, FlatList, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../../../context/ThemeContext';
 import { typography } from '../../../theme/theme';
 import { createEofficeFile, fetchEmployees, type Employee } from '../../../lib/eoffice';
 import { getCurrentUser } from '../../../lib/currentUser';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function NewEofficeFile() {
     const { colors } = useTheme();
@@ -14,6 +16,8 @@ export default function NewEofficeFile() {
     const [fileNo, setFileNo] = useState('');
     const [pendingOffice, setPendingOffice] = useState('');
     const [remark, setRemark] = useState('');
+    const [pendingSince, setPendingSince] = useState(new Date());
+    const [showDatePicker, setShowDatePicker] = useState(false);
 
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -46,6 +50,7 @@ export default function NewEofficeFile() {
                 file_no: fileNo.trim(),
                 pending_office: pendingOffice.trim(),
                 pending_with: selectedEmployee.id,
+                pending_since: pendingSince.toISOString(),
                 remark: remark.trim(),
             });
             router.back();
@@ -57,12 +62,23 @@ export default function NewEofficeFile() {
         }
     };
 
+    const formattedDate = pendingSince.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    })
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.base.background }]}>
             <ScrollView contentContainerStyle={{ padding: 20 }}>
-                <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 20 }]}>
-                    New eOffice File
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 12 }}>
+                    <Pressable onPress={() => router.back()} style={{ marginBottom: 18 }}>
+                        <Ionicons name="chevron-back" size={26} color={colors.text.primary} />
+                    </Pressable>
+                    <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 20 }]}>
+                        New eOffice File
+                    </Text>
+                </View>
 
                 <Text style={[typography.heading3, { color: colors.text.secondary, marginBottom: 8 }]}>
                     File No.
@@ -108,6 +124,33 @@ export default function NewEofficeFile() {
                         {selectedEmployee ? selectedEmployee.name : 'Select employee'}
                     </Text>
                 </Pressable>
+
+                <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 18, marginBottom: 8 }]}>
+                    Pending Since
+                </Text>
+                <Pressable
+                    onPress={() => setShowDatePicker(true)}
+                    style={[
+                        styles.input,
+                        { borderColor: colors.base.border, backgroundColor: colors.base.surfaceL1, justifyContent: 'center' },
+                    ]}
+                >
+                    <Text style={[typography.body, { color: colors.text.primary }]}>
+                        {formattedDate}
+                    </Text>
+                </Pressable>
+                {showDatePicker && (
+                    <DateTimePicker
+                        value={pendingSince}
+                        mode='date'
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        maximumDate={new Date()}
+                        onChange={(event, selectedDate) => {
+                            setShowDatePicker(Platform.OS === 'ios')
+                            if (selectedDate) setPendingSince(selectedDate)
+                        }}
+                    />
+                )}
 
                 <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 18, marginBottom: 8 }]}>
                     Remark (optional)

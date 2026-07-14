@@ -15,8 +15,7 @@ import { useTheme } from "../../context/ThemeContext";
 import * as DocumentPicker from "expo-document-picker";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -57,47 +56,47 @@ export default function Newtask() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-        initAdminAndEmployees();
-      }, []);
+    initAdminAndEmployees();
+  }, []);
 
-      const initAdminAndEmployees = async () => {
-        try {
-          const email = await AsyncStorage.getItem("userEmail");
-          if (!email) return;
+  const initAdminAndEmployees = async () => {
+    try {
+      const email = await AsyncStorage.getItem("userEmail");
+      if (!email) return;
 
-          const { data: currentUser, error: userLookupError } = await supabase
-            .from("users")
-            .select("id, workspace_id")
-            .eq("email", email)
-            .single();
+      const { data: currentUser, error: userLookupError } = await supabase
+        .from("users")
+        .select("id, workspace_id")
+        .eq("email", email)
+        .single();
 
-          if (userLookupError || !currentUser?.workspace_id) {
-            console.error("Could not resolve admin's workspace:", userLookupError?.message);
-            return;
-          }
+      if (userLookupError || !currentUser?.workspace_id) {
+        console.error("Could not resolve admin's workspace:", userLookupError?.message);
+        return;
+      }
 
-          setWorkspaceId(currentUser.workspace_id);
-          await fetchEmployeeProfiles(currentUser.workspace_id);
-        } catch (err: any) {
-          console.error("Error initializing admin/employee data:", err.message);
-        }
-      };
+      setWorkspaceId(currentUser.workspace_id);
+      await fetchEmployeeProfiles(currentUser.workspace_id);
+    } catch (err: any) {
+      console.error("Error initializing admin/employee data:", err.message);
+    }
+  };
 
-      const fetchEmployeeProfiles = async (wsId: string) => {
-        try {
-          const { data, error } = await supabase
-            .from("users")
-            .select("id, name")
-            .eq("role", "employee")
-            .eq("workspace_id", wsId)   // ← only employees in the admin's own workspace
-            .order("name", { ascending: true });
-          if (error) throw error;
-          if (data) setEmployeesList(data);
-        } catch (err: any) {
-          console.error("Error loading employee directory:", err.message);
-        }
-      };
-        const handleSearchEmployee = (text: string) => {
+  const fetchEmployeeProfiles = async (wsId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, name")
+        .eq("role", "employee")
+        .eq("workspace_id", wsId)   // ← only employees in the admin's own workspace
+        .order("name", { ascending: true });
+      if (error) throw error;
+      if (data) setEmployeesList(data);
+    } catch (err: any) {
+      console.error("Error loading employee directory:", err.message);
+    }
+  };
+  const handleSearchEmployee = (text: string) => {
     setAssignToName(text);
     setSelectedEmployeeId(null);
     if (text.trim() === "") {
@@ -143,25 +142,41 @@ export default function Newtask() {
     setAttachedFiles((prev) => prev.filter((f) => f.name !== name));
   };
 
-  const uploadSingleFile = async (file: any) => {
-    const formData = new FormData();
-    formData.append("file", {
-      uri: file.uri,
-      name: file.name,
-      type: file.mimeType || "application/octet-stream",
-    } as any);
-    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  // const uploadSingleFile = async (file: any) => {
+  //   const formData = new FormData();
+  //   formData.append("file", {
+  //     uri: file.uri,
+  //     name: file.name,
+  //     type: file.mimeType || "application/octet-stream",
+  //   } as any);
+  //   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-      { method: "POST", body: formData }
+  //   const response = await fetch(
+  //     `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+  //     { method: "POST", body: formData }
+  //   );
+  //   const data = await response.json();
+  //   if (!data.secure_url) {
+  //     throw new Error(`Cloudinary upload failed: ${data.error?.message ?? "unknown error"}`);
+  //   }
+  //   return {
+  //     file_url: data.secure_url,
+  //     file_name: file.name,
+  //     file_type: file.name.split(".").pop()?.toLowerCase() ?? "file",
+  //   };
+  // };
+
+  const uploadSingleFile = async (file: any) => {
+    const secureUrl = await uploadToCloudinary(
+      {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || "application/octet-stream",
+      },
+      { folder: "task_attachments", resourceType: "auto" },
     );
-    const data = await response.json();
-    if (!data.secure_url) {
-      throw new Error(`Cloudinary upload failed: ${data.error?.message ?? "unknown error"}`);
-    }
     return {
-      file_url: data.secure_url,
+      file_url: secureUrl,
       file_name: file.name,
       file_type: file.name.split(".").pop()?.toLowerCase() ?? "file",
     };
