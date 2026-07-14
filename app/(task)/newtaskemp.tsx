@@ -16,8 +16,7 @@ import { useTheme } from "../../context/ThemeContext";
 import * as DocumentPicker from "expo-document-picker";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -103,25 +102,41 @@ export default function Newtask() {
     setAttachedFiles((prev) => prev.filter((f) => f.name !== name));
   };
 
-  const uploadSingleFile = async (file: any) => {
-    const formData = new FormData();
-    formData.append("file", {
-      uri: file.uri,
-      name: file.name,
-      type: file.mimeType || "application/octet-stream",
-    } as any);
-    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  // const uploadSingleFile = async (file: any) => {
+  //   const formData = new FormData();
+  //   formData.append("file", {
+  //     uri: file.uri,
+  //     name: file.name,
+  //     type: file.mimeType || "application/octet-stream",
+  //   } as any);
+  //   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-      { method: "POST", body: formData }
+  //   const response = await fetch(
+  //     `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+  //     { method: "POST", body: formData }
+  //   );
+  //   const data = await response.json();
+  //   if (!data.secure_url) {
+  //     throw new Error(`Cloudinary upload failed: ${data.error?.message ?? "unknown error"}`);
+  //   }
+  //   return {
+  //     file_url: data.secure_url,
+  //     file_name: file.name,
+  //     file_type: file.name.split(".").pop()?.toLowerCase() ?? "file",
+  //   };
+  // };
+
+  const uploadSingleFile = async (file: any) => {
+    const secureUrl = await uploadToCloudinary(
+      {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || "application/octet-stream",
+      },
+      { folder: "task_attachments", resourceType: "auto" },
     );
-    const data = await response.json();
-    if (!data.secure_url) {
-      throw new Error(`Cloudinary upload failed: ${data.error?.message ?? "unknown error"}`);
-    }
     return {
-      file_url: data.secure_url,
+      file_url: secureUrl,
       file_name: file.name,
       file_type: file.name.split(".").pop()?.toLowerCase() ?? "file",
     };
@@ -518,8 +533,8 @@ export default function Newtask() {
             {loading
               ? <ActivityIndicator color={colors.base.surfaceL1} />
               : <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, fontSize: 18 }}>
-                  {isEditMode ? "Save Changes" : "Add task"}
-                </Text>
+                {isEditMode ? "Save Changes" : "Add task"}
+              </Text>
             }
           </TouchableOpacity>
         </View>
