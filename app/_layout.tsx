@@ -14,8 +14,20 @@ import { ThemeProvider } from '../context/ThemeContext';
 import { typography } from '../theme/theme';
 import { AuthProvider } from "../context/AuthContext";
 import { enableScreens } from 'react-native-screens';
+import * as Notifications from "expo-notifications";
+import { useRouter } from "expo-router";
+
+
 enableScreens(false);
 SplashScreen.preventAutoHideAsync();
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const BRAND_PRIMARY = '#1A2744';
 const BRAND_ACCENT = '#E8870A';
@@ -31,21 +43,50 @@ export default function RootLayout() {
     'Poppins-SemiBold': Poppins_600SemiBold,
     'Poppins-Bold': Poppins_700Bold,
   });
-
+  const router = useRouter();
   const [showSplash, setShowSplash] = useState(true)
   const splashOpacity = useRef(new Animated.Value(1)).current
 
-  // useEffect(() => {
-  //   async function test() {
-  //     console.log('🔄 Testing Supabase...')
+  useEffect(() => {
+  const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    const data = response.notification.request.content.data as Record<string, any>;
+    if (!data?.type) return;
 
-  //     const { data, error } = await supabase.from('users').select('*')
+    switch (data.type) {
+      case "connection_request":
+        router.push({
+          pathname: "/notifications/admin-connection-review",
+          params: { employeeEmail: data.employee_email, adminEmail: data.admin_email },
+        });
+        break;
+      case "connection_accepted":
+      case "connection_rejected":
+        router.push("/notifications/employee");
+        break;
+      case "extension_request":
+        router.push({
+          pathname: "/notifications/admin-request-review",
+          params: { requestId: data.extension_request_id },
+        });
+        break;
+      case "extension_accepted":
+      case "extension_rejected":
+        router.push({
+          pathname: "/notifications/employee-request-detail",
+          params: { requestId: data.extension_request_id },
+        });
+        break;
+      case "task_assigned":
+        router.push({
+          pathname: "/(task)/task-detail",
+          params: { taskId: data.taskId },
+        });
+        break;
+    }
+  });
 
-  //     // console.log('DATA:', JSON.stringify(data))
-  //     console.log('ERROR:', JSON.stringify(error))
-  //   }
-  //   test()
-  // }, [])
+  return () => sub.remove();
+}, []);
 
   useEffect(() => {
     if (!fontsLoaded) return

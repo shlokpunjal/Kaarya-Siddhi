@@ -7,6 +7,7 @@ import { typography } from '../../../theme/theme';
 import { fetchEofficeFileById, updateEofficeFile, fetchEmployees, type Employee } from '../../../lib/eoffice';
 import { getCurrentUser, type CurrentUser } from '../../../lib/currentUser';
 import type { EofficeFile } from '../../../types/eoffice';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function EofficeDetail() {
     const { colors } = useTheme();
@@ -137,9 +138,14 @@ export default function EofficeDetail() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.base.background }]}>
             <ScrollView contentContainerStyle={{ padding: 20 }}>
-                <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 4 }]}>
-                    File #{file.file_no}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Pressable onPress={() => router.back()} style={{ marginBottom: 18 }}>
+                        <Ionicons name="chevron-back" size={26} color={colors.text.primary} />
+                    </Pressable>
+                    <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 20 }]}>
+                        New eOffice File
+                    </Text>
+                </View>
                 <Text style={[typography.label, { color: colors.text.secondary, marginBottom: 20 }]}>
                     Sr. No. {file.sr_no} · {file.completed ? 'Completed' : `Pending ${daysPending(file.pending_since)} days`}
                 </Text>
