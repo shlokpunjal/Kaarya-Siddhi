@@ -57,12 +57,18 @@ useEffect(() => {
   const [submitting, setSubmitting] = useState(false);
   const [hasPendingExtension, setHasPendingExtension] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+
+  // "Own task" governs both edit/delete icons AND the Review-or-Complete button —
+  // an employee should only be able to act on tasks they created themselves,
+  // not ones an admin assigned to them.
+
   const [assignedName, setAssignedName] = useState<string>("—");
   const isOwnTask =
-  !!task &&
-  !!currentUserId &&
-  task.created_by === currentUserId &&
-  task.status !== "completed";
+    !!task &&
+    !!currentUserId &&
+    task.created_by === currentUserId;
+
   // ── Fetch task + its files from Supabase ────────────────────────────────────
   useEffect(() => {
     if (!taskId) return;
@@ -219,6 +225,10 @@ useEffect(() => {
 
   const statusColor = statusColorMap[task.status] ?? colors.text.secondary;
 
+  // Edit/delete icons should only show for tasks the employee created AND
+  // that aren't completed yet.
+  const canEditOrDelete = isOwnTask && task.status !== "completed";
+
   // ── UI ───────────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
@@ -296,7 +306,7 @@ useEffect(() => {
               {task.title}
             </Text>
 
-           {isOwnTask && (
+           {canEditOrDelete && (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginLeft: 190 }}>
               <TouchableOpacity
                 onPress={() =>
@@ -469,45 +479,47 @@ useEffect(() => {
             ))
           )}
 
-          {/* Submit Task Button */}
-         <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: "/(task)/complete",
-                params: { taskId: task.id },
-              })
-            }
-            disabled={task.status === "completed" || task.status === "inReview"}
-            style={{
-              backgroundColor:
-                task.status === "completed" || task.status === "inReview"
-                  ? colors.base.border
-                  : colors.brand.accent,
-              height: 50,
-              borderRadius: 12,
-              justifyContent: "center",
-              alignItems: "center",
-              marginTop: 24,
-              opacity: submitting ? 0.7 : 1,
-            }}
-          >
-                      {submitting ? (
-              <ActivityIndicator color={colors.base.surfaceL1} />
-            ) : (
-              <Text
-                style={{
-                  color: colors.brand.onPrimary,
-                  ...typography.subheading,
-                }}
-              >
-                {task.status === "completed"
-                  ? "Already Completed"
-                  : task.status === "inReview"
-                  ? "Under Review"
-                  : "Review or Complete"}
-              </Text>
-            )}
-          </TouchableOpacity>
+          {/* Submit Task Button — only for tasks the employee created themselves */}
+          {isOwnTask && (
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/(task)/complete",
+                  params: { taskId: task.id },
+                })
+              }
+              disabled={task.status === "completed" || task.status === "inReview"}
+              style={{
+                backgroundColor:
+                  task.status === "completed" || task.status === "inReview"
+                    ? colors.base.border
+                    : colors.brand.accent,
+                height: 50,
+                borderRadius: 12,
+                justifyContent: "center",
+                alignItems: "center",
+                marginTop: 24,
+                opacity: submitting ? 0.7 : 1,
+              }}
+            >
+              {submitting ? (
+                <ActivityIndicator color={colors.base.surfaceL1} />
+              ) : (
+                <Text
+                  style={{
+                    color: colors.brand.onPrimary,
+                    ...typography.subheading,
+                  }}
+                >
+                  {task.status === "completed"
+                    ? "Already Completed"
+                    : task.status === "inReview"
+                    ? "Under Review"
+                    : "Review or Complete"}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
 
           {/* Extend Deadline Button */}
           <TouchableOpacity
