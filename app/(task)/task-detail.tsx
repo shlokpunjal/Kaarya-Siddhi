@@ -57,6 +57,7 @@ useEffect(() => {
   const [submitting, setSubmitting] = useState(false);
   const [hasPendingExtension, setHasPendingExtension] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [assignedName, setAssignedName] = useState<string>("—");
   const isOwnTask =
   !!task &&
   !!currentUserId &&
@@ -95,6 +96,27 @@ useEffect(() => {
 
     fetchTask();
   }, [taskId]);
+
+  // ── Resolve assigned employee's name (task.assigned_to is a user id) ────────
+  useEffect(() => {
+    const resolveAssignee = async () => {
+      if (!task?.assigned_to) return;
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("name, email")
+        .eq("id", task.assigned_to)
+        .single();
+
+      if (!error && data) {
+        setAssignedName(data.name || data.email || task.assigned_to);
+      } else {
+        setAssignedName(task.assigned_to);
+      }
+    };
+
+    resolveAssignee();
+  }, [task]);
 
   // ── Check for an existing pending extension request, refreshed on focus ─────
   const checkPendingExtension = useCallback(async () => {
@@ -390,7 +412,7 @@ useEffect(() => {
               numberOfLines={1}
               style={{ ...typography.body, color: colors.text.secondary, flex: 1 }}
             >
-              {task.assigned_to ?? "—"}
+              {assignedName}
             </Text>
           </View>
 
