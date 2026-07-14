@@ -8,7 +8,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 import { TaskPriority, TaskStatus } from '../../types/task';
 import { API_BASE_URL } from '../../constants/api';
-import BackButton from "../../components/backButton";
+import { router, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 type FilterMode = 'status' | 'priority';
 
@@ -129,10 +130,14 @@ export default function GenPdf() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.base.background }]}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <BackButton />
-        <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 4, alignSelf: "center" }]}>
-          Generate PDF Report
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 12 }}>
+          <Pressable onPress={() => router.back()} style={{ marginBottom: 4 }}>
+            <Ionicons name="chevron-back" size={26} color={colors.text.primary} />
+          </Pressable>
+          <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 4, alignSelf: "center" }]}>
+            Generate Excel Report
+          </Text>
+        </View>
         <Text style={[typography.body, { color: colors.text.secondary, marginBottom: 22 }]}>
           Choose how you'd like to filter the task list
         </Text>
