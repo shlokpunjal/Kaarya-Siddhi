@@ -8,13 +8,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 
 
 const { colors } = lightTheme;
 const ERROR = "#D32F2F";
 
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
 
 export default function ProfileSetup1() {
   const { role, name } = useLocalSearchParams<{ role: string; name?: string }>();
@@ -41,25 +40,34 @@ export default function ProfileSetup1() {
     return true;
   };
 
+  // const uploadPhotoToCloudinary = async (localUri: string): Promise<string> => {
+  //   const formData = new FormData();
+  //   formData.append('file', {
+  //     uri: localUri,
+  //     type: 'image/jpeg',
+  //     name: `avatar_${Date.now()}.jpg`,
+  //   } as any);
+  //   formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  //   formData.append('folder', 'profile_pics');
+
+  //   const res = await fetch(
+  //     `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+  //     { method: 'POST', body: formData }
+  //   );
+  //   const data = await res.json();
+  //   if (!data.secure_url) throw new Error(data.error?.message || 'Photo upload failed');
+  //   return data.secure_url;
+  // };
   const uploadPhotoToCloudinary = async (localUri: string): Promise<string> => {
-    const formData = new FormData();
-    formData.append('file', {
-      uri: localUri,
-      type: 'image/jpeg',
-      name: `avatar_${Date.now()}.jpg`,
-    } as any);
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-    formData.append('folder', 'profile_pics');
-
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-      { method: 'POST', body: formData }
+    return uploadToCloudinary(
+      {
+        uri: localUri,
+        type: 'image/jpeg',
+        name: `avatar_${Date.now()}.jpg`,
+      },
+      { folder: 'profile_pics', resourceType: 'image' },
     );
-    const data = await res.json();
-    if (!data.secure_url) throw new Error(data.error?.message || 'Photo upload failed');
-    return data.secure_url;
   };
-
   const handleDone = async () => {
     if (!validate()) return;
 
@@ -99,7 +107,7 @@ export default function ProfileSetup1() {
         <Text style={[styles.headerText, typography.heading]}>Profile Setup</Text>
       </View>
 
-      <View style={[styles.container ]}>
+      <View style={[styles.container]}>
         <Text style={[styles.greeting, typography.heading]}>
           Hey {name ? name : "there"}!
         </Text>
@@ -142,7 +150,7 @@ export default function ProfileSetup1() {
             )}
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.dotsWrap}>
           <ProgressDots total={4} current={1} />
         </View>
@@ -153,10 +161,10 @@ export default function ProfileSetup1() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.base.background },
-  header: { backgroundColor: colors.brand.primary, paddingVertical: 18, paddingHorizontal: 20,height:72},
+  header: { backgroundColor: colors.brand.primary, paddingVertical: 18, paddingHorizontal: 20, height: 72 },
   headerText: { color: "#fff" },
-  container: { flex: 1, paddingHorizontal: 30, paddingTop: 40,marginTop:50 },
-  greeting: { textAlign: "center", color: colors.brand.primary, marginBottom: 4},
+  container: { flex: 1, paddingHorizontal: 30, paddingTop: 40, marginTop: 50 },
+  greeting: { textAlign: "center", color: colors.brand.primary, marginBottom: 4 },
   title: { textAlign: "center", color: colors.text.secondary, marginBottom: 20 },
   card: {
     backgroundColor: colors.base.surfaceL1,
