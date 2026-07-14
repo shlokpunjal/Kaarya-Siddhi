@@ -1,20 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
-import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
-import {
-  Text,
-  TouchableOpacity,
-  View,
-  ScrollView,
-  ActivityIndicator,
-  Linking,
-  Platform,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../../context/ThemeContext";
-import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 
+<<<<<<< HEAD
+=======
 export default function TaskDetailAdmin() {
   const { colors } = useTheme();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
@@ -32,6 +18,7 @@ export default function TaskDetailAdmin() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [hasPendingExtension, setHasPendingExtension] = useState(false);
+  const [assignedName, setAssignedName] = useState<string>("—");
 
   // ── Fetch task + its files from Supabase ────────────────────────────────────
   useEffect(() => {
@@ -66,6 +53,27 @@ export default function TaskDetailAdmin() {
 
     fetchTask();
   }, [taskId]);
+
+  // ── Resolve assigned employee's name (task.assigned_to is a user id) ────────
+  useEffect(() => {
+    const resolveAssignee = async () => {
+      if (!task?.assigned_to) return;
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("name, email")
+        .eq("id", task.assigned_to)
+        .single();
+
+      if (!error && data) {
+        setAssignedName(data.name || data.email || task.assigned_to);
+      } else {
+        setAssignedName(task.assigned_to);
+      }
+    };
+
+    resolveAssignee();
+  }, [task]);
 
   // ── Check for an existing pending extension request, refreshed on focus ─────
   const checkPendingExtension = useCallback(async () => {
@@ -297,7 +305,7 @@ export default function TaskDetailAdmin() {
               numberOfLines={1}
               style={{ ...typography.body, color: colors.text.secondary, flex: 1 }}
             >
-              {task.assigned_to ?? "—"}
+              {assignedName}
             </Text>
           </View>
 
@@ -424,3 +432,4 @@ export default function TaskDetailAdmin() {
     </SafeAreaView>
   );
 }
+>>>>>>> 4485cc83362acaa0d63d65fe7d006f44ba28083b

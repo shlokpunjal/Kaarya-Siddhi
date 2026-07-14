@@ -94,7 +94,7 @@ export const lightTheme = {
     ...universalColors,
   },
 } as const;
-
+  
 export const darkTheme = {
   isDark: true,
   colors: {

@@ -22,10 +22,8 @@ import { useTheme, useThemeMode, ThemeMode } from "../../context/ThemeContext";
 import CollapsibleSection from "../../components/CollapsibleSection";
 import ConfirmModal from "../../components/confirmModal";
 import { router } from "expo-router";
+import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-const CLOUDINARY_UPLOAD_PRESET =
-  process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
 
 type UserRow = {
   id: string;
@@ -42,10 +40,10 @@ const THEME_OPTIONS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { value: "light", label: "Light", icon: "sunny-outline" },
-  { value: "dark", label: "Dark", icon: "moon-outline" },
-  { value: "system", label: "System", icon: "phone-portrait-outline" },
-];
+    { value: "light", label: "Light", icon: "sunny-outline" },
+    { value: "dark", label: "Dark", icon: "moon-outline" },
+    { value: "system", label: "System", icon: "phone-portrait-outline" },
+  ];
 
 const AVATAR_SIZE = 84;
 const RING_SIZE = AVATAR_SIZE + 12;
@@ -221,38 +219,59 @@ export default function EmployeeProfile() {
     setAvatarUri(localUri); // optimistic preview
     setUploading(true);
 
+    // try {
+    //   const formData = new FormData();
+    //   formData.append("file", {
+    //     uri: localUri,
+    //     type: "image/jpeg",
+    //     name: `avatar_${currentUser!.id}.jpg`,
+    //   } as any);
+    //   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    //   formData.append("folder", "profile_pics");
+
+    //   const uploadRes = await fetch(
+    //     `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+    //     { method: "POST", body: formData },
+    //   );
+    //   const uploadData = await uploadRes.json();
+
+    //   if (!uploadData.secure_url) {
+    //     throw new Error(
+    //       uploadData.error?.message || "Cloudinary upload failed",
+    //     );
+    //   }
+
+    //   const { error } = await supabase
+    //     .from("users")
+    //     .update({ profile_pic_url: uploadData.secure_url })
+    //     .eq("id", currentUser!.id);
+
+    //   if (error) throw error;
+
+    //   setAvatarUri(uploadData.secure_url);
+    //   setCurrentUser((prev) =>
+    //     prev ? { ...prev, profile_pic_url: uploadData.secure_url } : prev,
+    //   );
     try {
-      const formData = new FormData();
-      formData.append("file", {
-        uri: localUri,
-        type: "image/jpeg",
-        name: `avatar_${currentUser!.id}.jpg`,
-      } as any);
-      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-      formData.append("folder", "profile_pics");
-
-      const uploadRes = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: "POST", body: formData },
+      const secureUrl = await uploadToCloudinary(
+        {
+          uri: localUri,
+          type: "image/jpeg",
+          name: `avatar_${currentUser!.id}.jpg`,
+        },
+        { folder: "profile_pics", resourceType: "image" },
       );
-      const uploadData = await uploadRes.json();
-
-      if (!uploadData.secure_url) {
-        throw new Error(
-          uploadData.error?.message || "Cloudinary upload failed",
-        );
-      }
 
       const { error } = await supabase
         .from("users")
-        .update({ profile_pic_url: uploadData.secure_url })
+        .update({ profile_pic_url: secureUrl })
         .eq("id", currentUser!.id);
 
       if (error) throw error;
 
-      setAvatarUri(uploadData.secure_url);
+      setAvatarUri(secureUrl);
       setCurrentUser((prev) =>
-        prev ? { ...prev, profile_pic_url: uploadData.secure_url } : prev,
+        prev ? { ...prev, profile_pic_url: secureUrl } : prev,
       );
     } catch (err: any) {
       Alert.alert("Upload failed", err.message || "Could not upload photo.");

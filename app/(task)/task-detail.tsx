@@ -57,6 +57,7 @@ useEffect(() => {
   const [submitting, setSubmitting] = useState(false);
   const [hasPendingExtension, setHasPendingExtension] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [assignedName, setAssignedName] = useState<string>("—");
   const isOwnTask =
   !!task &&
   !!currentUserId &&
@@ -95,6 +96,27 @@ useEffect(() => {
 
     fetchTask();
   }, [taskId]);
+
+  // ── Resolve assigned employee's name (task.assigned_to is a user id) ────────
+  useEffect(() => {
+    const resolveAssignee = async () => {
+      if (!task?.assigned_to) return;
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("name, email")
+        .eq("id", task.assigned_to)
+        .single();
+
+      if (!error && data) {
+        setAssignedName(data.name || data.email || task.assigned_to);
+      } else {
+        setAssignedName(task.assigned_to);
+      }
+    };
+
+    resolveAssignee();
+  }, [task]);
 
   // ── Check for an existing pending extension request, refreshed on focus ─────
   const checkPendingExtension = useCallback(async () => {
@@ -315,6 +337,33 @@ useEffect(() => {
             </Text>
           </View>
 
+          {/* Auto-deletion notice — shown only when the task is completed */}
+         {task.status === "completed" && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 8,
+                backgroundColor: colors.base.surfaceL2,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: colors.status.overdue,
+                padding: 10,
+                marginBottom: 16,
+              }}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color={colors.status.overdue}
+                style={{ marginTop: 1 }}
+              />
+              <Text style={{ ...typography.label, color: colors.status.overdue, flex: 1 }}>
+                This will be deleted after 15 days.
+              </Text>
+            </View>
+          )}
+
           {/* Divider */}
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
@@ -323,7 +372,7 @@ useEffect(() => {
             Description
           </Text>
           <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 20 }}>
-            {task.description ?? "No description provided."}
+            {task.description?.trim().replace(/\n{3,}/g, '\n\n') || "No description provided."}
           </Text>
 
           {/* Deadline */}
@@ -363,7 +412,7 @@ useEffect(() => {
               numberOfLines={1}
               style={{ ...typography.body, color: colors.text.secondary, flex: 1 }}
             >
-              {task.assigned_to ?? "—"}
+              {assignedName}
             </Text>
           </View>
 
