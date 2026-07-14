@@ -6,17 +6,17 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import * as DocumentPicker from "expo-document-picker";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -31,6 +31,8 @@ const PRIORITIES: { label: string; value: Priority; color: string; bg: string }[
 export default function Newtask() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { taskId } = useLocalSearchParams<{ taskId?: string }>();
+  const isEditMode = !!taskId;
 
   const [taskName, setTaskName] = useState("");
 
@@ -42,6 +44,38 @@ export default function Newtask() {
   const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
   const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // ── If editing, load the existing task ──────────────────────────────────────
+  const [fetchingTask, setFetchingTask] = useState(isEditMode);
+
+  useEffect(() => {
+    if (!taskId) return;
+
+    const fetchTask = async () => {
+      setFetchingTask(true);
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("id", taskId)
+        .single();
+
+      if (error || !data) {
+        console.error("Failed to load task for editing:", error?.message);
+        Alert.alert("Error", "Could not load this task.");
+        setFetchingTask(false);
+        return;
+      }
+
+      setTaskName(data.title ?? "");
+      setDescription(data.description ?? "");
+      setDeadlineDate(data.deadline ? new Date(data.deadline) : null);
+      setSelectedPriority((data.priority as Priority) ?? null);
+      setFetchingTask(false);
+    };
+
+    fetchTask();
+  }, [taskId]);
 
   const onChangeDate = (event: any, selected?: Date) => {
     // On Android the picker closes itself; on iOS keep it open until user taps away
@@ -68,30 +102,47 @@ export default function Newtask() {
     setAttachedFiles((prev) => prev.filter((f) => f.name !== name));
   };
 
-  const uploadSingleFile = async (file: any) => {
-    const formData = new FormData();
-    formData.append("file", {
-      uri: file.uri,
-      name: file.name,
-      type: file.mimeType || "application/octet-stream",
-    } as any);
-    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  // const uploadSingleFile = async (file: any) => {
+  //   const formData = new FormData();
+  //   formData.append("file", {
+  //     uri: file.uri,
+  //     name: file.name,
+  //     type: file.mimeType || "application/octet-stream",
+  //   } as any);
+  //   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-      { method: "POST", body: formData }
+  //   const response = await fetch(
+  //     `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+  //     { method: "POST", body: formData }
+  //   );
+  //   const data = await response.json();
+  //   if (!data.secure_url) {
+  //     throw new Error(`Cloudinary upload failed: ${data.error?.message ?? "unknown error"}`);
+  //   }
+  //   return {
+  //     file_url: data.secure_url,
+  //     file_name: file.name,
+  //     file_type: file.name.split(".").pop()?.toLowerCase() ?? "file",
+  //   };
+  // };
+
+  const uploadSingleFile = async (file: any) => {
+    const secureUrl = await uploadToCloudinary(
+      {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || "application/octet-stream",
+      },
+      { folder: "task_attachments", resourceType: "auto" },
     );
-    const data = await response.json();
-    if (!data.secure_url) {
-      throw new Error(`Cloudinary upload failed: ${data.error?.message ?? "unknown error"}`);
-    }
     return {
-      file_url: data.secure_url,
+      file_url: secureUrl,
       file_name: file.name,
       file_type: file.name.split(".").pop()?.toLowerCase() ?? "file",
     };
   };
 
+  // ── Create OR update depending on mode ──────────────────────────────────────
   const handleAddTask = async () => {
     if (!taskName.trim()) {
       alert("Please enter a task name");
@@ -123,43 +174,110 @@ export default function Newtask() {
       );
       const mainFileUrl = uploadedResults.length > 0 ? uploadedResults[0].file_url : null;
 
-      const { data: task, error: taskError } = await supabase
-        .from("tasks")
-        .insert({
-          title: taskName,
-          assigned_to: currentUser.id, // self-assigned
-          deadline: deadlineDate ? deadlineDate.toISOString().split("T")[0] : null,
-          description: description || null,
-          attachment_url: mainFileUrl,
-          status: "pending",
-          priority: selectedPriority ?? "medium",
-          created_by: currentUser.id,
-          workspace_id: currentUser.workspace_id,
-        })
-        .select()
-        .single();
+      if (isEditMode) {
+        // ── Update existing task ──
+        const { error: updateError } = await supabase
+          .from("tasks")
+          .update({
+            title: taskName,
+            deadline: deadlineDate ? deadlineDate.toISOString().split("T")[0] : null,
+            description: description || null,
+            ...(mainFileUrl ? { attachment_url: mainFileUrl } : {}),
+            priority: selectedPriority ?? "medium",
+          })
+          .eq("id", taskId);
 
-      if (taskError) throw taskError;
+        if (updateError) throw updateError;
 
-      if (uploadedResults.length > 0 && task) {
-        const filesPayload = uploadedResults.map((res) => ({
-          task_id: task.id,
-          file_url: res.file_url,
-          file_name: res.file_name,
-          file_type: res.file_type,
-          storage_service: "cloudinary",
-        }));
-        const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
-        if (fileError) throw fileError;
+        if (uploadedResults.length > 0) {
+          const filesPayload = uploadedResults.map((res) => ({
+            task_id: taskId,
+            file_url: res.file_url,
+            file_name: res.file_name,
+            file_type: res.file_type,
+            storage_service: "cloudinary",
+          }));
+          const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
+          if (fileError) throw fileError;
+        }
+
+        alert("Task updated successfully");
+        router.back();
+      } else {
+        // ── Create new task ──
+        const { data: task, error: taskError } = await supabase
+          .from("tasks")
+          .insert({
+            title: taskName,
+            assigned_to: currentUser.id, // self-assigned
+            deadline: deadlineDate ? deadlineDate.toISOString().split("T")[0] : null,
+            description: description || null,
+            attachment_url: mainFileUrl,
+            status: "pending",
+            priority: selectedPriority ?? "medium",
+            created_by: currentUser.id,
+            workspace_id: currentUser.workspace_id,
+          })
+          .select()
+          .single();
+
+        if (taskError) throw taskError;
+
+        if (uploadedResults.length > 0 && task) {
+          const filesPayload = uploadedResults.map((res) => ({
+            task_id: task.id,
+            file_url: res.file_url,
+            file_name: res.file_name,
+            file_type: res.file_type,
+            storage_service: "cloudinary",
+          }));
+          const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
+          if (fileError) throw fileError;
+        }
+
+        alert("Task created successfully");
+        router.back();
       }
-
-      alert("Task created successfully");
-      router.back();
     } catch (error: any) {
       console.error("Full error:", error);
       alert("Error: " + (error?.message || JSON.stringify(error)));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Delete task (edit mode only) ────────────────────────────────────────────
+  const handleDeleteTask = () => {
+    Alert.alert(
+      "Delete Task",
+      "Are you sure you want to delete this task? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: confirmDeleteTask },
+      ]
+    );
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!taskId) return;
+
+    try {
+      setDeleting(true);
+
+      // Remove dependent rows first in case the DB doesn't have ON DELETE CASCADE set up
+      await supabase.from("task_files").delete().eq("task_id", taskId);
+      await supabase.from("task_submissions").delete().eq("task_id", taskId);
+      await supabase.from("extension_requests").delete().eq("task_id", taskId);
+
+      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+      if (error) throw error;
+
+      Alert.alert("Deleted", "Task has been deleted.");
+      router.back();
+    } catch (error: any) {
+      Alert.alert("Delete failed", error?.message || "Something went wrong.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -175,6 +293,15 @@ export default function Newtask() {
     ...typography.body,
   };
 
+  if (fetchingTask) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={colors.brand.accent} />
+        <Text style={[typography.body, { marginTop: 10, color: colors.text.secondary }]}>Loading task...</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
       {/* Header */}
@@ -186,9 +313,22 @@ export default function Newtask() {
         paddingHorizontal: 18,
       }}>
         <Ionicons onPress={() => router.back()} name="arrow-back" size={28} color={colors.brand.onPrimary} />
-        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, flex: 1, textAlign: "center", marginRight: 28 }}>
-          New Task
+        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, flex: 1, textAlign: "center" }}>
+          {isEditMode ? "Edit Task" : "New Task"}
         </Text>
+
+        {/* Delete icon — only shown when editing an existing task */}
+        {isEditMode ? (
+          <TouchableOpacity onPress={handleDeleteTask} disabled={deleting || loading}>
+            {deleting ? (
+              <ActivityIndicator size="small" color={colors.brand.onPrimary} />
+            ) : (
+              <Ionicons name="trash-outline" size={22} color={colors.brand.onPrimary} />
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 22 }} />
+        )}
       </View>
 
       <ScrollView
@@ -219,62 +359,89 @@ export default function Newtask() {
           />
 
           {/* ── Deadline — calendar picker ── */}
+          {/* ── Deadline — calendar picker (view-only when editing) ── */}
           <View style={{ marginTop: 14 }}>
             <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 6, paddingLeft: 4 }}>
               Deadline
             </Text>
 
-            <TouchableOpacity
-              onPress={() => setShowDatePicker(true)}
-              style={{
-                backgroundColor: colors.base.surfaceL2,
-                height: 50,
-                borderRadius: 12,
-                borderColor: deadlineDate ? colors.brand.accent : colors.base.border,
-                borderWidth: deadlineDate ? 1.5 : 1,
-                paddingHorizontal: 15,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <Text style={{
-                ...typography.body,
-                color: deadlineDate ? colors.text.primary : colors.text.secondary,
-              }}>
-                {deadlineDate
-                  ? deadlineDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-                  : "Select deadline date"}
-              </Text>
-              <Ionicons
-                name={deadlineDate ? "calendar" : "calendar-outline"}
-                size={20}
-                color={deadlineDate ? colors.brand.accent : colors.text.secondary}
-              />
-            </TouchableOpacity>
-
-            {deadlineDate && (
-              <TouchableOpacity
-                onPress={() => setDeadlineDate(null)}
-                style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, paddingLeft: 4 }}
+            {isEditMode ? (
+              // Read-only display — deadline cannot be changed once a task exists
+              <View
+                style={{
+                  backgroundColor: colors.base.surfaceL2,
+                  height: 50,
+                  borderRadius: 12,
+                  borderColor: colors.base.border,
+                  borderWidth: 1,
+                  paddingHorizontal: 15,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  opacity: 0.7,
+                }}
               >
-                <Ionicons name="close-circle-outline" size={14} color={colors.text.secondary} />
-                <Text style={{ ...typography.label, color: colors.text.secondary }}>Clear date</Text>
-              </TouchableOpacity>
-            )}
+                <Text style={{ ...typography.body, color: colors.text.secondary }}>
+                  {deadlineDate
+                    ? deadlineDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                    : "No deadline set"}
+                </Text>
+                <Ionicons name="lock-closed-outline" size={18} color={colors.text.secondary} />
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(true)}
+                  style={{
+                    backgroundColor: colors.base.surfaceL2,
+                    height: 50,
+                    borderRadius: 12,
+                    borderColor: deadlineDate ? colors.brand.accent : colors.base.border,
+                    borderWidth: deadlineDate ? 1.5 : 1,
+                    paddingHorizontal: 15,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text style={{
+                    ...typography.body,
+                    color: deadlineDate ? colors.text.primary : colors.text.secondary,
+                  }}>
+                    {deadlineDate
+                      ? deadlineDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                      : "Select deadline date"}
+                  </Text>
+                  <Ionicons
+                    name={deadlineDate ? "calendar" : "calendar-outline"}
+                    size={20}
+                    color={deadlineDate ? colors.brand.accent : colors.text.secondary}
+                  />
+                </TouchableOpacity>
 
-            {showDatePicker && (
-              <DateTimePicker
-                value={deadlineDate ?? new Date()}
-                mode="date"
-                minimumDate={new Date()}
-                display={Platform.OS === "ios" ? "inline" : "default"}
-                onChange={onChangeDate}
-                style={{ marginTop: 8 }}
-              />
+                {deadlineDate && (
+                  <TouchableOpacity
+                    onPress={() => setDeadlineDate(null)}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, paddingLeft: 4 }}
+                  >
+                    <Ionicons name="close-circle-outline" size={14} color={colors.text.secondary} />
+                    <Text style={{ ...typography.label, color: colors.text.secondary }}>Clear date</Text>
+                  </TouchableOpacity>
+                )}
+
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={deadlineDate ?? new Date()}
+                    mode="date"
+                    minimumDate={new Date()}
+                    display={Platform.OS === "ios" ? "inline" : "default"}
+                    onChange={onChangeDate}
+                    style={{ marginTop: 8 }}
+                  />
+                )}
+              </>
             )}
           </View>
-
           {/* Priority */}
           <View style={{ marginTop: 14 }}>
             <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 8, paddingLeft: 4 }}>
@@ -356,7 +523,7 @@ export default function Newtask() {
           {/* Submit */}
           <TouchableOpacity
             onPress={handleAddTask}
-            disabled={loading}
+            disabled={loading || deleting}
             style={{
               backgroundColor: loading ? colors.base.border : colors.brand.accent,
               height: 54, borderRadius: 14, marginTop: 24,
@@ -365,7 +532,9 @@ export default function Newtask() {
           >
             {loading
               ? <ActivityIndicator color={colors.base.surfaceL1} />
-              : <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, fontSize: 18 }}>Add task</Text>
+              : <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, fontSize: 18 }}>
+                {isEditMode ? "Save Changes" : "Add task"}
+              </Text>
             }
           </TouchableOpacity>
         </View>

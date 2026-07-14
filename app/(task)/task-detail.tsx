@@ -8,9 +8,11 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
@@ -27,12 +29,40 @@ export default function TaskDetail() {
     completed: colors.status.completed,
   };
 
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+// ── Resolve logged-in user's id (to check task ownership) ──
+useEffect(() => {
+  const resolveUser = async () => {
+    const email = await AsyncStorage.getItem("userEmail");
+    if (!email) return;
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .single();
+
+    if (!error && data) {
+      setCurrentUserId(data.id);
+    }
+  };
+
+  resolveUser();
+}, []);
   const [task, setTask] = useState<any>(null);
   const [taskFiles, setTaskFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [hasPendingExtension, setHasPendingExtension] = useState(false);
-
+  const [deleting, setDeleting] = useState(false);
+  const [assignedName, setAssignedName] = useState<string>("—");
+  const isOwnTask =
+  !!task &&
+  !!currentUserId &&
+  task.created_by === currentUserId &&
+  task.status !== "completed";
   // ── Fetch task + its files from Supabase ────────────────────────────────────
   useEffect(() => {
     if (!taskId) return;
@@ -67,6 +97,27 @@ export default function TaskDetail() {
     fetchTask();
   }, [taskId]);
 
+  // ── Resolve assigned employee's name (task.assigned_to is a user id) ────────
+  useEffect(() => {
+    const resolveAssignee = async () => {
+      if (!task?.assigned_to) return;
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("name, email")
+        .eq("id", task.assigned_to)
+        .single();
+
+      if (!error && data) {
+        setAssignedName(data.name || data.email || task.assigned_to);
+      } else {
+        setAssignedName(task.assigned_to);
+      }
+    };
+
+    resolveAssignee();
+  }, [task]);
+
   // ── Check for an existing pending extension request, refreshed on focus ─────
   const checkPendingExtension = useCallback(async () => {
     if (!taskId) return;
@@ -90,38 +141,38 @@ export default function TaskDetail() {
     }, [checkPendingExtension])
   );
 
-  // ── Submit task → inserts into task_submissions + updates status ────────────
-  const handleSubmit = async () => {
+  // ── Delete task ───────────────────────────────────────────────────────────────
+  const handleDeleteTask = () => {
+    Alert.alert(
+      "Delete Task",
+      "Are you sure you want to delete this task? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: confirmDeleteTask },
+      ]
+    );
+  };
+
+  const confirmDeleteTask = async () => {
     if (!task) return;
 
     try {
-      setSubmitting(true);
+      setDeleting(true);
 
-      const { error: submitError } = await supabase
-        .from("task_submissions")
-        .insert({
-          task_id: task.id,
-          submitted_by: task.assigned_to,
-          note: "Submitted via app",
-        });
+      // Remove dependent rows first in case the DB doesn't have ON DELETE CASCADE set up
+      await supabase.from("task_files").delete().eq("task_id", task.id);
+      await supabase.from("task_submissions").delete().eq("task_id", task.id);
+      await supabase.from("extension_requests").delete().eq("task_id", task.id);
 
-      if (submitError) throw submitError;
+      const { error } = await supabase.from("tasks").delete().eq("id", task.id);
+      if (error) throw error;
 
-      const { error: updateError } = await supabase
-        .from("tasks")
-        .update({ status: "inReview" })
-        .eq("id", task.id);
-
-      if (updateError) throw updateError;
-
-      setTask((prev: any) => ({ ...prev, status: "inReview" }));
-
-      alert("Task submitted successfully!");
+      Alert.alert("Deleted", "Task has been deleted.");
       router.back();
     } catch (error: any) {
-      alert("Submit failed: " + (error?.message || JSON.stringify(error)));
+      Alert.alert("Delete failed", error?.message || "Something went wrong.");
     } finally {
-      setSubmitting(false);
+      setDeleting(false);
     }
   };
 
@@ -222,18 +273,55 @@ export default function TaskDetail() {
             }),
           }}
         >
-          {/* Task Title */}
-          <Text
+          {/* Task Title + Edit/Delete icons */}
+          <View
             style={{
-              ...typography.heading,
-              color: colors.text.primary,
-              textAlign: "center",
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
               marginBottom: 20,
+             
             }}
           >
-            {task.title}
-          </Text>
+            
+            <Text
+              style={{
+                ...typography.heading,
+                color: colors.text.primary,
+                textAlign: "center",
+                flexShrink: 1,
+              }}
+              numberOfLines={2}
+            >
+              {task.title}
+            </Text>
 
+           {isOwnTask && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginLeft: 190 }}>
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: "/(task)/newtaskemp",
+                    params: { taskId: task.id },
+                  })
+                }
+                disabled={deleting}
+              >
+                <Ionicons name="create-outline" size={22} color={colors.brand.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDeleteTask} disabled={deleting}>
+                {deleting ? (
+                  <ActivityIndicator size="small" color={colors.status.overdue} />
+                ) : (
+                  <Ionicons name="trash-outline" size={20} color={colors.status.overdue} />
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+          </View>
+          
+          <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
+          
           {/* Status */}
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
             <Ionicons name="ellipse" size={12} color={statusColor} style={{ marginRight: 8 }} />
@@ -249,6 +337,33 @@ export default function TaskDetail() {
             </Text>
           </View>
 
+          {/* Auto-deletion notice — shown only when the task is completed */}
+         {task.status === "completed" && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 8,
+                backgroundColor: colors.base.surfaceL2,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: colors.status.overdue,
+                padding: 10,
+                marginBottom: 16,
+              }}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color={colors.status.overdue}
+                style={{ marginTop: 1 }}
+              />
+              <Text style={{ ...typography.label, color: colors.status.overdue, flex: 1 }}>
+                This will be deleted after 15 days.
+              </Text>
+            </View>
+          )}
+
           {/* Divider */}
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
@@ -257,7 +372,7 @@ export default function TaskDetail() {
             Description
           </Text>
           <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 20 }}>
-            {task.description ?? "No description provided."}
+            {task.description?.trim().replace(/\n{3,}/g, '\n\n') || "No description provided."}
           </Text>
 
           {/* Deadline */}
@@ -297,7 +412,7 @@ export default function TaskDetail() {
               numberOfLines={1}
               style={{ ...typography.body, color: colors.text.secondary, flex: 1 }}
             >
-              {task.assigned_to ?? "—"}
+              {assignedName}
             </Text>
           </View>
 

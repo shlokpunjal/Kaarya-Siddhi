@@ -25,13 +25,15 @@ Both roles share a consistent UI with a navy/saffron theme, Poppins typography, 
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Mobile frontend | React Native (Expo Router) |
-| Backend API | FastAPI (Python) |
-| Database | Supabase (PostgreSQL) |
-| Auth | Firebase (OTP via email/phone) |
-| Report generation | openpyxl (Excel), PDF (in progress) |
+
+| Layer             | Technology                                      |
+| ----------------- | ------------------------------------------------ |
+| Mobile frontend   | React Native (Expo Router)                        |
+| Backend API       | FastAPI (Python)                                   |
+| Database          | Supabase (PostgreSQL)                              |
+| Auth              | Supabase anon-key queries — JWT stored in SecureStore, role/email in AsyncStorage (no Supabase Auth, no Firebase) |
+| Report generation | openpyxl (Excel), reportlab (PDF — in progress)   |
+| Scheduled jobs    | pg_cron (e.g. eOffice auto-deletion)               |
 
 ---
 
@@ -43,28 +45,29 @@ Kaarya-Siddhi/
 │   ├── (auth)/             # Login screens — clientLogin, employeeLogin, otp
 │   ├── (employee)/         # Employee tab group: Home, Tasks, Calendar, Profile
 │   ├── (admin)/            # Admin tab group: Home, Tasks, Reports, Calendar, Profile
-│   ├── reports/            # Report generation screens (genExcel, genPdf)
+│   ├── reports/            # Report generation screens (genExcel, genPdf, eOffice)
 │   ├── _layout.tsx         # Root layout: font loading, ThemeProvider
-│   └── index.tsx           # Entry point: redirects based on auth + role
+│   └── index.tsx           # Entry point: redirects based on stored auth + role
 ├── backend/
 │   ├── routes/
 │   │   ├── excel_report.py # GET /reports/tasks/excel — filtered Excel generation
-│   │   └── pdf_report.py   # GET /reports/tasks/pdf — in progress
+│   │   ├── pdf_report.py   # GET /reports/tasks/pdf — in progress
 │   ├── main.py             # FastAPI app entry
-│   ├── mock_data.py        # Temporary mock tasks (replace with real DB queries)
 │   └── requirements.txt
 ├── context/
 │   └── ThemeContext.tsx    # Theme provider: Light / Dark / System with persistence
-├── data/
-│   ├── mockTasks.ts        # Frontend mock task data
-│   └── mockCurrentUser.ts  # Frontend mock user data
+├── database/
+│   └── ...                 # Supabase schema / migrations
 ├── theme/
 │   └── theme.ts            # Design tokens: colors, typography, lightTheme, darkTheme
 ├── types/
 │   ├── task.ts             # Task, TaskStatus, TaskPriority types
 │   └── user.ts             # User, Role types
+├── utils/
+│   └── mapRowToTask.ts     # snake_case (Supabase) → camelCase (frontend) translation layer
 └── assets/
     └── icons/              # Tab bar icons (filled + outline per tab)
+    └── images/             # Images for the logo, etc.
 ```
 
 ---
