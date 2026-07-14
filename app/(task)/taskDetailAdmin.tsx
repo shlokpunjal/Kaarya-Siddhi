@@ -1,20 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
-import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
-import {
-  Text,
-  TouchableOpacity,
-  View,
-  ScrollView,
-  ActivityIndicator,
-  Linking,
-  Platform,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../../context/ThemeContext";
-import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 
+<<<<<<< HEAD
+=======
 export default function TaskDetailAdmin() {
   const { colors } = useTheme();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
@@ -446,3 +432,4 @@ export default function TaskDetailAdmin() {
     </SafeAreaView>
   );
 }
+>>>>>>> 4485cc83362acaa0d63d65fe7d006f44ba28083b
