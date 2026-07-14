@@ -7,6 +7,7 @@ import { typography } from '../../../theme/theme';
 import { fetchEofficeFiles, fetchEmployees } from '../../../lib/eoffice';
 import type { EofficeFile } from '../../../types/eoffice';
 import { getCurrentUser } from '../../../lib/currentUser';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function EofficeList() {
   const { colors } = useTheme();
@@ -54,9 +55,15 @@ export default function EofficeList() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.base.background }]}>
-      <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 6 }]}>
-        eOffice Files
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 12 }}>
+        <Pressable onPress={() => router.back()} style={{ marginBottom: 4 }}>
+          <Ionicons name="chevron-back" size={26} color={colors.text.primary} />
+        </Pressable>
+        <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 6 }]}>
+          eOffice Files
+        </Text>
+      </View>
+
       <Text style={[typography.body, { color: colors.text.secondary, marginBottom: 20 }]}>
         Track files pending across offices
       </Text>
