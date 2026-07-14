@@ -1799,13 +1799,12 @@ async def connection_respond(data: ConnectionRespond, current_user: dict = Depen
                 "metadata": {"employee_email": employee_email, "admin_email": admin_email},
             }).execute()
             token = emp_row.get("expo_push_token")
-          # inside connection_respond — rejected branch, notify the employee
-        send_push_notification(
-            token,
-            "Request Rejected",
-            f"{admin_email} has declined your connection request.",
-            data={"type": "connection_rejected", "employee_email": employee_email, "admin_email": admin_email},
-        )
+            send_push_notification(
+                token,
+                "Request Rejected",
+                f"{admin_email} has declined your connection request.",
+                data={"type": "connection_rejected", "employee_email": employee_email, "admin_email": admin_email},
+            )
 
         return {"success": True, "message": "Request Rejected"}
     admin = (
