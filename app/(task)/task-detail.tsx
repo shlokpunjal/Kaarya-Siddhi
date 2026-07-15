@@ -452,7 +452,7 @@ useEffect(() => {
               />
               <Text style={{ ...typography.label, color: colors.text.secondary, flex: 1 }}>
                 This task was created by the employee for themselves.
-              </Text>
+              </Text>   
             </View>
           )}
 
