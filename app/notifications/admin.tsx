@@ -16,6 +16,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 
+
 export default function AdminNotifications() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -24,7 +25,64 @@ export default function AdminNotifications() {
   const [pendingCount, setPendingCount] = useState(0);
   const notifChannelRef = useRef<RealtimeChannel | null>(null);
   const extensionChannelRef = useRef<RealtimeChannel | null>(null);
-  const [otherNotifications, setOtherNotifications] = useState<any[]>([]); // populate this once you add admin-facing notification types
+  type OtherNotif = {
+  id: string;
+  type: string;
+  message: string;
+  created_at: string;
+};
+
+const [otherNotifications, setOtherNotifications] = useState<OtherNotif[]>([]);
+const otherChannelRef = useRef<RealtimeChannel | null>(null);
+
+const fetchOtherNotifications = useCallback(async () => {
+  const email = await AsyncStorage.getItem("userEmail");
+  if (!email) return;
+  const { data: userRow } = await supabase.from("users").select("id").eq("email", email).single();
+  if (!userRow) return;
+
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, type, message, created_at")
+    .eq("user_id", userRow.id)
+    .in("type", ["task_assigned_confirmation"])
+    .order("created_at", { ascending: false });
+
+  if (error) console.error("Error fetching other notifications:", error.message);
+  setOtherNotifications((data as OtherNotif[]) ?? []);
+}, []);
+
+useFocusEffect(useCallback(() => { fetchOtherNotifications(); }, [fetchOtherNotifications]));
+
+useEffect(() => {
+  if (!adminUserId) return;
+  const channel = supabase
+    .channel(`admin_other_notifs_${adminUserId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${adminUserId}` },
+      () => fetchOtherNotifications()
+    )
+    .subscribe();
+  otherChannelRef.current = channel;
+  return () => {
+    if (otherChannelRef.current) {
+      supabase.removeChannel(otherChannelRef.current);
+      otherChannelRef.current = null;
+    }
+  };
+}, [adminUserId, fetchOtherNotifications]);
+
+const clearOtherNotifications = async () => {
+  if (otherNotifications.length === 0) return;
+  const ids = otherNotifications.map((n) => n.id);
+  const { error } = await supabase.from("notifications").delete().in("id", ids);
+  if (error) {
+    console.error("Failed to clear notifications:", error.message);
+    return;
+  }
+  setOtherNotifications([]);
+};
 
   // Resolve the logged-in admin's id + workspace: email in AsyncStorage ->
   // lookup against the `users` table.
@@ -221,21 +279,47 @@ export default function AdminNotifications() {
           <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
         </TouchableOpacity>
 
-        {/* ---------- Room for future notification types ---------- */}
+       {/* ---------- Other Notifications ---------- */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10, marginBottom: 12 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Ionicons name="notifications-outline" size={18} color={colors.text.secondary} />
             <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Other Notifications</Text>
           </View>
           {otherNotifications.length > 0 && (
-            <TouchableOpacity onPress={() => setOtherNotifications([])}>
+            <TouchableOpacity onPress={clearOtherNotifications}>
               <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
             </TouchableOpacity>
           )}
         </View>
-        <Text style={{ ...typography.body, color: colors.text.secondary }}>
-          {otherNotifications.length === 0 ? "You're all caught up." : ""}
-        </Text>
+
+        {otherNotifications.length === 0 ? (
+          <Text style={{ ...typography.body, color: colors.text.secondary }}>You're all caught up.</Text>
+        ) : (
+          otherNotifications.map((n) => (
+            <View
+              key={n.id}
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                backgroundColor: colors.base.surfaceL1,
+                borderColor: colors.base.border,
+                borderWidth: 1,
+                borderRadius: 16,
+                padding: 16,
+                marginBottom: 12,
+                gap: 12,
+              }}
+            >
+              <Ionicons name="briefcase-outline" size={20} color={colors.brand.accent} style={{ marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ ...typography.body, color: colors.text.primary }}>{n.message}</Text>
+                <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 4 }}>
+                  {new Date(n.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                </Text>
+              </View>
+            </View>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
