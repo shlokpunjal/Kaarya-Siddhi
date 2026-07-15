@@ -1,13 +1,31 @@
+import { useEffect, useState, useCallback } from "react";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import {
+  Text,
+  TouchableOpacity,
+  View,
+  ScrollView,
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Alert,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../context/ThemeContext";
+import { typography } from "../../theme/theme";
+import { supabase } from "../../lib/supabase";
 
 export default function TaskDetailAdmin() {
   const { colors } = useTheme();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
   const router = useRouter();
 
+  // Keyed by the normalized in-app status ("inReview"), not the raw DB value.
   const statusColorMap: Record<string, string> = {
     overdue: colors.status.overdue,
     pending: colors.status.pending,
-    in_review: colors.status.inReview,
+    inReview: colors.status.inReview,
     completed: colors.status.completed,
   };
 
@@ -44,7 +62,12 @@ export default function TaskDetailAdmin() {
 
       if (filesError) console.error("Files fetch error:", filesError);
 
-      setTask(taskData);
+      // Normalize DB's snake_case status to the camelCase convention used
+      // everywhere else in the app (see (admin)/index.tsx, (employee)/tasks.tsx, etc.)
+      setTask({
+        ...taskData,
+        status: taskData.status === "in_review" ? "inReview" : taskData.status,
+      });
       setTaskFiles(files ?? []);
       setLoading(false);
     };
@@ -113,19 +136,20 @@ export default function TaskDetailAdmin() {
 
       if (submitError) throw submitError;
 
+      // Write back in the DB's snake_case convention, not the in-app camelCase one.
       const { error: updateError } = await supabase
         .from("tasks")
-        .update({ status: "inReview" })
+        .update({ status: "in_review" })
         .eq("id", task.id);
 
       if (updateError) throw updateError;
 
       setTask((prev: any) => ({ ...prev, status: "inReview" }));
 
-      alert("Task submitted successfully!");
+      Alert.alert("Success", "Task submitted successfully!");
       router.back();
     } catch (error: any) {
-      alert("Submit failed: " + (error?.message || JSON.stringify(error)));
+      Alert.alert("Submit failed", error?.message || "Something went wrong.");
     } finally {
       setSubmitting(false);
     }
