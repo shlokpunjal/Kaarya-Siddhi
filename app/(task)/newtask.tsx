@@ -18,6 +18,9 @@ import { supabase } from "../../lib/supabase";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createNotification } from "../../lib/notify";
+import { sendLocalNotification } from "../../utils/notifications";
+
 
 type Priority = "low" | "medium" | "high";
 
@@ -246,7 +249,18 @@ export default function Newtask() {
         const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
         if (fileError) throw fileError;
       }
+      
+      await createNotification({
+        userId: selectedEmployeeId,
+        type: "task_assigned",
+        message: `You've been assigned a new task: "${taskName}".`,
+        taskId: task.id,
+      });
 
+      sendLocalNotification("Task Created", `"${taskName}" has been assigned.`).catch((err) =>
+        console.log("Local notification failed:", err)
+      );
+      
       alert("Task created successfully");
       router.back();
     } catch (error: any) {
