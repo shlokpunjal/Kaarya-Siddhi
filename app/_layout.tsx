@@ -5,21 +5,21 @@ import {
   Poppins_600SemiBold,
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { View, Image, Text, Animated, StyleSheet } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen'
 import { supabase } from '../lib/supabase'
 import { ThemeProvider } from '../context/ThemeContext';
 import { typography } from '../theme/theme';
-import { AuthProvider } from "../context/AuthContext";
+import { AuthProvider, useAuth } from "../context/AuthContext";
 import { enableScreens } from 'react-native-screens';
 import * as Notifications from "expo-notifications";
-import { useRouter } from "expo-router";
-
+import { sendLocalNotification } from "../utils/notifications";
 
 enableScreens(false);
 SplashScreen.preventAutoHideAsync();
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -36,6 +36,114 @@ const TEXT_PRIMARY = '#F0EDE6';
 const TEXT_SECONDARY = '#8B95A1';
 const LOGO_SIZE = 114;
 
+function notifTitle(type: string): string {
+  switch (type) {
+    case "connection_request": return "New Connection Request";
+    case "connection_accepted": return "Request Accepted";
+    case "connection_rejected": return "Request Rejected";
+    case "extension_accepted": return "Extension Accepted";
+    case "extension_rejected": return "Extension Rejected";
+    case "task_assigned": return "New Task Assigned";
+    default: return "Notification";
+  }
+}
+
+// Rendered INSIDE <AuthProvider>, so useAuth() is valid here. Owns both the
+// realtime "show a local notification when a row lands" watcher and the
+// tap-to-navigate listener for actual pushes (once those work on a dev build).
+function NotificationBridge() {
+  const router = useRouter();
+  const { userEmail } = useAuth();
+
+  useEffect(() => {
+    if (!userEmail) return;
+
+    let notifChannel: any;
+    let extensionChannel: any;
+
+    (async () => {
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("id, workspace_id, role")
+        .eq("email", userEmail)
+        .single();
+      if (!userRow) return;
+
+      notifChannel = supabase
+        .channel(`global_notifs_${userRow.id}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userRow.id}` },
+          (payload) => {
+            sendLocalNotification(notifTitle(payload.new.type), payload.new.message);
+          }
+        )
+        .subscribe();
+
+      if (userRow.role === "admin" && userRow.workspace_id) {
+        extensionChannel = supabase
+          .channel(`global_extensions_${userRow.workspace_id}`)
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "extension_requests", filter: `workspace_id=eq.${userRow.workspace_id}` },
+            () => {
+              sendLocalNotification("New Extension Request", "A deadline extension was requested.");
+            }
+          )
+          .subscribe();
+      }
+    })();
+
+    return () => {
+      if (notifChannel) supabase.removeChannel(notifChannel);
+      if (extensionChannel) supabase.removeChannel(extensionChannel);
+    };
+  }, [userEmail]);
+
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, any>;
+      if (!data?.type) return;
+
+      switch (data.type) {
+        case "connection_request":
+          router.push({
+            pathname: "/notifications/admin-connection-review",
+            params: { employeeEmail: data.employee_email, adminEmail: data.admin_email },
+          });
+          break;
+        case "connection_accepted":
+        case "connection_rejected":
+          router.push("/notifications/employee");
+          break;
+        case "extension_request":
+          router.push({
+            pathname: "/notifications/admin-request-review",
+            params: { requestId: data.extension_request_id },
+          });
+          break;
+        case "extension_accepted":
+        case "extension_rejected":
+          router.push({
+            pathname: "/notifications/employee-request-detail",
+            params: { requestId: data.extension_request_id },
+          });
+          break;
+        case "task_assigned":
+          router.push({
+            pathname: "/(task)/task-detail",
+            params: { taskId: data.taskId },
+          });
+          break;
+      }
+    });
+
+    return () => sub.remove();
+  }, []);
+
+  return null;
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     'Poppins-Regular': Poppins_400Regular,
@@ -43,50 +151,9 @@ export default function RootLayout() {
     'Poppins-SemiBold': Poppins_600SemiBold,
     'Poppins-Bold': Poppins_700Bold,
   });
-  const router = useRouter();
+
   const [showSplash, setShowSplash] = useState(true)
   const splashOpacity = useRef(new Animated.Value(1)).current
-
-  useEffect(() => {
-  const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data as Record<string, any>;
-    if (!data?.type) return;
-
-    switch (data.type) {
-      case "connection_request":
-        router.push({
-          pathname: "/notifications/admin-connection-review",
-          params: { employeeEmail: data.employee_email, adminEmail: data.admin_email },
-        });
-        break;
-      case "connection_accepted":
-      case "connection_rejected":
-        router.push("/notifications/employee");
-        break;
-      case "extension_request":
-        router.push({
-          pathname: "/notifications/admin-request-review",
-          params: { requestId: data.extension_request_id },
-        });
-        break;
-      case "extension_accepted":
-      case "extension_rejected":
-        router.push({
-          pathname: "/notifications/employee-request-detail",
-          params: { requestId: data.extension_request_id },
-        });
-        break;
-      case "task_assigned":
-        router.push({
-          pathname: "/(task)/task-detail",
-          params: { taskId: data.taskId },
-        });
-        break;
-    }
-  });
-
-  return () => sub.remove();
-}, []);
 
   useEffect(() => {
     if (!fontsLoaded) return
@@ -109,12 +176,12 @@ export default function RootLayout() {
   }, [fontsLoaded])
 
   if (!fontsLoaded) {
-    // Invisible in practice — native splash is still covering this.
     return <View style={{ flex: 1, backgroundColor: BRAND_PRIMARY }} />;
   }
 
   return (
     <AuthProvider>
+      <NotificationBridge />
 
       <ThemeProvider>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: BRAND_PRIMARY } }}>
@@ -149,7 +216,6 @@ export default function RootLayout() {
         )}
       </ThemeProvider>
     </AuthProvider>
-
   );
 }
 
