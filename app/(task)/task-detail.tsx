@@ -29,50 +29,48 @@ export default function TaskDetail() {
     completed: colors.status.completed,
   };
 
-
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-// ── Resolve logged-in user's id (to check task ownership) ──
-useEffect(() => {
-  const resolveUser = async () => {
-    const email = await AsyncStorage.getItem("userEmail");
-    if (!email) return;
+  // ── Resolve logged-in user's id (to check task ownership) ──
+  useEffect(() => {
+    const resolveUser = async () => {
+      const email = await AsyncStorage.getItem("userEmail");
+      if (!email) return;
 
-    const { data, error } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", email)
-      .single();
+      const { data, error } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", email)
+        .single();
 
-    if (!error && data) {
-      setCurrentUserId(data.id);
-    }
-  };
+      if (!error && data) {
+        setCurrentUserId(data.id);
+      }
+    };
 
-  resolveUser();
-}, []);
+    resolveUser();
+  }, []);
+
   const [task, setTask] = useState<any>(null);
   const [taskFiles, setTaskFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [hasPendingExtension, setHasPendingExtension] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
+  const [assignedName, setAssignedName] = useState<string>("");
 
   // "Own task" governs both edit/delete icons AND the Review-or-Complete button —
   // an employee should only be able to act on tasks they created themselves,
   // not ones an admin assigned to them.
-
-  const [assignedName, setAssignedName] = useState<string>("—");
   const isOwnTask =
     !!task &&
     !!currentUserId &&
     task.created_by === currentUserId;
 
-    const isSelfAssigned =
+  const isSelfAssigned =
     !!task && task.created_by && task.assigned_to && task.created_by === task.assigned_to;
 
-  // ── Fetch task + its files from Supabase ────────────────────────────────────
+  // ── Fetch task, its files, and the assignee's name — all before rendering ───
   useEffect(() => {
     if (!taskId) return;
 
@@ -98,6 +96,20 @@ useEffect(() => {
 
       if (filesError) console.error("Files fetch error:", filesError);
 
+      if (taskData?.assigned_to) {
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("name, email")
+          .eq("id", taskData.assigned_to)
+          .single();
+
+        if (!userError && userData) {
+          setAssignedName(userData.name || userData.email || taskData.assigned_to);
+        } else {
+          setAssignedName(taskData.assigned_to);
+        }
+      }
+
       setTask(taskData);
       setTaskFiles(files ?? []);
       setLoading(false);
@@ -105,27 +117,6 @@ useEffect(() => {
 
     fetchTask();
   }, [taskId]);
-
-  // ── Resolve assigned employee's name (task.assigned_to is a user id) ────────
-  useEffect(() => {
-    const resolveAssignee = async () => {
-      if (!task?.assigned_to) return;
-
-      const { data, error } = await supabase
-        .from("users")
-        .select("name, email")
-        .eq("id", task.assigned_to)
-        .single();
-
-      if (!error && data) {
-        setAssignedName(data.name || data.email || task.assigned_to);
-      } else {
-        setAssignedName(task.assigned_to);
-      }
-    };
-
-    resolveAssignee();
-  }, [task]);
 
   // ── Check for an existing pending extension request, refreshed on focus ─────
   const checkPendingExtension = useCallback(async () => {
@@ -293,10 +284,8 @@ useEffect(() => {
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 20,
-             
             }}
           >
-            
             <Text
               style={{
                 ...typography.heading,
@@ -309,32 +298,32 @@ useEffect(() => {
               {task.title}
             </Text>
 
-           {canEditOrDelete && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginLeft: 190 }}>
-              <TouchableOpacity
-                onPress={() =>
-                  router.push({
-                    pathname: "/(task)/newtaskemp",
-                    params: { taskId: task.id },
-                  })
-                }
-                disabled={deleting}
-              >
-                <Ionicons name="create-outline" size={22} color={colors.brand.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleDeleteTask} disabled={deleting}>
-                {deleting ? (
-                  <ActivityIndicator size="small" color={colors.status.overdue} />
-                ) : (
-                  <Ionicons name="trash-outline" size={20} color={colors.status.overdue} />
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
+            {canEditOrDelete && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginLeft: 190 }}>
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(task)/newtaskemp",
+                      params: { taskId: task.id },
+                    })
+                  }
+                  disabled={deleting}
+                >
+                  <Ionicons name="create-outline" size={22} color={colors.brand.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleDeleteTask} disabled={deleting}>
+                  {deleting ? (
+                    <ActivityIndicator size="small" color={colors.status.overdue} />
+                  ) : (
+                    <Ionicons name="trash-outline" size={20} color={colors.status.overdue} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
-          
+
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
-          
+
           {/* Status */}
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
             <Ionicons name="ellipse" size={12} color={statusColor} style={{ marginRight: 8 }} />
@@ -351,7 +340,7 @@ useEffect(() => {
           </View>
 
           {/* Auto-deletion notice — shown only when the task is completed */}
-         {task.status === "completed" && (
+          {task.status === "completed" && (
             <View
               style={{
                 flexDirection: "row",
