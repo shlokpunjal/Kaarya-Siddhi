@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
@@ -47,57 +47,63 @@ export default function Dashboard() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [decidedRequestCount, setDecidedRequestCount] = useState(0);
   // Cache the resolved user id so the badge effect doesn't need to re-look it up
   // via email on every focus.
   const [userId, setUserId] = useState<string | null>(null);
 
+  // ── Fetch tasks for the logged-in employee. Shared by initial load and pull-to-refresh ──
+  const checkUserAndFetchTasks = useCallback(async (isMounted: () => boolean = () => true) => {
+    const email = await AsyncStorage.getItem('userEmail');
+    if (!email) {
+      console.error('No active session found, redirecting...');
+      if (isMounted()) router.replace('/(auth)/LoginChoice');
+      return;
+    }
+
+    const { data: currentUser, error: userLookupError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (userLookupError || !currentUser) {
+      console.error('Could not resolve user id for email:', email);
+      return;
+    }
+
+    if (isMounted()) setUserId(currentUser.id);
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('assigned_to', currentUser.id)
+      .order('deadline', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching tasks:', error.message);
+    } else if (isMounted()) {
+      setTasks((data ?? []).map(mapRowToTask));
+    }
+  }, [router]);
+
   // ── Initial task fetch ───────────────────────────────────────────────────────
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
+    setLoading(true);
+    checkUserAndFetchTasks(() => mounted).finally(() => {
+      if (mounted) setLoading(false);
+    });
+    return () => { mounted = false; };
+  }, [checkUserAndFetchTasks]);
 
-    const checkUserAndFetchTasks = async () => {
-      setLoading(true);
-
-      const email = await AsyncStorage.getItem('userEmail');
-      if (!email) {
-        console.error('No active session found, redirecting...');
-        if (isMounted) router.replace('/(auth)/LoginChoice');
-        return;
-      }
-
-      const { data: currentUser, error: userLookupError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .single();
-
-      if (userLookupError || !currentUser) {
-        console.error('Could not resolve user id for email:', email);
-        if (isMounted) setLoading(false);
-        return;
-      }
-
-      if (isMounted) setUserId(currentUser.id);
-
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('assigned_to', currentUser.id)
-        .order('deadline', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching tasks:', error.message);
-      } else if (isMounted) {
-        setTasks((data ?? []).map(mapRowToTask));
-      }
-
-      if (isMounted) setLoading(false);
-    };
-
-    checkUserAndFetchTasks();
-    return () => { isMounted = false; };
-  }, []);
+  // ── Pull-to-refresh ──────────────────────────────────────────────────────────
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await checkUserAndFetchTasks();
+    setRefreshing(false);
+  }, [checkUserAndFetchTasks]);
 
   // ── Bell badge: count of admin-decided requests, refreshed on focus ──────────
   // `requested_by` stores a user id (uuid), not an email, so we filter by the
@@ -143,8 +149,12 @@ export default function Dashboard() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 20 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand.accent} colors={[colors.brand.accent]} />
+        }
+      >
         {/* ── Header Block ── */}
         <View>
           <View style={{
@@ -259,7 +269,7 @@ export default function Dashboard() {
             <TouchableOpacity
               onPress={() => router.push("(task)/newtaskemp")}
               style={{
-                
+
                 backgroundColor: colors.brand.accent, padding: 14,
                 width: "100%", height: 60, borderRadius: 32,
                 flexDirection: "row", marginTop: -1, justifyContent: 'center', alignItems: 'center',
@@ -272,11 +282,11 @@ export default function Dashboard() {
         </View>
 
         {/* ── Overdue Accordion ── */}
-        <View style={{ width: 320, marginTop: 30, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1}}>
-          <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal:20}}>
+        <View style={{ width: 320, marginTop: 30, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
+          <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
             <Text style={{ ...typography.subheading, color: colors.status.overdue }}>Overdue</Text>
             <TouchableOpacity onPress={() => setShowOverdue(!showOverdue)}>
-              <Ionicons name={showOverdue ? "chevron-up-outline" : "chevron-down-outline"} size={30} color={colors.base.surfaceL1} style={{ backgroundColor: colors.status.overdue, borderRadius: 10, padding: 2}} />
+              <Ionicons name={showOverdue ? "chevron-up-outline" : "chevron-down-outline"} size={30} color={colors.base.surfaceL1} style={{ backgroundColor: colors.status.overdue, borderRadius: 10, padding: 2 }} />
             </TouchableOpacity>
           </View>
           {showOverdue && (
@@ -367,7 +377,7 @@ export default function Dashboard() {
               <Ionicons name={showReview ? "chevron-up-outline" : "chevron-down-outline"} size={30} color={colors.base.surfaceL1} style={{ backgroundColor: colors.status.inReview, borderRadius: 10, padding: 2 }} />
             </TouchableOpacity>
           </View>
-         {showReview && (
+          {showReview && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
               {reviewTasks.length === 0 ? (
                 <View style={{
