@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   Pressable,
   Text,
   Platform,
@@ -97,6 +98,8 @@ export default function CalendarScreen() {
 
   const [tasksMap, setTasksMap] = useState<Record<string, Task[]>>({});
   const [loading, setLoading]   = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+ const [employeeId, setEmployeeId] = useState<string | null>(null);
 
   // ── Resolve employee's user id, fetch their tasks, realtime subscribe ───
   useEffect(() => {
@@ -138,6 +141,7 @@ export default function CalendarScreen() {
       }
 
       const userId = userRow.id as string;
+      if (isMounted) setEmployeeId(userId);
 
       await fetchTasks(userId);
       if (isMounted) setLoading(false);
@@ -187,6 +191,23 @@ export default function CalendarScreen() {
       if (extensionsChannel) supabase.removeChannel(extensionsChannel);
     };
   }, []);
+
+  // ── Pull-to-refresh: re-fetch on demand ──────────────────────────────────
+  const onRefresh = useCallback(async () => {
+    if (!employeeId) return;
+    setRefreshing(true);
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .or(`assigned_to.eq.${employeeId},created_by.eq.${employeeId}`);
+    if (error) {
+      console.error("Error refreshing calendar tasks:", error.message);
+    } else {
+      setTasksMap(groupTasksByDate((data ?? []) as TaskRow[]));
+    }
+    setRefreshing(false);
+  }, [employeeId]);
+
   const categoryColor: Record<TaskCategory, string> = {
     completed: status.completed,
     inReview:  status.inReview,
@@ -229,8 +250,12 @@ export default function CalendarScreen() {
   }
 
   return (
-    <View style={[s.container, { backgroundColor: base.background }]}>
-
+    <ScrollView
+   style={[s.container, { backgroundColor: base.background }]}
+   refreshControl={
+     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brand.secprimary} colors={[brand.secprimary]} />
+   }
+ >
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={[s.header, { backgroundColor: brand.primary }]}>
           <Text style={[typography.heading, { color: brand.onPrimary }]}>Calendar</Text>
@@ -399,7 +424,7 @@ export default function CalendarScreen() {
           {selected === todayISO ? "Today" : selected}
         </Text>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.taskScroll}>
+        <View style={s.taskScroll}>
           {tasksMap[selected]?.length ? (
             tasksMap[selected].map((task, i) => (
               <Pressable
@@ -433,10 +458,10 @@ export default function CalendarScreen() {
               <Text style={[s.emptySubtitle, { color: text.secondary }]}>This day is clear</Text>
             </View>
           )}
-        </ScrollView>
+        </View>
       </View>
 
-    </View>
+    </ScrollView>
   );
 }
 
