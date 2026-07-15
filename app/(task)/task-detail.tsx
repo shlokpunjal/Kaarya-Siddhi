@@ -69,6 +69,9 @@ useEffect(() => {
     !!currentUserId &&
     task.created_by === currentUserId;
 
+    const isSelfAssigned =
+    !!task && task.created_by && task.assigned_to && task.created_by === task.assigned_to;
+
   // ── Fetch task + its files from Supabase ────────────────────────────────────
   useEffect(() => {
     if (!taskId) return;
@@ -425,6 +428,33 @@ useEffect(() => {
               {assignedName}
             </Text>
           </View>
+
+          {/* Self-created task notice */}
+          {isSelfAssigned && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 8,
+                backgroundColor: colors.base.surfaceL2,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: colors.base.border,
+                padding: 10,
+                marginBottom: 20,
+              }}
+            >
+              <Ionicons
+                name="person-circle-outline"
+                size={16}
+                color={colors.brand.primary}
+                style={{ marginTop: 1 }}
+              />
+              <Text style={{ ...typography.label, color: colors.text.secondary, flex: 1 }}>
+                This task was created by the employee for themselves.
+              </Text>
+            </View>
+          )}
 
           {/* Divider */}
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
