@@ -108,20 +108,41 @@ export default function Dashboard() {
   // ── Bell badge: count of admin-decided requests, refreshed on focus ──────────
   // `requested_by` stores a user id (uuid), not an email, so we filter by the
   // resolved userId rather than the raw AsyncStorage email.
-  useFocusEffect(
-    useCallback(() => {
-      if (!userId) return;
-      (async () => {
-        const { count } = await supabase
-          .from('extension_requests')
-          .select('*', { count: 'exact', head: true })
-          .eq('requested_by', userId)
-          .in('status', ['accepted', 'rejected']);
+  // ── Bell badge: count of notifications still sitting in the list, refreshed
+  // on focus AND via realtime. Matches exactly what employee.tsx's
+  // Notifications page shows (and clears), so the badge and list stay in sync.
+  const fetchDecidedRequestCount = useCallback(async () => {
+    if (!userId) return;
+    const { count } = await supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .in('type', [
+        'connection_accepted',
+        'connection_rejected',
+        'extension_accepted',
+        'extension_rejected',
+        'task_assigned',
+      ]);
 
-        setDecidedRequestCount(count ?? 0);
-      })();
-    }, [userId])
-  );
+    setDecidedRequestCount(count ?? 0);
+  }, [userId]);
+
+  useFocusEffect(useCallback(() => { fetchDecidedRequestCount(); }, [fetchDecidedRequestCount]));
+
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel(`employee_badge_notifs_${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        () => fetchDecidedRequestCount()
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId, fetchDecidedRequestCount]);
 
   if (loading) {
     return (

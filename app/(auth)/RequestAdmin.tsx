@@ -51,7 +51,7 @@ export default function RequestAdmin() {
 
       // Confirm the email exists in the admins table before sending the request
       const { data: adminRow, error: adminLookupError } = await supabase
-        .from('admins')
+        .from('users')
         .select('email')
         .eq('email', trimmedAdminEmail)
         .maybeSingle();

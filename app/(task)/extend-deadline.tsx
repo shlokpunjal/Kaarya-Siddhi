@@ -7,6 +7,10 @@
 // `notifications` row is created for it. Admins are alerted via a push-only
 // send (sendPushOnly), and the admin's Requests screen reads pending
 // extension requests straight from extension_requests, scoped to workspace.
+//
+// UX note: success feedback fires immediately after the insert succeeds —
+// admin push notifications are sent in the background afterward and never
+// block or delay the person's own "request sent" confirmation.
 
 import React, { useState } from "react";
 import {
@@ -107,28 +111,6 @@ export default function ExtendDeadline() {
 
     setSubmitting(false);
 
-    if (!error && insertedRows) {
-      // Alert every admin in this workspace via push only — the request
-      // itself already lives in extension_requests, which the admin's
-      // Requests screen reads directly. No notifications row is created.
-      const { data: admins } = await supabase
-        .from("users")
-        .select("id")
-        .eq("workspace_id", task.workspace_id)
-        .eq("role", "admin");
-
-      if (admins) {
-        for (const admin of admins) {
-          await sendPushOnly(
-            admin.id,
-            "New Extension Request",
-            `A new deadline extension was requested for "${task.title}".`,
-            { type: "extension_request", extension_request_id: insertedRows.id, taskId: task.id }
-          );
-        }
-      }
-    }
-
     if (error) {
       // unique index "one_pending_request_per_task" throws code 23505 if one already exists
       if (error.code === "23505") {
@@ -142,9 +124,34 @@ export default function ExtendDeadline() {
       return;
     }
 
+    // Show success right away — don't make the person wait on push delivery
+    // to someone else's device.
     Alert.alert("Request sent", "Your extension request has been sent to the admin.", [
       { text: "OK", onPress: () => router.back() },
     ]);
+
+    // Notify admins in the background. Fire-and-forget: a slow or failed
+    // push should never block or fail the person's own request confirmation.
+    if (insertedRows) {
+      (async () => {
+        const { data: admins } = await supabase
+          .from("users")
+          .select("id")
+          .eq("workspace_id", task.workspace_id)
+          .eq("role", "admin");
+
+        if (admins) {
+          admins.forEach((admin) => {
+            sendPushOnly(
+              admin.id,
+              "New Extension Request",
+              `A new deadline extension was requested for "${task.title}".`,
+              { type: "extension_request", extension_request_id: insertedRows.id, taskId: task.id }
+            ).catch((err) => console.log("Admin push failed:", err));
+          });
+        }
+      })();
+    }
   };
 
   return (
