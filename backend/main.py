@@ -992,13 +992,16 @@ from auth_utils import get_current_user
 
 import requests as http_requests  # avoid clashing with your existing 'requests' usage if any
 
+from apscheduler.schedulers.background import BackgroundScheduler
+from sheets_sync import sync_tasks_from_sheet
+
 load_dotenv()
 
 app = FastAPI(title="Kaarya Siddhi API")
 
-load_dotenv()
-
-app = FastAPI(title="Kaarya Siddhi API")
+scheduler = BackgroundScheduler()
+scheduler.add_job(sync_tasks_from_sheet, "interval", minutes=5)
+scheduler.start()
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
@@ -1966,6 +1969,13 @@ async def logout(data: LogoutRequest):
     supabase.table("refresh_tokens").update({"revoked": True}) \
         .eq("token_hash", hash_token(data.refresh_token)).execute()
     return {"success": True, "message": "Logged out."}
+
+@app.post("/admin/sync-sheet-tasks")
+async def manual_sheet_sync(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can trigger sync.")
+    result = sync_tasks_from_sheet()
+    return result
 
 
 
