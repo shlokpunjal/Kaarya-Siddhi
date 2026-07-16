@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef } from "react";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
-import { typography } from '../../theme/theme';
+import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone } from "../../constants/validators";
@@ -95,7 +95,10 @@ const AdminLogin = () => {
 
         if (typeof loginData.detail === "string") {
           message = loginData.detail;
-        } else if (Array.isArray(loginData.detail) && loginData.detail.length > 0) {
+        } else if (
+          Array.isArray(loginData.detail) &&
+          loginData.detail.length > 0
+        ) {
           message = loginData.detail[0].msg;
         } else if (loginData.detail?.msg) {
           message = loginData.detail.msg;
@@ -193,7 +196,7 @@ const AdminLogin = () => {
               style={[
                 styles.divi,
                 (isOnCooldown || errors.phone || errors.email) &&
-                styles.diviExpanded,
+                  styles.diviExpanded,
               ]}
             >
               <Text style={[styles.divtext, typography.subheading]}>
@@ -205,7 +208,8 @@ const AdminLogin = () => {
                   placeholder="Enter Phone Number"
                   onChangeText={(text) => {
                     setPh(text);
-                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+                    if (errors.phone)
+                      setErrors((prev) => ({ ...prev, phone: "" }));
                   }}
                   keyboardType="phone-pad"
                   maxLength={10}
@@ -219,7 +223,8 @@ const AdminLogin = () => {
                   placeholder="Enter Email"
                   onChangeText={(text) => {
                     setEmail(text);
-                    if (errors.email) setErrors((prev) => ({ ...prev, email: "" }));
+                    if (errors.email)
+                      setErrors((prev) => ({ ...prev, email: "" }));
                   }}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -354,9 +359,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     height: 120,
     width: 120,
-    top: 50,
+    marginTop: 50,
     borderRadius: 120,
     backgroundColor: "#E8870A",
+
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
   },
   imageStyling: {
     height: 115,
@@ -372,7 +383,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     width: "85%",
     borderRadius: 24,
-    marginTop: 110,
+    marginTop: 45,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.08,
@@ -385,7 +396,6 @@ const styles = StyleSheet.create({
   },
   divtext: {
     fontSize: 18,
-    // fontWeight: "700",
     color: "#1A2744",
     fontFamily: "Poppins_400Regular",
   },

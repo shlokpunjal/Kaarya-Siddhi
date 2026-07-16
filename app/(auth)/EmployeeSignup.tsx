@@ -17,7 +17,11 @@ import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
-import { isValidEmail, isValidPhone, isValidName } from "../../constants/validators";
+import {
+  isValidEmail,
+  isValidPhone,
+  isValidName,
+} from "../../constants/validators";
 
 export default function EmployeeSignup() {
   const [name, setName] = useState("");
@@ -56,7 +60,10 @@ export default function EmployeeSignup() {
         const data = await res.json();
 
         if (res.ok && !data.available) {
-          setErrors((prev) => ({ ...prev, name: "This name is already taken" }));
+          setErrors((prev) => ({
+            ...prev,
+            name: "This name is already taken",
+          }));
         }
       } catch (err) {
         // fail silently — don't block typing on a network hiccup
@@ -239,7 +246,8 @@ export default function EmployeeSignup() {
                   placeholder="Full Name"
                   onChangeText={(text) => {
                     setName(text);
-                    if (errors.name) setErrors((prev) => ({ ...prev, name: "" }));
+                    if (errors.name)
+                      setErrors((prev) => ({ ...prev, name: "" }));
                   }}
                   validator={isValidName}
                   errorMessage="Name should only contain letters"
@@ -264,7 +272,8 @@ export default function EmployeeSignup() {
                   placeholder="Phone Number"
                   onChangeText={(text) => {
                     setPhone(text);
-                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+                    if (errors.phone)
+                      setErrors((prev) => ({ ...prev, phone: "" }));
                   }}
                   keyboardType="phone-pad"
                   maxLength={10}
@@ -278,7 +287,8 @@ export default function EmployeeSignup() {
                   placeholder="Email"
                   onChangeText={(text) => {
                     setEmail(text);
-                    if (errors.email) setErrors((prev) => ({ ...prev, email: "" }));
+                    if (errors.email)
+                      setErrors((prev) => ({ ...prev, email: "" }));
                     if (cardError) setCardError("");
                   }}
                   keyboardType="email-address"
@@ -367,6 +377,12 @@ const styles = StyleSheet.create({
     width: 120,
     borderRadius: 60,
     backgroundColor: ACCENT,
+
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
   },
 
   logo: {
@@ -454,12 +470,14 @@ const styles = StyleSheet.create({
   login: {
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
+    gap: 3,
   },
 
   loginT: {
     color: PRIMARY,
     fontFamily: "Poppins_600SemiBold",
-    marginTop: 4,
+    marginTop: 27,
     textDecorationLine: "underline",
   },
 });

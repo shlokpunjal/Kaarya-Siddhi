@@ -31,7 +31,9 @@ export default function LoginChoice() {
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, typography.heading]}>Kaarya Siddhi</Text>
+        <Text style={[styles.headerTitle, typography.heading]}>
+          Kaarya Siddhi
+        </Text>
       </View>
 
       {/* Logo */}
@@ -179,20 +181,45 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontFamily: "Poppins_400Regular",
   },
+  // imagestyle: {
+  //   justifyContent: "center",
+  //   alignItems: "center",
+  //   height: 120,
+  //   width: 120,
+  //   marginTop: 50,
+  //   borderRadius: 120,
+  //   backgroundColor: "#E8870A",
+  //   alignSelf: "center",
+  // },
+  // imageStyling: {
+  //   height: 116,
+  //   width: 116,
+  //   borderRadius: 120,
+  //   bottom: 0,
+  // },
+
   imagestyle: {
     justifyContent: "center",
     alignItems: "center",
     height: 120,
     width: 120,
-    marginTop: 50,
-    borderRadius: 120,
+    borderRadius: 60,
     backgroundColor: "#E8870A",
+    marginTop: 50,
     alignSelf: "center",
+
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
   },
+
   imageStyling: {
-    height: 116,
-    width: 116,
-    borderRadius: 120,
-    bottom: 0,
+    width: 115,
+    height: 115,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.5)",
   },
 });
