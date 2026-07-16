@@ -16,6 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { wp, moderateScale } from '../../utils/responsive';
 
 export default function TaskDetail() {
   const { colors } = useTheme();
@@ -68,6 +69,9 @@ useEffect(() => {
     !!task &&
     !!currentUserId &&
     task.created_by === currentUserId;
+
+    const isSelfAssigned =
+    !!task && task.created_by && task.assigned_to && task.created_by === task.assigned_to;
 
   // ── Fetch task + its files from Supabase ────────────────────────────────────
   useEffect(() => {
@@ -236,7 +240,7 @@ useEffect(() => {
       <View
         style={{
           backgroundColor: colors.brand.primary,
-          height: 70,
+          height: moderateScale(70),
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 16,
@@ -245,7 +249,7 @@ useEffect(() => {
         <Ionicons
           onPress={() => router.back()}
           name="arrow-back"
-          size={28}
+          size={moderateScale(28)}
           color={colors.brand.onPrimary}
         />
         <Text
@@ -254,7 +258,7 @@ useEffect(() => {
             color: colors.brand.onPrimary,
             flex: 1,
             textAlign: "center",
-            marginRight: 28,
+            marginRight: moderateScale(28),
           }}
         >
           Task Details
@@ -262,7 +266,7 @@ useEffect(() => {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
         <View
@@ -271,7 +275,7 @@ useEffect(() => {
             borderRadius: 16,
             borderWidth: 1,
             borderColor: colors.base.border,
-            padding: 20,
+            padding: wp(5.3),
             ...Platform.select({
               ios: {
                 shadowColor: "#000",
@@ -283,52 +287,49 @@ useEffect(() => {
             }),
           }}
         >
-          {/* Task Title + Edit/Delete icons */}
+          {/* Task Title + Edit/Delete icons ---- */}
           <View
             style={{
               flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
               marginBottom: 20,
-             
+              gap: 12,
             }}
           >
-            
             <Text
               style={{
                 ...typography.heading,
                 color: colors.text.primary,
-                textAlign: "center",
-                flexShrink: 1,
+                flex: 1,
               }}
-              numberOfLines={2}
             >
               {task.title}
             </Text>
 
-           {canEditOrDelete && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginLeft: 190 }}>
-              <TouchableOpacity
-                onPress={() =>
-                  router.push({
-                    pathname: "/(task)/newtaskemp",
-                    params: { taskId: task.id },
-                  })
-                }
-                disabled={deleting}
-              >
-                <Ionicons name="create-outline" size={22} color={colors.brand.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleDeleteTask} disabled={deleting}>
-                {deleting ? (
-                  <ActivityIndicator size="small" color={colors.status.overdue} />
-                ) : (
-                  <Ionicons name="trash-outline" size={20} color={colors.status.overdue} />
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-          </View>
+            {canEditOrDelete && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 2 }}>
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(task)/newtaskemp",
+                      params: { taskId: task.id },
+                    })
+                  }
+                  disabled={deleting}
+                >
+                  <Ionicons name="create-outline" size={22} color={colors.brand.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleDeleteTask} disabled={deleting}>
+                  {deleting ? (
+                    <ActivityIndicator size="small" color={colors.status.overdue} />
+                  ) : (
+                    <Ionicons name="trash-outline" size={20} color={colors.status.overdue} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View> 
           
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
           
@@ -426,6 +427,33 @@ useEffect(() => {
             </Text>
           </View>
 
+          {/* Self-created task notice */}
+          {isSelfAssigned && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 8,
+                backgroundColor: colors.base.surfaceL2,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: colors.base.border,
+                padding: 10,
+                marginBottom: 20,
+              }}
+            >
+              <Ionicons
+                name="person-circle-outline"
+                size={16}
+                color={colors.brand.primary}
+                style={{ marginTop: 1 }}
+              />
+              <Text style={{ ...typography.label, color: colors.text.secondary, flex: 1 }}>
+                This task was created by the employee for themselves.
+              </Text>
+            </View>
+          )}
+
           {/* Divider */}
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
@@ -494,7 +522,7 @@ useEffect(() => {
                   task.status === "completed" || task.status === "inReview"
                     ? colors.base.border
                     : colors.brand.accent,
-                height: 50,
+                height: moderateScale(50),
                 borderRadius: 12,
                 justifyContent: "center",
                 alignItems: "center",

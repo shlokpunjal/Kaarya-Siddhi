@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Platform, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Platform, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -63,6 +63,7 @@ export default function AdminTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [employees, setEmployees] = useState<ManagedEmployee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
 
@@ -76,8 +77,11 @@ export default function AdminTasks() {
     fetchTasksAndTeam();
   }, []);
 
-  const fetchTasksAndTeam = async () => {
-    setLoading(true);
+  // isRefresh=true skips the full-screen loading state so the header/search bar
+  // stay mounted and the pull-to-refresh spinner is the only indicator. 
+  const fetchTasksAndTeam = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
 
     const adminEmail = await AsyncStorage.getItem('userEmail');
 
@@ -166,7 +170,13 @@ export default function AdminTasks() {
     }
 
     setLoading(false);
+    setRefreshing(false);
   };
+
+  const onRefresh = useCallback(() => {
+    fetchTasksAndTeam(true);
+  }, []);
+
 
   const uniqueLabels = Array.from(new Set(tasks.map((t) => t.label).filter(Boolean)));
 
@@ -317,7 +327,12 @@ export default function AdminTasks() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand.accent} colors={[colors.brand.accent]} />
+        }
+      >
         {visibleTasks.length === 0 ? (
           <Text style={[typography.body, { color: colors.text.secondary, marginTop: 20 }]}>
             {isSearching
@@ -351,7 +366,7 @@ export default function AdminTasks() {
 
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
-          <Pressable style={[styles.modalCard, { backgroundColor: colors.base.surfaceL1 }]} onPress={() => {}}>
+          <Pressable style={[styles.modalCard, { backgroundColor: colors.base.surfaceL1 }]} onPress={() => { }}>
             <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollArea}>
               <Text style={[typography.subheading, { color: colors.text.primary, marginBottom: 16 }]}>
                 Filter Tasks

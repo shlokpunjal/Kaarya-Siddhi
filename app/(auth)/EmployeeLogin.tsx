@@ -12,10 +12,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef } from "react";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
-import { typography } from "../../theme/theme";
+import { typography } from '../../theme/theme';
 import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone } from "../../constants/validators";
+
 
 const EmployeeLogin = () => {
   const [ph, setPh] = useState("");
@@ -160,9 +161,7 @@ const EmployeeLogin = () => {
     <SafeAreaView style={{ flex: 1 }}>
       <View style={styles.mainbar}>
         <BackButton />
-        <Text style={[styles.maintext, typography.heading]}>
-          Employee Login
-        </Text>
+        <Text style={[styles.maintext, typography.heading]}>Employee Login</Text>
       </View>
 
       <KeyboardAvoidingView
@@ -187,7 +186,7 @@ const EmployeeLogin = () => {
               style={[
                 styles.divi,
                 (isOnCooldown || errors.phone || errors.email) &&
-                  styles.diviExpanded,
+                styles.diviExpanded,
               ]}
             >
               <Text style={[styles.divtext, typography.subheading]}>
@@ -199,8 +198,7 @@ const EmployeeLogin = () => {
                   placeholder="Enter Phone Number"
                   onChangeText={(text) => {
                     setPh(text);
-                    if (errors.phone)
-                      setErrors((prev) => ({ ...prev, phone: "" }));
+                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
                   }}
                   keyboardType="phone-pad"
                   maxLength={10}
@@ -214,8 +212,7 @@ const EmployeeLogin = () => {
                   placeholder="Enter Email"
                   onChangeText={(text) => {
                     setEmail(text);
-                    if (errors.email)
-                      setErrors((prev) => ({ ...prev, email: "" }));
+                    if (errors.email) setErrors((prev) => ({ ...prev, email: "" }));
                   }}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -353,12 +350,6 @@ const styles = StyleSheet.create({
     top: 50,
     borderRadius: 120,
     backgroundColor: "#E8870A",
-
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 10,
   },
   imageStyling: {
     height: 115,

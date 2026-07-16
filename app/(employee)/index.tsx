@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
@@ -10,6 +10,7 @@ import { typography } from '../../theme/theme';
 import { Task } from '../../types/task';
 import { getGreeting } from '../../utils/greeting';
 import NoTaskEmp from '../(task)/notaskEmp';
+import { wp, hp, moderateScale } from '../../utils/responsive';
 
 // Matches the actual `tasks` table columns
 type TaskRow = {
@@ -47,75 +48,102 @@ export default function Dashboard() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [decidedRequestCount, setDecidedRequestCount] = useState(0);
   // Cache the resolved user id so the badge effect doesn't need to re-look it up
   // via email on every focus.
   const [userId, setUserId] = useState<string | null>(null);
 
+  // ── Fetch tasks for the logged-in employee. Shared by initial load and pull-to-refresh ──
+  const checkUserAndFetchTasks = useCallback(async (isMounted: () => boolean = () => true) => {
+    const email = await AsyncStorage.getItem('userEmail');
+    if (!email) {
+      console.error('No active session found, redirecting...');
+      if (isMounted()) router.replace('/(auth)/LoginChoice');
+      return;
+    }
+
+    const { data: currentUser, error: userLookupError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (userLookupError || !currentUser) {
+      console.error('Could not resolve user id for email:', email);
+      return;
+    }
+
+    if (isMounted()) setUserId(currentUser.id);
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('assigned_to', currentUser.id)
+      .order('deadline', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching tasks:', error.message);
+    } else if (isMounted()) {
+      setTasks((data ?? []).map(mapRowToTask));
+    }
+  }, [router]);
+
   // ── Initial task fetch ───────────────────────────────────────────────────────
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
+    setLoading(true);
+    checkUserAndFetchTasks(() => mounted).finally(() => {
+      if (mounted) setLoading(false);
+    });
+    return () => { mounted = false; };
+  }, [checkUserAndFetchTasks]);
 
-    const checkUserAndFetchTasks = async () => {
-      setLoading(true);
-
-      const email = await AsyncStorage.getItem('userEmail');
-      if (!email) {
-        console.error('No active session found, redirecting...');
-        if (isMounted) router.replace('/(auth)/LoginChoice');
-        return;
-      }
-
-      const { data: currentUser, error: userLookupError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .single();
-
-      if (userLookupError || !currentUser) {
-        console.error('Could not resolve user id for email:', email);
-        if (isMounted) setLoading(false);
-        return;
-      }
-
-      if (isMounted) setUserId(currentUser.id);
-
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('assigned_to', currentUser.id)
-        .order('deadline', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching tasks:', error.message);
-      } else if (isMounted) {
-        setTasks((data ?? []).map(mapRowToTask));
-      }
-
-      if (isMounted) setLoading(false);
-    };
-
-    checkUserAndFetchTasks();
-    return () => { isMounted = false; };
-  }, []);
+  // ── Pull-to-refresh ──────────────────────────────────────────────────────────
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await checkUserAndFetchTasks();
+    setRefreshing(false);
+  }, [checkUserAndFetchTasks]);
 
   // ── Bell badge: count of admin-decided requests, refreshed on focus ──────────
   // `requested_by` stores a user id (uuid), not an email, so we filter by the
   // resolved userId rather than the raw AsyncStorage email.
-  useFocusEffect(
-    useCallback(() => {
-      if (!userId) return;
-      (async () => {
-        const { count } = await supabase
-          .from('extension_requests')
-          .select('*', { count: 'exact', head: true })
-          .eq('requested_by', userId)
-          .in('status', ['accepted', 'rejected']);
+  // ── Bell badge: count of notifications still sitting in the list, refreshed
+  // on focus AND via realtime. Matches exactly what employee.tsx's
+  // Notifications page shows (and clears), so the badge and list stay in sync.
+  const fetchDecidedRequestCount = useCallback(async () => {
+    if (!userId) return;
+    const { count } = await supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .in('type', [
+        'connection_accepted',
+        'connection_rejected',
+        'extension_accepted',
+        'extension_rejected',
+        'task_assigned',
+      ]);
 
-        setDecidedRequestCount(count ?? 0);
-      })();
-    }, [userId])
-  );
+    setDecidedRequestCount(count ?? 0);
+  }, [userId]);
+
+  useFocusEffect(useCallback(() => { fetchDecidedRequestCount(); }, [fetchDecidedRequestCount]));
+
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel(`employee_badge_notifs_${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        () => fetchDecidedRequestCount()
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId, fetchDecidedRequestCount]);
 
   if (loading) {
     return (
@@ -143,26 +171,30 @@ export default function Dashboard() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 20 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand.accent} colors={[colors.brand.accent]} />
+        }
+      >
         {/* ── Header Block ── */}
         <View>
           <View style={{
             flexDirection: "row",
             alignItems: "flex-start",
             justifyContent: "space-between",
-            paddingRight: 15,
+            paddingRight: wp(4),
           }}>
             {/* Greeting */}
             <View>
               <Text style={{
                 ...typography.subheading,
-                marginTop: 20, marginLeft: 15,
+                marginTop: hp(2.5), marginLeft: wp(4),
                 color: colors.text.secondary,
               }}>{getGreeting()}</Text>
               <Text style={{
                 ...typography.heading,
-                marginTop: 5, marginLeft: 15,
+                marginTop: 5, marginLeft: wp(4),
                 color: colors.text.primary,
               }}>Your Task Overview</Text>
             </View>
@@ -172,10 +204,10 @@ export default function Dashboard() {
               onPress={() => router.push("/notifications/employee")}
               style={{
                 position: "relative",
-                marginTop: 22,
-                height: 48,
-                width: 48,
-                borderRadius: 24,
+                marginTop: hp(2.7),
+                height: moderateScale(48),
+                width: moderateScale(48),
+                borderRadius: moderateScale(24),
                 backgroundColor: colors.base.surfaceL2,
                 alignItems: "center",
                 justifyContent: "center",
@@ -188,9 +220,9 @@ export default function Dashboard() {
                   position: "absolute",
                   top: 4,
                   right: 4,
-                  height: 10,
-                  width: 10,
-                  borderRadius: 5,
+                  height: moderateScale(10),
+                  width: moderateScale(10),
+                  borderRadius: moderateScale(5),
                   backgroundColor: colors.status.completed,
                 }} />
               )}
@@ -199,14 +231,14 @@ export default function Dashboard() {
 
           {/* Metrics Matrix Container */}
           <View style={{
-            backgroundColor: colors.base.surfaceL1, marginTop: 25, margin: 20, height: 140, borderRadius: 25,
+            backgroundColor: colors.base.surfaceL1, marginTop: hp(3), marginHorizontal: wp(5.3), height: moderateScale(140), borderRadius: 25,
             flexDirection: "row", alignItems: "center", justifyContent: "space-around",
             borderColor: colors.base.border, borderWidth: 1.5,
           }}>
             {/* Overdue */}
             <View style={{ alignItems: "center" }}>
               <View style={{
-                marginLeft: 12, height: 63, width: 63, borderRadius: 40,
+                marginLeft: wp(3.2), height: moderateScale(63), width: moderateScale(63), borderRadius: moderateScale(40),
                 backgroundColor: "rgba(239,133,143,0.4)", borderColor: colors.status.overdue,
                 borderWidth: 2, alignItems: "center", justifyContent: "center",
               }}>
@@ -218,7 +250,7 @@ export default function Dashboard() {
             {/* Pending */}
             <View style={{ alignItems: "center" }}>
               <View style={{
-                height: 63, width: 63, borderRadius: 40,
+                height: moderateScale(63), width: moderateScale(63), borderRadius: moderateScale(40),
                 backgroundColor: "rgba(255, 192, 104, 0.3)", borderColor: colors.status.pending,
                 borderWidth: 2, alignItems: "center", justifyContent: "center",
               }}>
@@ -230,7 +262,7 @@ export default function Dashboard() {
             {/* In Review */}
             <View style={{ alignItems: "center" }}>
               <View style={{
-                height: 63, width: 63, borderRadius: 40,
+                height: moderateScale(63), width: moderateScale(63), borderRadius: moderateScale(40),
                 backgroundColor: "rgba(100,150,255,0.2)", borderColor: colors.status.inReview,
                 borderWidth: 2, alignItems: "center", justifyContent: "center",
               }}>
@@ -242,7 +274,7 @@ export default function Dashboard() {
             {/* Completed */}
             <View style={{ alignItems: "center" }}>
               <View style={{
-                height: 63, width: 63, borderRadius: 40,
+                height: moderateScale(63), width: moderateScale(63), borderRadius: moderateScale(40),
                 backgroundColor: "rgba(100,220,120,0.2)", borderColor: colors.status.completed,
                 borderWidth: 2, alignItems: "center", justifyContent: "center",
               }}>
@@ -255,14 +287,14 @@ export default function Dashboard() {
 
         {/* ── Action Buttons Row ── */}
         <View style={{ flexDirection: "row", gap: 20 }}>
-          <View style={{ marginLeft: 33, flex: 1, marginRight: 33 }}>
+          <View style={{ marginHorizontal: wp(8.8), flex: 1 }}>
             <TouchableOpacity
               onPress={() => router.push("(task)/newtaskemp")}
               style={{
                 
                 backgroundColor: colors.brand.accent, padding: 14,
-                width: "100%", height: 60, borderRadius: 32,
-                flexDirection: "row", marginTop: -1, justifyContent: 'center', alignItems: 'center',
+                width: "100%", height: moderateScale(60), borderRadius: 32,
+                flexDirection: "row", marginTop: 20, justifyContent: 'center', alignItems: 'center',
               }}
             >
               <Ionicons style={{ marginRight: 10 }} name="add" size={28} color={colors.base.surfaceL1} />
@@ -272,11 +304,11 @@ export default function Dashboard() {
         </View>
 
         {/* ── Overdue Accordion ── */}
-        <View style={{ width: 320, marginTop: 30, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1}}>
-          <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal:20}}>
+        <View style={{ marginHorizontal: wp(8.8), marginTop: hp(3.7), borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
+          <View style={{ height: moderateScale(60), borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
             <Text style={{ ...typography.subheading, color: colors.status.overdue }}>Overdue</Text>
             <TouchableOpacity onPress={() => setShowOverdue(!showOverdue)}>
-              <Ionicons name={showOverdue ? "chevron-up-outline" : "chevron-down-outline"} size={30} color={colors.base.surfaceL1} style={{ backgroundColor: colors.status.overdue, borderRadius: 10, padding: 2}} />
+              <Ionicons name={showOverdue ? "chevron-up-outline" : "chevron-down-outline"} size={30} color={colors.base.surfaceL1} style={{ backgroundColor: colors.status.overdue, borderRadius: 10, padding: 2 }} />
             </TouchableOpacity>
           </View>
           {showOverdue && (
@@ -304,8 +336,8 @@ export default function Dashboard() {
                 overdueTasks.map((task) => (
                   <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
                     style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
-                    <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.overdue, alignItems: "center", justifyContent: "center" }}>
-                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.overdue }} />
+                    <View style={{ height: moderateScale(24), width: moderateScale(24), borderRadius: moderateScale(12), borderWidth: 2, borderColor: colors.status.overdue, alignItems: "center", justifyContent: "center" }}>
+                      <View style={{ height: moderateScale(12), width: moderateScale(12), borderRadius: moderateScale(6), backgroundColor: colors.status.overdue }} />
                     </View>
                     <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
                   </TouchableOpacity>
@@ -316,8 +348,8 @@ export default function Dashboard() {
         </View>
 
         {/* ── Pending Accordion ── */}
-        <View style={{ width: 320, marginTop: 20, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
-          <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
+        <View style={{ marginHorizontal: wp(8.8), marginTop: hp(2.5), borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
+          <View style={{ height: moderateScale(60), borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
             <Text style={{ ...typography.subheading, color: colors.status.pending }}>Pending</Text>
             <TouchableOpacity onPress={() => setShowPending(!showPending)}>
               <Ionicons name={showPending ? "chevron-up-outline" : "chevron-down-outline"} size={30} color={colors.base.surfaceL1} style={{ backgroundColor: colors.status.pending, borderRadius: 10, padding: 2 }} />
@@ -348,8 +380,8 @@ export default function Dashboard() {
                 pendingTasks.map((task) => (
                   <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
                     style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
-                    <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.pending, alignItems: "center", justifyContent: "center" }}>
-                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.pending }} />
+                    <View style={{ height: moderateScale(24), width: moderateScale(24), borderRadius: moderateScale(12), borderWidth: 2, borderColor: colors.status.pending, alignItems: "center", justifyContent: "center" }}>
+                      <View style={{ height: moderateScale(12), width: moderateScale(12), borderRadius: moderateScale(6), backgroundColor: colors.status.pending }} />
                     </View>
                     <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
                   </TouchableOpacity>
@@ -360,14 +392,14 @@ export default function Dashboard() {
         </View>
 
         {/* ── In Review Accordion ── */}
-        <View style={{ width: 320, marginTop: 20, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
-          <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
+        <View style={{ marginHorizontal: wp(8.8), marginTop: hp(2.5), borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
+          <View style={{ height: moderateScale(60), borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
             <Text style={{ ...typography.subheading, color: colors.status.inReview }}>In Review</Text>
             <TouchableOpacity onPress={() => setShowReview(!showReview)}>
               <Ionicons name={showReview ? "chevron-up-outline" : "chevron-down-outline"} size={30} color={colors.base.surfaceL1} style={{ backgroundColor: colors.status.inReview, borderRadius: 10, padding: 2 }} />
             </TouchableOpacity>
           </View>
-         {showReview && (
+          {showReview && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
               {reviewTasks.length === 0 ? (
                 <View style={{
@@ -392,8 +424,8 @@ export default function Dashboard() {
                 reviewTasks.map((task) => (
                   <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
                     style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
-                    <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.inReview, alignItems: "center", justifyContent: "center" }}>
-                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.inReview }} />
+                    <View style={{ height: moderateScale(24), width: moderateScale(24), borderRadius: moderateScale(12), borderWidth: 2, borderColor: colors.status.inReview, alignItems: "center", justifyContent: "center" }}>
+                      <View style={{ height: moderateScale(12), width: moderateScale(12), borderRadius: moderateScale(6), backgroundColor: colors.status.inReview }} />
                     </View>
                     <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
                   </TouchableOpacity>
@@ -404,8 +436,8 @@ export default function Dashboard() {
         </View>
 
         {/* ── Completed Accordion ── */}
-        <View style={{ width: 320, marginTop: 20, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
-          <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
+        <View style={{ marginHorizontal: wp(8.8), marginTop: hp(2.5), borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
+          <View style={{ height: moderateScale(60), borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
             <Text style={{ ...typography.subheading, color: colors.status.completed }}>Completed</Text>
             <TouchableOpacity onPress={() => setShowCompleted(!showCompleted)}>
               <Ionicons name={showCompleted ? "chevron-up-outline" : "chevron-down-outline"} size={30} color={colors.base.surfaceL1} style={{ backgroundColor: colors.status.completed, borderRadius: 10, padding: 2 }} />
@@ -436,8 +468,8 @@ export default function Dashboard() {
                 completedTasks.map((task) => (
                   <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
                     style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
-                    <View style={{ height: 24, width: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.status.completed, alignItems: "center", justifyContent: "center" }}>
-                      <View style={{ height: 12, width: 12, borderRadius: 6, backgroundColor: colors.status.completed }} />
+                    <View style={{ height: moderateScale(24), width: moderateScale(24), borderRadius: moderateScale(12), borderWidth: 2, borderColor: colors.status.completed, alignItems: "center", justifyContent: "center" }}>
+                      <View style={{ height: moderateScale(12), width: moderateScale(12), borderRadius: moderateScale(6), backgroundColor: colors.status.completed }} />
                     </View>
                     <Text style={{ ...typography.heading3, color: colors.text.primary }}>{task.title}</Text>
                   </TouchableOpacity>
