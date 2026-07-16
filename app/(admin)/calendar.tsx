@@ -14,7 +14,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
-
+  
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
 interface Task { id: string; title: string; descp: string; category: TaskCategory; }
 
@@ -63,8 +63,15 @@ type TaskRow = {
   workspace_id: string;
 };
 
-function mapStatusToCategory(status: TaskRow["status"]): TaskCategory {
-  return status === "in_review" ? "inReview" : status;
+function mapStatusToCategory(status: TaskRow["status"], deadline: string): TaskCategory {
+  if (status === "completed") return "completed";
+  if (status === "in_review") return "inReview";
+
+  // "pending" (or a stale "overdue" value) becomes overdue once the
+  // deadline has passed — computed here rather than trusted from the DB,
+  // since nothing currently writes "overdue" into the status column.
+  const isPastDeadline = deadline ? new Date(deadline) < new Date() : false;
+  return isPastDeadline ? "overdue" : "pending";
 }
 
 function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
@@ -76,7 +83,7 @@ function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
       id: row.id,
       title: row.title,
       descp: row.description ?? "",
-      category: mapStatusToCategory(row.status),
+      category: mapStatusToCategory(row.status, row.deadline),
     };
     if (!map[dateKey]) map[dateKey] = [];
     map[dateKey].push(task);

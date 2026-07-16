@@ -23,6 +23,7 @@ import CollapsibleSection from "../../components/CollapsibleSection";
 import ConfirmModal from "../../components/confirmModal";
 import { router } from "expo-router";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
+import { wp, moderateScale } from "../../utils/responsive";
 
 
 type UserRow = {
@@ -45,7 +46,7 @@ const THEME_OPTIONS: {
     { value: "system", label: "System", icon: "phone-portrait-outline" },
   ];
 
-const AVATAR_SIZE = 84;
+const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
 
 export default function EmployeeProfile() {
@@ -784,7 +785,7 @@ export default function EmployeeProfile() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 40 },
+  scrollContent: { padding: wp(5.3), paddingBottom: 40 },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -827,8 +828,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: -2,
     right: -2,
-    width: 26,
-    height: 26,
+    width: moderateScale(26),
+    height: moderateScale(26),
     borderRadius: 13,
     borderWidth: 2,
     alignItems: "center",

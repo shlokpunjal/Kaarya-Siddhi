@@ -1,7 +1,7 @@
-
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import { Image } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { moderateScale } from '../../utils/responsive';
 
 const icons = {
   home: {
@@ -30,7 +30,7 @@ function TabIcon({ source, focused }: { source: any; focused: boolean }) {
   return (
     <Image
       source={source}
-      style={{ width: 28, height: 28, opacity: focused ? 1 : 0.6 }}
+      style={{ width: moderateScale(28), height: moderateScale(28), opacity: focused ? 1 : 0.6 }}
       resizeMode="contain"
     />
   );
@@ -47,7 +47,7 @@ export default function EmployeeTabsLayout() {
         tabBarInactiveTintColor: '#A9B2C8',
         tabBarStyle: {
           backgroundColor: colors.brand.primary,
-          height: 90,
+          height: moderateScale(90),
           paddingTop: 6,
           paddingBottom: 8,
           borderTopWidth: 0,
@@ -80,7 +80,7 @@ export default function EmployeeTabsLayout() {
       <Tabs.Screen
         name="report"
         options={{
-          title: 'Reports',
+          title: 'eOffice',
           tabBarIcon: ({ focused }) => (
             <TabIcon source={focused ? icons.report.filled : icons.report.outline} focused={focused} />
           ),
