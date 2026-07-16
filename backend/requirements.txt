@@ -21,3 +21,4 @@ supabase
 openpyxl
 reportlab
 apscheduler
+gspread
