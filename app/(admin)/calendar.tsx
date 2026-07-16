@@ -14,7 +14,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
-
+  
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
 interface Task { id: string; title: string; descp: string; category: TaskCategory; }
 
