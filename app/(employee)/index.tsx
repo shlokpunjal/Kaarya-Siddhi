@@ -154,8 +154,12 @@ export default function Dashboard() {
     );
   }
 
-  const overdueTasks = tasks.filter(t => t.status === "overdue");
-  const pendingTasks = tasks.filter(t => t.status === "pending");
+  const overdueTasks = tasks.filter(
+    (t) => t.status === "pending" && new Date(t.dueDate) < new Date()
+  );
+  const pendingTasks = tasks.filter(
+    (t) => t.status === "pending" && new Date(t.dueDate) >= new Date()
+  );
   const reviewTasks = tasks.filter(t => t.status === "inReview");
   const completedTasks = tasks.filter(t => t.status === "completed");
 
