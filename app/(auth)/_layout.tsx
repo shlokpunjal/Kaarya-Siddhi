@@ -8,6 +8,8 @@ import { useFonts } from "expo-font";
 import { useEffect } from "react";
 import * as Notifications from "expo-notifications";
 
+import { LoadingProvider } from "../../context/LoadingContext";
+
 export default function Layout() {
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -32,11 +34,17 @@ export default function Layout() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        animation: "slide_from_right",
-      }}
-    />
+    <LoadingProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: "slide_from_right",
+          // animation: "fade",
+          animationDuration: 250,
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+        }}
+      />
+    </LoadingProvider>
   );
 }
