@@ -154,15 +154,16 @@ export default function Dashboard() {
     );
   }
 
+  const todayDateStr = new Date().toISOString().slice(0, 10);
+
   const overdueTasks = tasks.filter(
-    (t) => t.status === "pending" && new Date(t.dueDate) < new Date()
+    (t) => t.status === "pending" && t.dueDate?.slice(0, 10) < todayDateStr
   );
   const pendingTasks = tasks.filter(
-    (t) => t.status === "pending" && new Date(t.dueDate) >= new Date()
+    (t) => t.status === "pending" && t.dueDate?.slice(0, 10) >= todayDateStr
   );
   const reviewTasks = tasks.filter(t => t.status === "inReview");
   const completedTasks = tasks.filter(t => t.status === "completed");
-
   // ── If every category is empty, show the NoTasks screen instead ──
   if (
     overdueTasks.length === 0 &&

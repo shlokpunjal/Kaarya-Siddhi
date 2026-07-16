@@ -67,10 +67,12 @@ function mapStatusToCategory(status: TaskRow["status"], deadline: string): TaskC
   if (status === "completed") return "completed";
   if (status === "in_review") return "inReview";
 
-  // "pending" (or a stale "overdue" value) becomes overdue once the
-  // deadline has passed — computed here rather than trusted from the DB,
-  // since nothing currently writes "overdue" into the status column.
-  const isPastDeadline = deadline ? new Date(deadline) < new Date() : false;
+  // Compare calendar dates only (not exact timestamps) so a task stays
+  // "pending" for the entirety of its deadline day, and only becomes
+  // "overdue" starting the day after.
+  const deadlineDate = deadline ? deadline.slice(0, 10) : null;
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const isPastDeadline = deadlineDate ? deadlineDate < todayDate : false;
   return isPastDeadline ? "overdue" : "pending";
 }
 
