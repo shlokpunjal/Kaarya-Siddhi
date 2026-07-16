@@ -20,3 +20,4 @@ dotenv
 supabase
 openpyxl
 reportlab
+apscheduler
