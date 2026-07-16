@@ -16,6 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { wp, moderateScale } from '../../utils/responsive';
 
 export default function TaskDetail() {
   const { colors } = useTheme();
@@ -239,7 +240,7 @@ useEffect(() => {
       <View
         style={{
           backgroundColor: colors.brand.primary,
-          height: 70,
+          height: moderateScale(70),
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 16,
@@ -248,7 +249,7 @@ useEffect(() => {
         <Ionicons
           onPress={() => router.back()}
           name="arrow-back"
-          size={28}
+          size={moderateScale(28)}
           color={colors.brand.onPrimary}
         />
         <Text
@@ -257,7 +258,7 @@ useEffect(() => {
             color: colors.brand.onPrimary,
             flex: 1,
             textAlign: "center",
-            marginRight: 28,
+            marginRight: moderateScale(28),
           }}
         >
           Task Details
@@ -265,7 +266,7 @@ useEffect(() => {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
         <View
@@ -274,7 +275,7 @@ useEffect(() => {
             borderRadius: 16,
             borderWidth: 1,
             borderColor: colors.base.border,
-            padding: 20,
+            padding: wp(5.3),
             ...Platform.select({
               ios: {
                 shadowColor: "#000",
@@ -521,7 +522,7 @@ useEffect(() => {
                   task.status === "completed" || task.status === "inReview"
                     ? colors.base.border
                     : colors.brand.accent,
-                height: 50,
+                height: moderateScale(50),
                 borderRadius: 12,
                 justifyContent: "center",
                 alignItems: "center",
