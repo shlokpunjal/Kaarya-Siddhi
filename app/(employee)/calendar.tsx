@@ -13,6 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { useRouter } from "expo-router";
+import { wp, moderateScale } from "../../utils/responsive";
 import { supabase } from "../../lib/supabase";
 
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
@@ -253,7 +254,7 @@ export default function CalendarScreen() {
     <ScrollView
    style={[s.container, { backgroundColor: base.background }]}
    refreshControl={
-     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brand.secprimary} colors={[brand.secprimary]} />
+     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brand.accent} colors={[brand.accent]} />
    }
  >
       {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -472,15 +473,15 @@ const s = StyleSheet.create({
 
   /* Header */
   header: {
-    height: 60,
+    height: moderateScale(60),
     justifyContent: "center",
-    paddingLeft: 20,
+    paddingLeft: wp(5.3),
     marginTop: Platform.OS === "android" ? 36 : 44,
   },
-  headerText: { fontSize: 22, fontFamily: "Poppins-SemiBold" },
+  headerText: { fontSize: moderateScale(22), fontFamily: "Poppins-SemiBold" },
 
   /* Calendar card */
-  calendarBlock: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
+  calendarBlock: { paddingHorizontal: wp(3.2), paddingTop: 8, paddingBottom: 4 },
   calendarCard: {
     borderRadius: 16,
     borderWidth: 1,
@@ -496,12 +497,12 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 14,
+    paddingHorizontal: wp(3.7),
     paddingTop: 8,
     paddingBottom: 4,
   },
-  arrow:      { fontSize: 34, lineHeight: 36, fontFamily: "Poppins-Regular" },
-  monthTitle: { fontSize: 28, fontFamily: "Poppins-SemiBold" },
+  arrow:      { fontSize: moderateScale(34), lineHeight: 36, fontFamily: "Poppins-Regular" },
+  monthTitle: { fontSize: moderateScale(28), fontFamily: "Poppins-SemiBold" },
 
   /* Weekday header */
   weekRow: {
@@ -511,7 +512,7 @@ const s = StyleSheet.create({
   weekDay: {
     flex: 1,
     textAlign: "center",
-    fontSize: 10,
+    fontSize: moderateScale(10),
     fontFamily: "Poppins-Medium",
     paddingVertical: 4,
   },
@@ -527,12 +528,12 @@ const s = StyleSheet.create({
   /* Divider line between month nav and weekday labels */
   monthDivider: {
     height: 1,
-    marginHorizontal: 14,
+    marginHorizontal: wp(3.7),
     marginBottom:8,
   },
   cell: {
     flex: 1,
-    height: 46,
+    height: moderateScale(46),
     justifyContent: "center",   // vertically center content
     alignItems: "center",       // horizontally center content
     paddingTop: 0,
@@ -570,7 +571,7 @@ const s = StyleSheet.create({
 
   /* Date number */
   cellNum: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontFamily: "Poppins-Regular",
     lineHeight: 15,
     textAlign: "center",
@@ -583,7 +584,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  dot: { width: 4, height: 4, borderRadius: 2 },
+  dot: { width: moderateScale(4), height: moderateScale(4), borderRadius: 2 },
 
   /* Legend */
   legend: {
@@ -593,12 +594,12 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
   },
   legendItem:  { flexDirection: "row", alignItems: "center", gap: 4 },
-  legendDot:   { width: 7, height: 7, borderRadius: 4 },
-  legendLabel: { fontSize: 10, fontFamily: "Poppins-Regular" },
+  legendDot:   { width: moderateScale(7), height: moderateScale(7), borderRadius: 4 },
+  legendLabel: { fontSize: moderateScale(10), fontFamily: "Poppins-Regular" },
 
   /* Task section */
-  taskSection: { flex: 1, paddingHorizontal: 12, paddingTop: 10 },
-  taskHeading: { fontSize: 15, fontFamily: "Poppins-SemiBold", marginBottom: 8 },
+  taskSection: { flex: 1, paddingHorizontal: wp(3.2), paddingTop: 10 },
+  taskHeading: { fontSize: moderateScale(15), fontFamily: "Poppins-SemiBold", marginBottom: 8 },
   taskScroll:  { paddingBottom: 24 },
 
   taskCard: {
@@ -619,10 +620,10 @@ const s = StyleSheet.create({
     marginBottom: 4,
     gap: 8,
   },
-  taskTitle: { fontSize: 14, fontFamily: "Poppins-Medium", flex: 1 },
+  taskTitle: { fontSize: moderateScale(14), fontFamily: "Poppins-Medium", flex: 1 },
   badge:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  badgeText: { fontSize: 10, fontFamily: "Poppins-Medium" },
-  taskDesc:  { fontSize: 12, fontFamily: "Poppins-Regular", lineHeight: 18 },
+  badgeText: { fontSize: moderateScale(10), fontFamily: "Poppins-Medium" },
+  taskDesc:  { fontSize: moderateScale(12), fontFamily: "Poppins-Regular", lineHeight: 18 },
 
   /* Empty state */
   emptyState: {
@@ -633,6 +634,6 @@ const s = StyleSheet.create({
     borderRadius: 12,
     marginTop: 8,
   },
-  emptyTitle:    { fontSize: 14, fontFamily: "Poppins-Medium" },
-  emptySubtitle: { fontSize: 12, fontFamily: "Poppins-Regular", marginTop: 4, opacity: 0.6 },
+  emptyTitle:    { fontSize: moderateScale(14), fontFamily: "Poppins-Medium" },
+  emptySubtitle: { fontSize: moderateScale(12), fontFamily: "Poppins-Regular", marginTop: 4, opacity: 0.6 },
 });

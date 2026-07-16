@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { TaskStatus, TaskPriority, Task } from '../../types/task';
 import { typography } from '../../theme/theme';
+import { wp, hp } from '../../utils/responsive';
 import { useTheme } from '../../context/ThemeContext';
 
 type FilterType = 'all' | 'status' | 'priority' | 'label' | 'deadlineAsc' | 'deadlineDesc' | 'priorityHighLow' | 'priorityLowHigh';
@@ -349,10 +350,10 @@ export default function EmployeeTasks() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: wp(5.3), paddingTop: 12, paddingBottom: 8 },
   filterButton: { borderRadius: 10, borderWidth: 1, paddingVertical: 8, paddingHorizontal: 14 },
   searchRow: {
-    paddingHorizontal: 20,
+    paddingHorizontal: wp(5.3),
     paddingBottom: 14,
   },
   searchBar: {
@@ -394,13 +395,13 @@ const styles = StyleSheet.create({
   clearButton: {
     marginLeft: 8,
   },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 32 },
+  scrollContent: { paddingHorizontal: wp(5.3), paddingBottom: 32 },
   taskCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
   taskCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   statusBadge: { borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10 },
   statusBadgeText: { color: '#FFFFFF' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
-  modalCard: { borderRadius: 18, padding: 20, maxHeight: 480, alignSelf: 'center', width: '100%' },
+  modalCard: { borderRadius: 18, padding: 20, maxHeight: hp(59), alignSelf: 'center', width: '100%' },
   scrollArea: { flexGrow: 0 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1 },
