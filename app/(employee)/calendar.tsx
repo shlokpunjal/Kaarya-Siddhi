@@ -535,11 +535,7 @@ const s = StyleSheet.create({
   /* Divider line between month nav and weekday labels */
   monthDivider: {
     height: 1,
-<<<<<<< HEAD
-    marginHorizontal: 0,
-=======
     marginHorizontal: wp(3.7),
->>>>>>> efb3bba4ef8161c95f017c958eb481c53ff3231d
     marginBottom:8,
   },
   cell: {
