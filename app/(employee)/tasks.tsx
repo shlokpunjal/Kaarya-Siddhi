@@ -281,8 +281,15 @@ export default function EmployeeTasks() {
                   </Text>
                 </View>
               </View>
-              <Text style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}>
-                {task.label} · {task.priority.toUpperCase()} priority · Due {task.dueDate}
+              <Text
+                style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}
+              >
+               {task.label} · {task.priority.toUpperCase()} · Due{" "}
+                {new Date(task.dueDate).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
               </Text>
             </Pressable>
           ))

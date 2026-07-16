@@ -16,6 +16,7 @@ import { typography } from '../../theme/theme';
 import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone } from "../../constants/validators";
+import useLoading from "../../hooks/useLoading";
 
 
 const EmployeeLogin = () => {
@@ -23,6 +24,7 @@ const EmployeeLogin = () => {
   const [email, setEmail] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [isSending, setIsSending] = useState(false);
+  const { showLoading, hideLoading } = useLoading();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [errors, setErrors] = useState({
@@ -78,6 +80,7 @@ const EmployeeLogin = () => {
     try {
       setIsSending(true);
       setErrors({ phone: "", email: "" });
+      showLoading("Sending verification code...");
 
       // STEP 1 : Check account exists
       const loginResponse = await fetch(`${API_BASE_URL}/login`, {
@@ -108,6 +111,7 @@ const EmployeeLogin = () => {
             email: loginData.detail || "Account not found",
           }));
         }
+        hideLoading();
         return;
       }
 
@@ -130,11 +134,13 @@ const EmployeeLogin = () => {
           ...prev,
           email: otpData.detail || "Failed to send OTP",
         }));
+        hideLoading();
         return;
       }
 
       startCooldown();
 
+      hideLoading();
       router.push({
         pathname: "/OtpVerify",
         params: {
@@ -145,6 +151,7 @@ const EmployeeLogin = () => {
         },
       });
     } catch (error) {
+      hideLoading();
       console.log(error);
       setErrors((prev) => ({
         ...prev,

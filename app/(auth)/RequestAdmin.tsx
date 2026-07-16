@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   ScrollView,
@@ -13,13 +12,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../lib/supabase";
-import { typography } from '../../theme/theme';
+import { typography } from "../../theme/theme";
 import FadeIn from "../../components/FadeIn";
 import BackButton from "../../components/backButton";
 import { authFetch } from "../../utils/authFetch";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail } from "../../constants/validators";
-
+import useLoading from "../../hooks/useLoading";
 
 export default function RequestAdmin() {
   const { email } = useLocalSearchParams<{ email: string }>();
@@ -28,6 +27,8 @@ export default function RequestAdmin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  const { showLoading, hideLoading } = useLoading();
 
   const sendRequest = async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -46,24 +47,24 @@ export default function RequestAdmin() {
       setLoading(true);
       setError("");
       setSuccessMessage("");
+      showLoading("Connecting to workspace...");
 
       const trimmedAdminEmail = adminEmail.trim();
 
-      // Confirm the email exists in the admins table before sending the request
       const { data: adminRow, error: adminLookupError } = await supabase
-        .from('users')
-        .select('email')
-        .eq('email', trimmedAdminEmail)
+        .from("users")
+        .select("email")
+        .eq("email", trimmedAdminEmail)
         .maybeSingle();
 
       if (adminLookupError) throw adminLookupError;
 
       if (!adminRow) {
         setError("No admin found with that email");
+        hideLoading();
         return;
       }
 
-      // Actually create the pending connection so WaitingApproval can poll it
       const response = await authFetch("/connect-request", {
         method: "POST",
         body: JSON.stringify({
@@ -76,10 +77,12 @@ export default function RequestAdmin() {
 
       if (!response.ok) {
         setError(data.detail || "Unable to send request");
+        hideLoading();
         return;
       }
 
       setSuccessMessage("Request sent successfully.");
+      hideLoading();
 
       router.replace({
         pathname: "/(auth)/WaitingApproval",
@@ -89,6 +92,7 @@ export default function RequestAdmin() {
         },
       });
     } catch (err: any) {
+      hideLoading();
       console.log(err);
       setError(err.message || "Unable to connect to server.");
     } finally {
@@ -96,9 +100,7 @@ export default function RequestAdmin() {
     }
   };
 
-  const handleSkip = () => {
-    router.replace("/(employee)");
-  };
+  const handleSkip = () => router.replace("/(employee)");
 
   return (
     <SafeAreaView style={styles.container}>
@@ -128,9 +130,7 @@ export default function RequestAdmin() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.title}>
-                Enter your Admin's Email
-              </Text>
+              <Text style={styles.title}>Enter your Admin's Email</Text>
 
               <View style={{ width: "100%", alignItems: "center" }}>
                 <ValidatedInput
@@ -159,13 +159,7 @@ export default function RequestAdmin() {
                   onPress={sendRequest}
                   disabled={loading}
                 >
-                  {loading ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <Text style={styles.buttonText}>
-                      Send Request
-                    </Text>
-                  )}
+                  <Text style={styles.buttonText}>Send Request</Text>
                 </TouchableOpacity>
               </View>
             </View>

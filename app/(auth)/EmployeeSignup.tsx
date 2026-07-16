@@ -18,6 +18,7 @@ import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone, isValidName } from "../../constants/validators";
+import useLoading from "../../hooks/useLoading";
 
 export default function EmployeeSignup() {
   const [name, setName] = useState("");
@@ -26,6 +27,7 @@ export default function EmployeeSignup() {
   const [email, setEmail] = useState("");
   const [nameChecking, setNameChecking] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { showLoading, hideLoading } = useLoading();
 
   const [errors, setErrors] = useState({
     name: "",
@@ -125,6 +127,7 @@ export default function EmployeeSignup() {
 
     try {
       setLoading(true);
+      showLoading("Creating your account...");
       setErrors({
         name: "",
         department: "",
@@ -166,6 +169,7 @@ export default function EmployeeSignup() {
         } else {
           setCardError(signupData.detail || "Signup failed");
         }
+        hideLoading();
         return;
       }
       const otpResponse = await fetch(`${API_BASE_URL}/send-otp`, {
@@ -183,9 +187,11 @@ export default function EmployeeSignup() {
 
       if (!otpResponse.ok) {
         setCardError(otpData.detail || "Failed to send OTP");
+        hideLoading();
         return;
       }
 
+      hideLoading();
       router.push({
         pathname: "/(auth)/OtpVerify",
         params: {
@@ -196,6 +202,7 @@ export default function EmployeeSignup() {
         },
       });
     } catch (error) {
+      hideLoading();
       console.log(error);
       setCardError("Something went wrong. Please try again.");
     } finally {
@@ -454,12 +461,14 @@ const styles = StyleSheet.create({
   login: {
     alignItems: "center",
     justifyContent: "center",
+    flexDirection:"row",
+    gap:3,
   },
 
   loginT: {
     color: PRIMARY,
     fontFamily: "Poppins_600SemiBold",
-    marginTop: 4,
+    marginTop: 27.5,
     textDecorationLine: "underline",
   },
 });
