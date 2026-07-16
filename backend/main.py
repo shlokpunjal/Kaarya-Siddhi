@@ -1960,6 +1960,43 @@ async def refresh_token_endpoint(data: RefreshRequest):
         "token": access_token,
         "refresh_token": new_refresh_token,
     }
+    
+class DisconnectAdminRequest(BaseModel):
+    employee_email: str
+
+@app.post("/employee/disconnect-admin")
+async def disconnect_admin(data: DisconnectAdminRequest, current_user: dict = Depends(get_current_user)):
+    employee_email = normalize_email(data.employee_email)
+
+    if current_user.get("sub") != employee_email:
+        raise HTTPException(status_code=403, detail="You can only disconnect your own account.")
+
+    employee = (
+        supabase.table("users")
+        .select("*")
+        .eq("email", employee_email)
+        .eq("role", "employee")
+        .execute()
+    )
+
+    if not employee.data:
+        raise HTTPException(status_code=404, detail="Employee account not found.")
+
+    employee_row = employee.data[0]
+
+    if not employee_row.get("workspace_id"):
+        raise HTTPException(status_code=400, detail="You are not currently connected to any admin.")
+
+    supabase.table("users").update({
+        "workspace_id": None
+    }).eq("email", employee_email).execute()
+
+    supabase.table("connections").delete().eq("employee_email", employee_email).execute()
+
+    return {
+        "success": True,
+        "message": "Disconnected from admin successfully."
+    }
 
 class LogoutRequest(BaseModel):
     refresh_token: str
