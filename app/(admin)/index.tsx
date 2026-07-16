@@ -1,5 +1,5 @@
 
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
@@ -48,85 +48,140 @@ export default function Dashboard() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   // For admins, the badge counts requests still awaiting THEIR review — not
   // requests they themselves filed (admins don't file extension requests).
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
 
+  // ── Fetch tasks for the logged-in admin. Shared by initial load and pull-to-refresh ──
+  const checkUserAndFetchTasks = useCallback(async (isMounted: () => boolean = () => true) => {
+    const email = await AsyncStorage.getItem('userEmail');
+    if (!email) {
+      console.error('No active session found, redirecting...');
+      if (isMounted()) router.replace('/(auth)/LoginChoice');
+      return;
+    }
+
+    const { data: currentUser, error: userLookupError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (userLookupError || !currentUser) {
+      console.error('Could not resolve user id for email:', email);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('created_by', currentUser.id)
+      .order('deadline', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching tasks:', error.message);
+    } else if (isMounted()) {
+      setTasks((data ?? []).map(mapRowToTask));
+    }
+  }, [router]);
+
   // ── Initial task fetch ───────────────────────────────────────────────────────
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
+    setLoading(true);
+    checkUserAndFetchTasks(() => mounted).finally(() => {
+      if (mounted) setLoading(false);
+    });
+    return () => { mounted = false; };
+  }, [checkUserAndFetchTasks]);
 
-    const checkUserAndFetchTasks = async () => {
-      setLoading(true);
-
-      const email = await AsyncStorage.getItem('userEmail');
-      if (!email) {
-        console.error('No active session found, redirecting...');
-        if (isMounted) router.replace('/(auth)/LoginChoice');
-        return;
-      }
-
-      const { data: currentUser, error: userLookupError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .single();
-
-      if (userLookupError || !currentUser) {
-        console.error('Could not resolve user id for email:', email);
-        if (isMounted) setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('created_by', currentUser.id)
-        .order('deadline', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching tasks:', error.message);
-      } else if (isMounted) {
-        setTasks((data ?? []).map(mapRowToTask));
-      }
-
-      if (isMounted) setLoading(false);
-    };
-
-    checkUserAndFetchTasks();
-    return () => { isMounted = false; };
-  }, []);
+  // ── Pull-to-refresh ──────────────────────────────────────────────────────────
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await checkUserAndFetchTasks();
+    setRefreshing(false);
+  }, [checkUserAndFetchTasks]);
 
   // ── Bell badge: count of requests still pending admin review, refreshed on focus ──
   // Scoped to this admin's own workspace — otherwise it counts every pending
   // request across every admin's team.
-  useFocusEffect(
-    useCallback(() => {
-      (async () => {
-        const email = await AsyncStorage.getItem('userEmail');
-        if (!email) return;
+  // Replace the pendingRequestCount useFocusEffect block with this:
 
-        const { data: userRow } = await supabase
-          .from('users')
-          .select('workspace_id')
-          .eq('email', email)
-          .single();
+const fetchPendingRequestCount = useCallback(async () => {
+  const email = await AsyncStorage.getItem('userEmail');
+  if (!email) return;
 
-        if (!userRow?.workspace_id) {
-          setPendingRequestCount(0);
-          return;
-        }
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('id, workspace_id')
+    .eq('email', email)
+    .single();
 
-        const { count } = await supabase
-          .from('extension_requests')
-          .select('*', { count: 'exact', head: true })
-          .eq('workspace_id', userRow.workspace_id)
-          .eq('status', 'pending');
+  if (!userRow?.workspace_id) {
+    setPendingRequestCount(0);
+    return;
+  }
 
-        setPendingRequestCount(count ?? 0);
-      })();
-    }, [])
-  );
+  const { count: connCount } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userRow.id)
+    .eq('type', 'connection_request');
+
+  const { count: extCount } = await supabase
+    .from('extension_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('workspace_id', userRow.workspace_id)
+    .eq('status', 'pending');
+
+  setPendingRequestCount((connCount ?? 0) + (extCount ?? 0));
+}, []);
+
+useFocusEffect(useCallback(() => { fetchPendingRequestCount(); }, [fetchPendingRequestCount]));
+
+// New: realtime, so the dot updates instantly instead of waiting for focus.
+useEffect(() => {
+  let notifChannel: any;
+  let extensionChannel: any;
+
+  (async () => {
+    const email = await AsyncStorage.getItem('userEmail');
+    if (!email) return;
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('id, workspace_id')
+      .eq('email', email)
+      .single();
+    if (!userRow) return;
+
+    notifChannel = supabase
+      .channel(`dashboard_badge_notifs_${userRow.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userRow.id}` },
+        () => fetchPendingRequestCount()
+      )
+      .subscribe();
+
+    if (userRow.workspace_id) {
+      extensionChannel = supabase
+        .channel(`dashboard_badge_ext_${userRow.workspace_id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'extension_requests', filter: `workspace_id=eq.${userRow.workspace_id}` },
+          () => fetchPendingRequestCount()
+        )
+        .subscribe();
+    }
+  })();
+
+  return () => {
+    if (notifChannel) supabase.removeChannel(notifChannel);
+    if (extensionChannel) supabase.removeChannel(extensionChannel);
+  };
+  }, [fetchPendingRequestCount]);
+  
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }}>
@@ -153,7 +208,12 @@ export default function Dashboard() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 20 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand.accent} colors={[colors.brand.accent]} />
+        }
+      >
 
         {/* ── Header Block ── */}
         <View>
@@ -373,6 +433,6 @@ export default function Dashboard() {
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }

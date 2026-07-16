@@ -1,9 +1,10 @@
 // app/notifications/employee.tsx
 //
 // Reads DECIDED notifications only (connection_accepted/rejected,
-// extension_accepted/rejected) — pending items never appear here since the
-// employee already sees pending status on the task-detail screen itself.
-// Clear All performs a real delete from the notifications table.
+// extension_accepted/rejected, task_assigned) — pending items never appear
+// here since the employee already sees pending status on the task-detail
+// screen itself. Clear All performs a real delete from the notifications
+// table. Must stay in sync with the bell-badge query in (employee)/index.tsx.
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
@@ -18,15 +19,23 @@ import { supabase } from "../../lib/supabase";
 
 type NotifRow = {
   id: string;
-  type: "connection_accepted" | "connection_rejected" | "extension_accepted" | "extension_rejected";
+  type:
+    | "connection_accepted"
+    | "connection_rejected"
+    | "extension_accepted"
+    | "extension_rejected"
+    | "task_assigned";
   message: string;
   created_at: string;
   metadata: any;
+  task_id: string | null;
 };
 
 const notifMeta = (colors: any, type: NotifRow["type"]) => {
   if (type === "connection_accepted" || type === "extension_accepted")
     return { color: colors.status.completed, icon: "checkmark-circle-outline" as const };
+  if (type === "task_assigned")
+    return { color: colors.brand.accent, icon: "briefcase-outline" as const };
   return { color: colors.status.overdue, icon: "close-circle-outline" as const };
 };
 
@@ -51,9 +60,15 @@ export default function EmployeeNotifications() {
     setLoading(true);
     const { data, error } = await supabase
       .from("notifications")
-      .select("id, type, message, created_at, metadata")
+      .select("id, type, message, created_at, metadata, task_id")
       .eq("user_id", id)
-      .in("type", ["connection_accepted", "connection_rejected", "extension_accepted", "extension_rejected"])
+      .in("type", [
+        "connection_accepted",
+        "connection_rejected",
+        "extension_accepted",
+        "extension_rejected",
+        "task_assigned",
+      ])
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -107,6 +122,11 @@ export default function EmployeeNotifications() {
         pathname: "/notifications/employee-request-detail",
         params: { requestId: n.metadata?.extension_request_id },
       });
+    } else if (n.type === "task_assigned") {
+      router.push({
+        pathname: "/(task)/task-detail",
+        params: { taskId: n.task_id ?? n.metadata?.taskId },
+      });
     }
     // Connection notifications have no dedicated detail screen — just informational.
   };
@@ -148,11 +168,12 @@ export default function EmployeeNotifications() {
         {notifications.map((n) => {
           const meta = notifMeta(colors, n.type);
           const isExtension = n.type.startsWith("extension");
+          const isTappable = isExtension || n.type === "task_assigned";
           return (
             <TouchableOpacity
               key={n.id}
               onPress={() => handlePress(n)}
-              disabled={!isExtension}
+              disabled={!isTappable}
               style={{
                 flexDirection: "row",
                 alignItems: "flex-start",
