@@ -72,6 +72,8 @@ export default function EmployeeProfile() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
   const [logoutVisible, setLogoutVisible] = useState(false);
+  const [changeAdminVisible, setChangeAdminVisible] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -424,8 +426,8 @@ export default function EmployeeProfile() {
                 ]}
               >
                 {connectionStatus === "pending"
-                  ? "Your request to join an admin's workspace is pending approval."
-                  : "You're not connected to any admin yet."}
+                  ? "You aren't connected to an admin's workspace yet."
+                  : "You aren't connected to any admin yet."}
               </Text>
             </View>
 
@@ -790,35 +792,19 @@ export default function EmployeeProfile() {
               <Ionicons
                 name="swap-horizontal-outline"
                 size={20}
-                color={
-                  connectionStatus === "accepted"
-                    ? colors.brand.accent
-                    : colors.text.secondary
-                }
+                color={connectionStatus === "accepted" ? colors.brand.accent : colors.text.secondary}
               />
               <View style={{ marginLeft: 12 }}>
                 <Text
                   style={[
-                    typography.body,
-                    {
-                      color:
-                        connectionStatus === "accepted"
-                          ? colors.text.primary
-                          : colors.text.secondary,
-                    },
+                    typography.heading3,
+                    { color: connectionStatus === "accepted" ? colors.text.primary : colors.text.secondary },
                   ]}
                 >
                   Change Admin
                 </Text>
-                <Text
-                  style={[
-                    typography.label,
-                    { color: colors.text.secondary, marginTop: 2 },
-                  ]}
-                >
-                  {connectionStatus === "accepted"
-                    ? adminName
-                    : "Not connected"}
+                <Text style={[typography.label, { color: colors.text.secondary, marginTop: 2 }]}>
+                  {connectionStatus === "accepted" ? adminName : "Not connected"}
                 </Text>
               </View>
             </View>
