@@ -148,12 +148,14 @@ export default function EmployeeNotifications() {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 20,
+          paddingBottom: 20,
+        }}
+      >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Ionicons name="notifications-outline" size={18} color={colors.text.secondary} />
-            <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Notifications</Text>
-          </View>
           {notifications.length > 0 && (
             <TouchableOpacity onPress={clearAll}>
               <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
@@ -162,9 +164,51 @@ export default function EmployeeNotifications() {
         </View>
 
         {!loading && notifications.length === 0 && (
-          <Text style={{ ...typography.body, color: colors.text.secondary }}>You're all caught up.</Text>
-        )}
+          <View
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingHorizontal: 32,
+              transform: [{ translateY: -40 }], // Move it up
+            }}
+          >
+            <View
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 36,
+                backgroundColor: 'rgba(0, 0, 0, 0.08)', // subtle circle behind icon
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <Ionicons name="notifications-outline" size={32} color={colors.text.secondary} />
+            </View>
 
+            <Text
+              style={{
+                ...typography.subheading, // or a bold/medium variant
+                color: colors.text.primary,
+                marginBottom:10,
+                textAlign: 'center',
+              }}
+            >
+              You're all caught up
+            </Text>
+
+            <Text
+              style={{
+                ...typography.body,
+                color: colors.text.secondary,
+                textAlign: 'center',
+              }}
+            >
+              New notifications will show up here.
+            </Text>
+          </View>
+        )}
         {notifications.map((n) => {
           const meta = notifMeta(colors, n.type);
           const isExtension = n.type.startsWith("extension");
