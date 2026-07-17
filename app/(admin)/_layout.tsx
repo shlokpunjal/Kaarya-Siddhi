@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Image } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { wp, moderateScale } from '../../utils/responsive';
 const icons = {
   home: {
     outline: require('../../assets/icons/home-outline.png'),
@@ -28,7 +29,7 @@ function TabIcon({ source, focused }: { source: any; focused: boolean }) {
   return (
     <Image
       source={source}
-      style={{ width: 28, height: 28, opacity: focused ? 1 : 0.6 }}
+      style={{ width: moderateScale(28), height: moderateScale(28), opacity: focused ? 1 : 0.6 }}
       resizeMode="contain"
     />
   );
@@ -45,7 +46,7 @@ export default function AdminTabsLayout() {
         tabBarInactiveTintColor: '#A9B2C8',
         tabBarStyle: {
           backgroundColor: colors.brand.primary,
-          height: 90,
+          height: moderateScale(90),
           paddingTop: 6,
           paddingBottom: 8,
           borderTopWidth: 0,
