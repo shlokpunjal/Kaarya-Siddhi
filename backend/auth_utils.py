@@ -1,22 +1,37 @@
-import os
-import jwt
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
+
+import jwt
 from fastapi import HTTPException, Header
 
-JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_HOURS = 24
-
-if not JWT_SECRET:
-    raise RuntimeError("JWT_SECRET is not set in .env — add it before starting the server.")
+from config import JWT_SECRET, JWT_ALGORITHM, ACCESS_TOKEN_MINUTES, REFRESH_TOKEN_DAYS
+from supabase_client import supabase
 
 
-def create_access_token(email: str, role: str, workspace_id: str | None):
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def create_refresh_token(email: str) -> str:
+    raw_token = secrets.token_urlsafe(48)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_DAYS)
+
+    supabase.table("refresh_tokens").insert({
+        "user_email": email,
+        "token_hash": hash_token(raw_token),
+        "expires_at": expires_at.isoformat(),
+    }).execute()
+
+    return raw_token
+
+
+def create_access_token(email: str, role: str, workspace_id: str | None) -> str:
     payload = {
         "sub": email,
         "role": role,
         "workspace_id": workspace_id,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRY_HOURS),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_MINUTES),
         "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
