@@ -26,6 +26,7 @@ import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import { wp, moderateScale } from "../../utils/responsive";
 import { API_BASE_URL } from "../../constants/api";
 import { authFetch } from "../../utils/authFetch"; // adjust path if needed
+import EmployeeProfileSkeleton from "../../components/EmployeeProfileSkeleton";
 
 type UserRow = {
   id: string;
@@ -345,18 +346,7 @@ export default function EmployeeProfile() {
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: colors.base.background,
-            alignItems: "center",
-            justifyContent: "center",
-          },
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.brand.accent} />
-      </SafeAreaView>
+      <EmployeeProfileSkeleton />
     );
   }
 
