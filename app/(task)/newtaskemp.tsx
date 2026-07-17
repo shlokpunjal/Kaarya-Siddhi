@@ -19,6 +19,7 @@ import { supabase } from "../../lib/supabase";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { wp, hp, moderateScale } from "../../utils/responsive";
 
 type Priority = "low" | "medium" | "high";
 
@@ -284,7 +285,7 @@ export default function Newtask() {
   const inputStyle = {
     backgroundColor: colors.base.surfaceL2,
     marginTop: 14,
-    height: 50,
+    height: moderateScale(50),
     borderRadius: 12,
     borderColor: colors.base.border,
     borderWidth: 1,
@@ -307,12 +308,12 @@ export default function Newtask() {
       {/* Header */}
       <View style={{
         backgroundColor: colors.brand.primary,
-        height: 70,
+        height: moderateScale(70),
         flexDirection: "row",
         alignItems: "center",
         paddingHorizontal: 18,
       }}>
-        <Ionicons onPress={() => router.back()} name="arrow-back" size={28} color={colors.brand.onPrimary} />
+        <Ionicons onPress={() => router.back()} name="arrow-back" size={moderateScale(28)} color={colors.brand.onPrimary} />
         <Text style={{ ...typography.heading, color: colors.brand.onPrimary, flex: 1, textAlign: "center" }}>
           {isEditMode ? "Edit Task" : "New Task"}
         </Text>
@@ -323,26 +324,26 @@ export default function Newtask() {
             {deleting ? (
               <ActivityIndicator size="small" color={colors.brand.onPrimary} />
             ) : (
-              <Ionicons name="trash-outline" size={22} color={colors.brand.onPrimary} />
+              <Ionicons name="trash-outline" size={moderateScale(22)} color={colors.brand.onPrimary} />
             )}
           </TouchableOpacity>
         ) : (
-          <View style={{ width: 22 }} />
+          <View style={{ width: moderateScale(22) }} />
         )}
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={{
           backgroundColor: colors.base.surfaceL1,
           borderRadius: 16,
-          marginTop: 30,
+          marginTop: hp(3.7),
           borderWidth: 1,
           borderColor: colors.base.border,
-          padding: 20,
+          padding: wp(5.3),
           ...Platform.select({
             ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6 },
             android: { elevation: 5 },
@@ -370,7 +371,7 @@ export default function Newtask() {
               <View
                 style={{
                   backgroundColor: colors.base.surfaceL2,
-                  height: 50,
+                  height: moderateScale(50),
                   borderRadius: 12,
                   borderColor: colors.base.border,
                   borderWidth: 1,
@@ -394,7 +395,7 @@ export default function Newtask() {
                   onPress={() => setShowDatePicker(true)}
                   style={{
                     backgroundColor: colors.base.surfaceL2,
-                    height: 50,
+                    height: moderateScale(50),
                     borderRadius: 12,
                     borderColor: deadlineDate ? colors.brand.accent : colors.base.border,
                     borderWidth: deadlineDate ? 1.5 : 1,
@@ -455,7 +456,7 @@ export default function Newtask() {
                     key={p.value}
                     onPress={() => setSelectedPriority(p.value)}
                     style={{
-                      flex: 1, height: 44, borderRadius: 12,
+                      flex: 1, height: moderateScale(44), borderRadius: 12,
                       borderWidth: isSelected ? 2 : 1,
                       borderColor: isSelected ? p.color : colors.base.border,
                       backgroundColor: isSelected ? p.bg : colors.base.surfaceL2,
@@ -463,8 +464,8 @@ export default function Newtask() {
                       flexDirection: "row", gap: 6,
                     }}
                   >
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isSelected ? p.color : colors.text.secondary }} />
-                    <Text style={{ ...typography.body, fontSize: 14, fontWeight: isSelected ? "600" : "400", color: isSelected ? p.color : colors.text.secondary }}>
+                    <View style={{ width: moderateScale(8), height: moderateScale(8), borderRadius: moderateScale(4), backgroundColor: isSelected ? p.color : colors.text.secondary }} />
+                    <Text style={{ ...typography.body, fontSize: moderateScale(14), fontWeight: isSelected ? "600" : "400", color: isSelected ? p.color : colors.text.secondary }}>
                       {p.label}
                     </Text>
                   </TouchableOpacity>
@@ -480,14 +481,14 @@ export default function Newtask() {
             value={description}
             onChangeText={setDescription}
             multiline
-            style={[inputStyle, { marginTop: 14, height: 100, paddingTop: 12 }]}
+            style={[inputStyle, { marginTop: 14, height: moderateScale(100), paddingTop: 12 }]}
           />
 
           {/* File Picker */}
           <TouchableOpacity
             onPress={pickFile}
             style={{
-              backgroundColor: colors.base.surfaceL2, marginTop: 14, height: 50,
+              backgroundColor: colors.base.surfaceL2, marginTop: 14, height: moderateScale(50),
               borderRadius: 15, borderColor: colors.base.border, borderWidth: 1,
               paddingLeft: 15, flexDirection: "row", alignItems: "center", gap: 10,
             }}
@@ -526,13 +527,13 @@ export default function Newtask() {
             disabled={loading || deleting}
             style={{
               backgroundColor: loading ? colors.base.border : colors.brand.accent,
-              height: 54, borderRadius: 14, marginTop: 24,
+              height: moderateScale(54), borderRadius: 14, marginTop: 24,
               alignItems: "center", justifyContent: "center",
             }}
           >
             {loading
               ? <ActivityIndicator color={colors.base.surfaceL1} />
-              : <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, fontSize: 18 }}>
+              : <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, fontSize: moderateScale(18) }}>
                 {isEditMode ? "Save Changes" : "Add task"}
               </Text>
             }

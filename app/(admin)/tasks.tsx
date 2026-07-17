@@ -8,7 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { TaskStatus, TaskPriority, Task } from '../../types/task';
 import { typography } from '../../theme/theme';
 import { useTheme } from '../../context/ThemeContext';
-import AdminTasksSkeleton from '../../components/AdminTasksSkeleton';
+import { wp } from '../../utils/responsive';
 
 type FilterType =
   | 'all'
@@ -154,7 +154,7 @@ export default function AdminTasks() {
     // ── Resolve names for every assignee on these tasks, even if no longer connected ──
     const assignedIds = Array.from(new Set(fetchedTasks.map((t) => t.assignedTo)));
     const knownIds = new Set(connectedEmployees.map((e) => e.id));
-    const missingIds = assignedIds.filter((id) => !knownIds.has(id));
+    const missingIds = assignedIds.filter((id) => id && !knownIds.has(id));
 
     if (missingIds.length > 0) {
       const { data: extraUsers, error: extraError } = await supabase
@@ -444,13 +444,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: wp(5.3),
     paddingTop: 12,
     paddingBottom: 8,
   },
   filterButton: { borderRadius: 10, borderWidth: 1, paddingVertical: 8, paddingHorizontal: 14 },
   searchRow: {
-    paddingHorizontal: 20,
+    paddingHorizontal: wp(5.3),
     paddingBottom: 14,
   },
   searchBar: {
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   clearButton: {
     marginLeft: 8,
   },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 32 },
+  scrollContent: { paddingHorizontal: wp(5.3), paddingBottom: 32 },
   taskCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
   taskCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   statusBadge: { borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10 },

@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
+import { wp, moderateScale } from "../../utils/responsive";
 
 export default function NoTaskEmp() {
   const router = useRouter();
@@ -51,10 +52,10 @@ export default function NoTaskEmp() {
 
 const styles = StyleSheet.create({
   header: {
-    height: 50,
+    height: moderateScale(50),
     justifyContent: "center",
     alignItems: "flex-start",
-    paddingLeft: 24,
+    paddingLeft: wp(6.4),
   },
   content: {
     flex: 1,
@@ -63,8 +64,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
   illustration: {
-    width: 200,
-    height: 200,
+    width: moderateScale(200),
+    height: moderateScale(200),
   },
   newTaskButton: {
     flexDirection: "row",
