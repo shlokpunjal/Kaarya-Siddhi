@@ -18,7 +18,7 @@ import * as Notifications from "expo-notifications";
 import { sendLocalNotification } from "../utils/notifications";
 import { registerAndSavePushToken } from "../lib/pushNotifications";
 
-enableScreens(false);
+enableScreens(true);
 SplashScreen.preventAutoHideAsync();
 
 Notifications.setNotificationHandler({

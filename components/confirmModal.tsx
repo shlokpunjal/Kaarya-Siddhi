@@ -12,6 +12,7 @@ type ConfirmModalProps = {
   destructive?: boolean;
   confirmColor?: string;
   cardColor?: string;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -25,6 +26,7 @@ export default function ConfirmModal({
   destructive = false,
   confirmColor,
   cardColor,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
@@ -50,13 +52,21 @@ export default function ConfirmModal({
             <Pressable
               style={[styles.cancelButton, { borderColor: colors.base.border }]}
               onPress={onCancel}
+              disabled={confirmDisabled}
             >
               <Text style={[typography.heading3, { color: colors.text.primary }]}>{cancelText}</Text>
             </Pressable>
 
             <Pressable
-              style={[styles.confirmButton, { backgroundColor: resolvedConfirmColor }]}
+              style={[
+                styles.confirmButton,
+                {
+                  backgroundColor: resolvedConfirmColor,
+                  opacity: confirmDisabled ? 0.5 : 1,
+                },
+              ]}
               onPress={onConfirm}
+              disabled={confirmDisabled}
             >
               <Text style={[typography.heading3, { color: '#FFFFFF' }]}>{confirmText}</Text>
             </Pressable>
