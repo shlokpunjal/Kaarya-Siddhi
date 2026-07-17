@@ -6,7 +6,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from io import BytesIO
 from datetime import datetime
 
-from main import get_current_user
+from auth_utils import get_current_user
 from supabase_client import supabase
 
 router = APIRouter()
