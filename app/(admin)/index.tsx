@@ -11,6 +11,7 @@ import { typography } from '../../theme/theme';
 import { Task } from '../../types/task';
 import { getGreeting } from '../../utils/greeting';
 import NoTasksAdmin from '../(task)/notasksAdmin';
+import DashboardSkeleton from '../../components/DashboardSkeleton';
 
 // Matches the actual `tasks` table columns
 type TaskRow = {
@@ -108,86 +109,83 @@ export default function Dashboard() {
   // request across every admin's team.
   // Replace the pendingRequestCount useFocusEffect block with this:
 
-const fetchPendingRequestCount = useCallback(async () => {
-  const email = await AsyncStorage.getItem('userEmail');
-  if (!email) return;
-
-  const { data: userRow } = await supabase
-    .from('users')
-    .select('id, workspace_id')
-    .eq('email', email)
-    .single();
-
-  if (!userRow?.workspace_id) {
-    setPendingRequestCount(0);
-    return;
-  }
-
-  const { count: connCount } = await supabase
-    .from('notifications')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userRow.id)
-    .eq('type', 'connection_request');
-
-  const { count: extCount } = await supabase
-    .from('extension_requests')
-    .select('id', { count: 'exact', head: true })
-    .eq('workspace_id', userRow.workspace_id)
-    .eq('status', 'pending');
-
-  setPendingRequestCount((connCount ?? 0) + (extCount ?? 0));
-}, []);
-
-useFocusEffect(useCallback(() => { fetchPendingRequestCount(); }, [fetchPendingRequestCount]));
-
-// New: realtime, so the dot updates instantly instead of waiting for focus.
-useEffect(() => {
-  let notifChannel: any;
-  let extensionChannel: any;
-
-  (async () => {
+  const fetchPendingRequestCount = useCallback(async () => {
     const email = await AsyncStorage.getItem('userEmail');
     if (!email) return;
+
     const { data: userRow } = await supabase
       .from('users')
       .select('id, workspace_id')
       .eq('email', email)
       .single();
-    if (!userRow) return;
 
-    notifChannel = supabase
-      .channel(`dashboard_badge_notifs_${userRow.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userRow.id}` },
-        () => fetchPendingRequestCount()
-      )
-      .subscribe();
+    if (!userRow?.workspace_id) {
+      setPendingRequestCount(0);
+      return;
+    }
 
-    if (userRow.workspace_id) {
-      extensionChannel = supabase
-        .channel(`dashboard_badge_ext_${userRow.workspace_id}`)
+    const { count: connCount } = await supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userRow.id)
+      .eq('type', 'connection_request');
+
+    const { count: extCount } = await supabase
+      .from('extension_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', userRow.workspace_id)
+      .eq('status', 'pending');
+
+    setPendingRequestCount((connCount ?? 0) + (extCount ?? 0));
+  }, []);
+
+  useFocusEffect(useCallback(() => { fetchPendingRequestCount(); }, [fetchPendingRequestCount]));
+
+  // New: realtime, so the dot updates instantly instead of waiting for focus.
+  useEffect(() => {
+    let notifChannel: any;
+    let extensionChannel: any;
+
+    (async () => {
+      const email = await AsyncStorage.getItem('userEmail');
+      if (!email) return;
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('id, workspace_id')
+        .eq('email', email)
+        .single();
+      if (!userRow) return;
+
+      notifChannel = supabase
+        .channel(`dashboard_badge_notifs_${userRow.id}`)
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'extension_requests', filter: `workspace_id=eq.${userRow.workspace_id}` },
+          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userRow.id}` },
           () => fetchPendingRequestCount()
         )
         .subscribe();
-    }
-  })();
 
-  return () => {
-    if (notifChannel) supabase.removeChannel(notifChannel);
-    if (extensionChannel) supabase.removeChannel(extensionChannel);
-  };
+      if (userRow.workspace_id) {
+        extensionChannel = supabase
+          .channel(`dashboard_badge_ext_${userRow.workspace_id}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'extension_requests', filter: `workspace_id=eq.${userRow.workspace_id}` },
+            () => fetchPendingRequestCount()
+          )
+          .subscribe();
+      }
+    })();
+
+    return () => {
+      if (notifChannel) supabase.removeChannel(notifChannel);
+      if (extensionChannel) supabase.removeChannel(extensionChannel);
+    };
   }, [fetchPendingRequestCount]);
-  
+
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={colors.brand.accent} />
-        <Text style={[typography.body, { marginTop: 10 }]}>Loading tasks...</Text>
-      </SafeAreaView>
+      <DashboardSkeleton />
     );
   }
 
@@ -347,7 +345,7 @@ useEffect(() => {
         </View>
 
         {/* ── Overdue Accordion ── */}
-        <View style={{ width: 320, marginTop: 30, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
+        <View style={{ width: 320, marginTop: 30, marginLeft: 23, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
           <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
             <Text style={{ ...typography.subheading, color: colors.status.overdue }}>Overdue</Text>
             <TouchableOpacity onPress={() => setShowOverdue(!showOverdue)}>
@@ -370,7 +368,7 @@ useEffect(() => {
         </View>
 
         {/* ── Pending Accordion ── */}
-        <View style={{ width: 320, marginTop: 20, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
+        <View style={{ width: 320, marginTop: 20, marginLeft: 23, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
           <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
             <Text style={{ ...typography.subheading, color: colors.status.pending }}>Pending</Text>
             <TouchableOpacity onPress={() => setShowPending(!showPending)}>
@@ -393,7 +391,7 @@ useEffect(() => {
         </View>
 
         {/* ── In Review Accordion ── */}
-        <View style={{ width: 320, marginTop: 20, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
+        <View style={{ width: 320, marginTop: 20, marginLeft: 23, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
           <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
             <Text style={{ ...typography.subheading, color: colors.status.inReview }}>In Review</Text>
             <TouchableOpacity onPress={() => setShowReview(!showReview)}>
@@ -416,7 +414,7 @@ useEffect(() => {
         </View>
 
         {/* ── Completed Accordion ── */}
-        <View style={{ width: 320, marginTop: 20, marginLeft: 33, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
+        <View style={{ width: 320, marginTop: 20, marginLeft: 23, borderColor: colors.base.border, borderWidth: 1, borderRadius: 19, backgroundColor: colors.base.surfaceL1 }}>
           <View style={{ height: 60, borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
             <Text style={{ ...typography.subheading, color: colors.status.completed }}>Completed</Text>
             <TouchableOpacity onPress={() => setShowCompleted(!showCompleted)}>
