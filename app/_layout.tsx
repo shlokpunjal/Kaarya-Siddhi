@@ -17,7 +17,7 @@ import { enableScreens } from 'react-native-screens';
 import * as Notifications from "expo-notifications";
 import { sendLocalNotification } from "../utils/notifications";
 
-enableScreens(true);
+enableScreens(false);
 SplashScreen.preventAutoHideAsync();
 
 Notifications.setNotificationHandler({

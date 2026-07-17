@@ -15,14 +15,30 @@ import { typography } from "../../theme/theme";
 import { useRouter } from "expo-router";
 import { wp, moderateScale } from "../../utils/responsive";
 import { supabase } from "../../lib/supabase";
+import CalendarScreenSkeleton from "../../components/CalendarScreenSkeleton";
 
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
-interface Task { id: string; title: string; descp: string; category: TaskCategory; }
+interface Task {
+  id: string;
+  title: string;
+  descp: string;
+  category: TaskCategory;
+}
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 function toDateString(y: number, m: number, d: number): string {
@@ -45,8 +61,7 @@ function buildGrid(year: number, month: number): string[] {
   for (let d = 1; d <= daysInMonth; d++)
     cells.push(toDateString(year, month, d));
   let nd = 1;
-  while (cells.length < 42)
-    cells.push(toDateString(nextYear, nextMonth, nd++));
+  while (cells.length < 42) cells.push(toDateString(nextYear, nextMonth, nd++));
   return cells;
 }
 
@@ -151,8 +166,15 @@ export default function CalendarScreen() {
         .channel("admin-calendar-tasks")
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "tasks", filter: `workspace_id=eq.${workspaceId}` },
-          () => { fetchTasks(workspaceId); }
+          {
+            event: "*",
+            schema: "public",
+            table: "tasks",
+            filter: `workspace_id=eq.${workspaceId}`,
+          },
+          () => {
+            fetchTasks(workspaceId);
+          },
         )
         .subscribe();
 
@@ -160,8 +182,15 @@ export default function CalendarScreen() {
         .channel("admin-calendar-extension-requests")
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "extension_requests", filter: `workspace_id=eq.${workspaceId}` },
-          () => { fetchTasks(workspaceId); }
+          {
+            event: "*",
+            schema: "public",
+            table: "extension_requests",
+            filter: `workspace_id=eq.${workspaceId}`,
+          },
+          () => {
+            fetchTasks(workspaceId);
+          },
         )
         .subscribe();
     };
@@ -205,48 +234,62 @@ export default function CalendarScreen() {
   function getCats(ds: string): TaskCategory[] {
     const t = tasksMap[ds];
     if (!t) return [];
-    return Array.from(new Set(t.map(x => x.category)));
+    return Array.from(new Set(t.map((x) => x.category)));
   }
 
   function goPrev() {
-    if (viewMonth === 1) { setViewYear(y => y - 1); setViewMonth(12); }
-    else setViewMonth(m => m - 1);
+    if (viewMonth === 1) {
+      setViewYear((y) => y - 1);
+      setViewMonth(12);
+    } else setViewMonth((m) => m - 1);
   }
   function goNext() {
-    if (viewMonth === 12) { setViewYear(y => y + 1); setViewMonth(1); }
-    else setViewMonth(m => m + 1);
+    if (viewMonth === 12) {
+      setViewYear((y) => y + 1);
+      setViewMonth(1);
+    } else setViewMonth((m) => m + 1);
   }
 
   const grid = buildGrid(viewYear, viewMonth);
   const curPrefix = toDateString(viewYear, viewMonth, 1).slice(0, 7);
   // Hide 6th row if fully overflow
-  const rowCount = grid.slice(35, 42).every(ds => ds.slice(0, 7) !== curPrefix) ? 5 : 6;
+  const rowCount = grid
+    .slice(35, 42)
+    .every((ds) => ds.slice(0, 7) !== curPrefix)
+    ? 5
+    : 6;
 
   if (loading) {
-    return (
-      <View style={[s.container, { backgroundColor: base.background, alignItems: "center", justifyContent: "center" }]}>
-        <ActivityIndicator size="large" color={brand.accent} />
-      </View>
-    );
+    return <CalendarScreenSkeleton />;
   }
 
   return (
     <ScrollView
       style={[s.container, { backgroundColor: base.background }]}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brand.accent} colors={[brand.accent]} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={brand.accent}
+          colors={[brand.accent]}
+        />
       }
     >
-
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={[s.header, { backgroundColor: brand.primary }]}>
-        <Text style={[typography.heading, { color: brand.onPrimary }]}>Calendar</Text>
+        <Text style={[typography.heading, { color: brand.onPrimary }]}>
+          Calendar
+        </Text>
       </View>
 
       {/* ── Calendar card ──────────────────────────────────────────────── */}
       <View style={s.calendarBlock}>
-        <View style={[s.calendarCard, { backgroundColor: base.surfaceL1, borderColor: base.border }]}>
-
+        <View
+          style={[
+            s.calendarCard,
+            { backgroundColor: base.surfaceL1, borderColor: base.border },
+          ]}
+        >
           {/* Month nav */}
           <View style={s.monthRow}>
             <Pressable onPress={goPrev} hitSlop={12}>
@@ -271,7 +314,10 @@ export default function CalendarScreen() {
                 style={[
                   s.weekDay,
                   { color: text.secondary },
-                  i === 6 && { color: status.overdue, fontFamily: "Poppins-SemiBold" },
+                  i === 6 && {
+                    color: status.overdue,
+                    fontFamily: "Poppins-SemiBold",
+                  },
                 ]}
               >
                 {d}
@@ -355,13 +401,21 @@ export default function CalendarScreen() {
                           <Text
                             style={[
                               s.cellNum,
-                              { color: isCurrent ? text.primary : text.secondary },
+                              {
+                                color: isCurrent
+                                  ? text.primary
+                                  : text.secondary,
+                              },
                               !isCurrent && { opacity: 0.28 },
-                              colIdx === 6 && isCurrent && {
-                                color: status.overdue,
+                              colIdx === 6 &&
+                                isCurrent && {
+                                  color: status.overdue,
+                                  fontFamily: "Poppins-SemiBold",
+                                },
+                              isToday && {
+                                color: "#FFFFFF",
                                 fontFamily: "Poppins-SemiBold",
                               },
-                              isToday && { color: "#FFFFFF", fontFamily: "Poppins-SemiBold" },
                             ]}
                           >
                             {parseInt(ds.slice(8), 10)}
@@ -370,10 +424,13 @@ export default function CalendarScreen() {
                           {/* Category dots — below number */}
                           {hasTasks && (
                             <View style={s.dotsRow}>
-                              {cats.map(cat => (
+                              {cats.map((cat) => (
                                 <View
                                   key={cat}
-                                  style={[s.dot, { backgroundColor: categoryColor[cat] }]}
+                                  style={[
+                                    s.dot,
+                                    { backgroundColor: categoryColor[cat] },
+                                  ]}
                                 />
                               ))}
                             </View>
@@ -389,16 +446,17 @@ export default function CalendarScreen() {
 
           {/* Legend */}
           <View style={[s.legend, { borderTopColor: base.border }]}>
-            {(Object.keys(categoryColor) as TaskCategory[]).map(cat => (
+            {(Object.keys(categoryColor) as TaskCategory[]).map((cat) => (
               <View key={cat} style={s.legendItem}>
-                <View style={[s.legendDot, { backgroundColor: categoryColor[cat] }]} />
+                <View
+                  style={[s.legendDot, { backgroundColor: categoryColor[cat] }]}
+                />
                 <Text style={[s.legendLabel, { color: text.secondary }]}>
                   {categoryLabel[cat]}
                 </Text>
               </View>
             ))}
           </View>
-
         </View>
       </View>
 
@@ -414,7 +472,10 @@ export default function CalendarScreen() {
               <Pressable
                 key={task.id ?? i}
                 onPress={() =>
-                  router.push({ pathname: "/(task)/task-detail", params: { taskId: task.id } })
+                  router.push({
+                    pathname: "/(task)/task-detail",
+                    params: { taskId: task.id },
+                  })
                 }
                 style={[
                   s.taskCard,
@@ -426,25 +487,42 @@ export default function CalendarScreen() {
                 ]}
               >
                 <View style={s.taskCardHeader}>
-                  <Text style={[s.taskTitle, { color: text.primary }]}>{task.title}</Text>
-                  <View style={[s.badge, { backgroundColor: `${categoryColor[task.category]}22` }]}>
-                    <Text style={[s.badgeText, { color: categoryColor[task.category] }]}>
+                  <Text style={[s.taskTitle, { color: text.primary }]}>
+                    {task.title}
+                  </Text>
+                  <View
+                    style={[
+                      s.badge,
+                      { backgroundColor: `${categoryColor[task.category]}22` },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.badgeText,
+                        { color: categoryColor[task.category] },
+                      ]}
+                    >
                       {categoryLabel[task.category]}
                     </Text>
                   </View>
                 </View>
-                <Text style={[s.taskDesc, { color: text.secondary }]}>{task.descp}</Text>
+                <Text style={[s.taskDesc, { color: text.secondary }]}>
+                  {task.descp}
+                </Text>
               </Pressable>
             ))
           ) : (
             <View style={[s.emptyState, { borderColor: base.border }]}>
-              <Text style={[s.emptyTitle, { color: text.secondary }]}>No tasks scheduled</Text>
-              <Text style={[s.emptySubtitle, { color: text.secondary }]}>This day is clear</Text>
+              <Text style={[s.emptyTitle, { color: text.secondary }]}>
+                No tasks scheduled
+              </Text>
+              <Text style={[s.emptySubtitle, { color: text.secondary }]}>
+                This day is clear
+              </Text>
             </View>
           )}
         </View>
       </View>
-
     </ScrollView>
   );
 }
@@ -464,13 +542,22 @@ const s = StyleSheet.create({
   headerText: { fontSize: moderateScale(22), fontFamily: "Poppins-SemiBold" },
 
   /* Calendar card */
-  calendarBlock: { paddingHorizontal: wp(3.2), paddingTop: 8, paddingBottom: 4 },
+  calendarBlock: {
+    paddingHorizontal: wp(3.2),
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
   calendarCard: {
     borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",
     ...Platform.select({
-      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
       android: { elevation: 3 },
     }),
   },
@@ -484,7 +571,11 @@ const s = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 4,
   },
-  arrow: { fontSize: moderateScale(34), lineHeight: 36, fontFamily: "Poppins-Regular" },
+  arrow: {
+    fontSize: moderateScale(34),
+    lineHeight: 36,
+    fontFamily: "Poppins-Regular",
+  },
   monthTitle: { fontSize: moderateScale(28), fontFamily: "Poppins-SemiBold" },
 
   /* Weekday header */
@@ -519,8 +610,8 @@ const s = StyleSheet.create({
   cell: {
     flex: 1,
     height: moderateScale(46),
-    justifyContent: "center",   // vertically center content
-    alignItems: "center",       // horizontally center content
+    justifyContent: "center", // vertically center content
+    alignItems: "center", // horizontally center content
     paddingTop: 0,
     paddingLeft: 0,
     position: "relative",
@@ -579,12 +670,20 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
   },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
-  legendDot: { width: moderateScale(7), height: moderateScale(7), borderRadius: 4 },
+  legendDot: {
+    width: moderateScale(7),
+    height: moderateScale(7),
+    borderRadius: 4,
+  },
   legendLabel: { fontSize: moderateScale(10), fontFamily: "Poppins-Regular" },
 
   /* Task section */
   taskSection: { flex: 1, paddingHorizontal: wp(3.2), paddingTop: 10 },
-  taskHeading: { fontSize: moderateScale(15), fontFamily: "Poppins-SemiBold", marginBottom: 8 },
+  taskHeading: {
+    fontSize: moderateScale(15),
+    fontFamily: "Poppins-SemiBold",
+    marginBottom: 8,
+  },
   taskScroll: { paddingBottom: 24 },
 
   taskCard: {
@@ -594,7 +693,12 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderLeftWidth: 4,
     ...Platform.select({
-      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+      },
       android: { elevation: 2 },
     }),
   },
@@ -605,10 +709,18 @@ const s = StyleSheet.create({
     marginBottom: 4,
     gap: 8,
   },
-  taskTitle: { fontSize: moderateScale(14), fontFamily: "Poppins-Medium", flex: 1 },
+  taskTitle: {
+    fontSize: moderateScale(14),
+    fontFamily: "Poppins-Medium",
+    flex: 1,
+  },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   badgeText: { fontSize: moderateScale(10), fontFamily: "Poppins-Medium" },
-  taskDesc: { fontSize: moderateScale(12), fontFamily: "Poppins-Regular", lineHeight: 18 },
+  taskDesc: {
+    fontSize: moderateScale(12),
+    fontFamily: "Poppins-Regular",
+    lineHeight: 18,
+  },
 
   /* Empty state */
   emptyState: {
@@ -620,5 +732,10 @@ const s = StyleSheet.create({
     marginTop: 8,
   },
   emptyTitle: { fontSize: moderateScale(14), fontFamily: "Poppins-Medium" },
-  emptySubtitle: { fontSize: moderateScale(12), fontFamily: "Poppins-Regular", marginTop: 4, opacity: 0.6 },
+  emptySubtitle: {
+    fontSize: moderateScale(12),
+    fontFamily: "Poppins-Regular",
+    marginTop: 4,
+    opacity: 0.6,
+  },
 });
