@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { wp, moderateScale } from "../../utils/responsive";
 
 export default function Complete() {
   const { colors } = useTheme();
@@ -148,7 +149,7 @@ const handleMarkComplete = async () => {
       <View
         style={{
           backgroundColor: colors.brand.primary,
-          height: 70,
+          height: moderateScale(70),
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 16,
@@ -157,7 +158,7 @@ const handleMarkComplete = async () => {
         <Ionicons
           onPress={() => router.back()}
           name="arrow-back"
-          size={28}
+          size={moderateScale(28)}
           color={colors.brand.onPrimary}
         />
         <Text
@@ -166,7 +167,7 @@ const handleMarkComplete = async () => {
             color: colors.brand.onPrimary,
             flex: 1,
             textAlign: "center",
-            marginRight: 28,
+            marginRight: moderateScale(28),
           }}
         >
           Task Completion
@@ -174,7 +175,7 @@ const handleMarkComplete = async () => {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 24, paddingBottom: 40, flexGrow: 1, justifyContent: "center" }}
+        contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40, flexGrow: 1, justifyContent: "center" }}
         showsVerticalScrollIndicator={false}
       >
         <View
@@ -183,7 +184,7 @@ const handleMarkComplete = async () => {
             borderRadius: 16,
             borderWidth: 1,
             borderColor: colors.base.border,
-            padding: 20,
+            padding: wp(5.3),
             ...Platform.select({
               ios: {
                 shadowColor: "#000",
@@ -219,7 +220,7 @@ const handleMarkComplete = async () => {
             numberOfLines={4}
             editable={!busy}
             style={{
-              minHeight: 100,
+              minHeight: moderateScale(100),
               backgroundColor: colors.base.surfaceL2,
               borderRadius: 12,
               padding: 14,
@@ -235,7 +236,7 @@ const handleMarkComplete = async () => {
             onPress={handleAddSuggestion}
             disabled={busy}
             style={{
-              height: 52,
+              height: moderateScale(52),
               borderRadius: 26,
               borderWidth: 1.5,
               borderColor: colors.brand.accent,
@@ -269,7 +270,7 @@ const handleMarkComplete = async () => {
             onPress={handleMarkComplete}
             disabled={busy}
             style={{
-              height: 52,
+              height: moderateScale(52),
               borderRadius: 26,
               backgroundColor: colors.status.completed,
               alignItems: "center",

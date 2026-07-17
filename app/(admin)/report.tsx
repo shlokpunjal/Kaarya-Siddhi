@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
+import { wp, moderateScale } from '../../utils/responsive';
 
 export default function Report() {
   const { colors } = useTheme();
@@ -81,7 +82,7 @@ export default function Report() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
+  container: { flex: 1, padding: wp(5.3) },
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -92,8 +93,8 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   iconBadge: {
-    width: 48,
-    height: 48,
+    width: moderateScale(48),
+    height: moderateScale(48),
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',

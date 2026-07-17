@@ -10,6 +10,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
 import CollapsibleSection from '../../components/CollapsibleSection';
 import ConfirmModal from '../../components/confirmModal';
+import { wp, moderateScale } from '../../utils/responsive';
 
 type UserRow = {
   id: string;
@@ -29,7 +30,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionic
   { value: 'system', label: 'System', icon: 'phone-portrait-outline' },
 ];
 
-const AVATAR_SIZE = 84;
+const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
 
 export default function AdminProfile() {
@@ -457,7 +458,7 @@ export default function AdminProfile() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 40 },
+  scrollContent: { padding: wp(5.3), paddingBottom: 40 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   card: { borderRadius: 18, borderWidth: 2, padding: 18, marginBottom: 16 },
@@ -486,8 +487,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    width: 26,
-    height: 26,
+    width: moderateScale(26),
+    height: moderateScale(26),
     borderRadius: 13,
     borderWidth: 2,
     alignItems: 'center',
