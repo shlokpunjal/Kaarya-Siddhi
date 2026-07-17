@@ -11,7 +11,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.graphics.shapes import Drawing, Wedge, String, Rect
 from reportlab.graphics import renderPDF
 
-from main import get_current_user
+from auth_utils import get_current_user
 from supabase_client import supabase
 
 router = APIRouter()
