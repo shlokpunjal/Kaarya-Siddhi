@@ -11,6 +11,7 @@ import { Task } from '../../types/task';
 import { getGreeting } from '../../utils/greeting';
 import NoTaskEmp from '../(task)/notaskEmp';
 import { wp, hp, moderateScale } from '../../utils/responsive';
+import DashboardSkeleton from '../../components/DashboardSkeleton';
 
 // Matches the actual `tasks` table columns
 type TaskRow = {
@@ -147,10 +148,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={colors.brand.accent} />
-        <Text style={[typography.body, { marginTop: 10 }]}>Loading tasks...</Text>
-      </SafeAreaView>
+      <DashboardSkeleton />
     );
   }
 
@@ -296,7 +294,7 @@ export default function Dashboard() {
             <TouchableOpacity
               onPress={() => router.push("(task)/newtaskemp")}
               style={{
-                
+
                 backgroundColor: colors.brand.accent, padding: 14,
                 width: "100%", height: moderateScale(60), borderRadius: 32,
                 flexDirection: "row", marginTop: 20, justifyContent: 'center', alignItems: 'center',

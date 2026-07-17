@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { TaskStatus, TaskPriority, Task } from '../../types/task';
 import { typography } from '../../theme/theme';
 import { useTheme } from '../../context/ThemeContext';
+import AdminTasksSkeleton from '../../components/AdminTasksSkeleton';
 
 type FilterType =
   | 'all'
@@ -272,9 +273,7 @@ export default function AdminTasks() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.brand.accent} />
-      </SafeAreaView>
+      <AdminTasksSkeleton />
     );
   }
 
