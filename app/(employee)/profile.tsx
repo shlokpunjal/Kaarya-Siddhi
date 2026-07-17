@@ -43,10 +43,10 @@ const THEME_OPTIONS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-    { value: "light", label: "Light", icon: "sunny-outline" },
-    { value: "dark", label: "Dark", icon: "moon-outline" },
-    { value: "system", label: "System", icon: "phone-portrait-outline" },
-  ];
+  { value: "light", label: "Light", icon: "sunny-outline" },
+  { value: "dark", label: "Dark", icon: "moon-outline" },
+  { value: "system", label: "System", icon: "phone-portrait-outline" },
+];
 
 const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
@@ -75,6 +75,8 @@ export default function EmployeeProfile() {
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [changeAdminVisible, setChangeAdminVisible] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [deleteVisible, setDeleteVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -225,31 +227,14 @@ export default function EmployeeProfile() {
     }
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "This permanently deletes your account and all associated data. This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            if (!currentUser) return;
-            const { error } = await supabase
-              .from("users")
-              .delete()
-              .eq("id", currentUser.id);
-            if (error) {
-              Alert.alert("Could not delete account", error.message);
-              return;
-            }
-            logout();
-          },
-        },
-      ],
-    );
-  };
+  async function deleteAccount() {
+    const res = await authFetch(`${API_BASE_URL}/auth/delete-account`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      throw new Error("Failed to delete account");
+    }
+  }
 
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -345,9 +330,7 @@ export default function EmployeeProfile() {
     .toUpperCase();
 
   if (loading) {
-    return (
-      <EmployeeProfileSkeleton />
-    );
+    return <EmployeeProfileSkeleton />;
   }
 
   if (!currentUser) {
@@ -416,7 +399,7 @@ export default function EmployeeProfile() {
                 ]}
               >
                 {connectionStatus === "pending"
-                  ? "You aren't connected to an admin's workspace yet."
+                  ? "Your request for admin connetion isn't approved yet."
                   : "You aren't connected to any admin yet."}
               </Text>
             </View>
@@ -782,19 +765,35 @@ export default function EmployeeProfile() {
               <Ionicons
                 name="swap-horizontal-outline"
                 size={20}
-                color={connectionStatus === "accepted" ? colors.brand.accent : colors.text.secondary}
+                color={
+                  connectionStatus === "accepted"
+                    ? colors.brand.accent
+                    : colors.text.secondary
+                }
               />
               <View style={{ marginLeft: 12 }}>
                 <Text
                   style={[
                     typography.heading3,
-                    { color: connectionStatus === "accepted" ? colors.text.primary : colors.text.secondary },
+                    {
+                      color:
+                        connectionStatus === "accepted"
+                          ? colors.text.primary
+                          : colors.text.secondary,
+                    },
                   ]}
                 >
                   Change Admin
                 </Text>
-                <Text style={[typography.label, { color: colors.text.secondary, marginTop: 2 }]}>
-                  {connectionStatus === "accepted" ? adminName : "Not connected"}
+                <Text
+                  style={[
+                    typography.label,
+                    { color: colors.text.secondary, marginTop: 2 },
+                  ]}
+                >
+                  {connectionStatus === "accepted"
+                    ? adminName
+                    : "Not connected"}
                 </Text>
               </View>
             </View>
@@ -820,7 +819,10 @@ export default function EmployeeProfile() {
           </Text>
         </Pressable>
 
-        <Pressable style={styles.deleteRow} onPress={handleDeleteAccount}>
+        <Pressable
+          style={styles.deleteRow}
+          onPress={() => setDeleteVisible(true)}
+        >
           <Ionicons name="trash-outline" size={18} color="#FFFFFF" />
           <Text
             style={[typography.heading3, { color: "#FFFFFF", marginLeft: 8 }]}
@@ -868,6 +870,30 @@ export default function EmployeeProfile() {
         onConfirm={() => {
           setLogoutVisible(false);
           logout();
+        }}
+      />
+      <ConfirmModal
+        visible={deleteVisible}
+        title="Delete Account"
+        message="This will permanently delete your account and all associated data. This action cannot be undone."
+        confirmText={deleting ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        confirmColor="#D64545"
+        destructive
+        confirmDisabled={deleting}
+        onCancel={() => setDeleteVisible(false)}
+        onConfirm={async () => {
+          if (deleting) return;
+          setDeleting(true);
+          try {
+            await deleteAccount();
+            setDeleteVisible(false);
+            router.replace("/LoginChoice");
+          } catch (err) {
+            console.error("Delete account failed:", err);
+          } finally {
+            setDeleting(false);
+          }
         }}
       />
       <ConfirmModal
@@ -1019,4 +1045,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginTop: 12,
   },
+  
 });
