@@ -31,6 +31,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { sendPushOnly } from "../../lib/notify";
+import { wp, moderateScale } from "../../utils/responsive";
 
 
 export default function ExtendDeadline() {
@@ -153,19 +154,14 @@ export default function ExtendDeadline() {
       })();
     }
   };
-  function getNextDayAfterDeadline(deadline: string | null): Date {
-    const base = deadline ? new Date(deadline) : new Date();
-    const next = new Date(base);
-    next.setDate(next.getDate() + 1);
-    return next;
-  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
       {/* Header */}
       <View
         style={{
           backgroundColor: colors.brand.primary,
-          height: 60,
+          height: moderateScale(60),
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 15,
@@ -174,21 +170,21 @@ export default function ExtendDeadline() {
         <Ionicons
           onPress={() => router.back()}
           name="arrow-back"
-          size={26}
+          size={moderateScale(26)}
           color={colors.brand.onPrimary}
         />
         <Text
           style={{
             ...typography.heading,
             color: colors.brand.onPrimary,
-            marginLeft: 15,
+            marginLeft: moderateScale(15),
           }}
         >
           Extend Deadline
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 25 }}>
+      <ScrollView contentContainerStyle={{ padding: wp(6.7) }}>
         {/* Task Name */}
         <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Task</Text>
         <Text style={{ ...typography.heading, color: colors.text.primary, marginTop: 4 }}>
@@ -255,9 +251,9 @@ export default function ExtendDeadline() {
           </TouchableOpacity>
           {showPicker && (
             <DateTimePicker
-              value={newDeadline ?? getNextDayAfterDeadline(task.deadline)}
+              value={newDeadline ?? new Date()}
               mode="date"
-              minimumDate={getNextDayAfterDeadline(task.deadline)}
+              minimumDate={new Date()}
               display={Platform.OS === "ios" ? "inline" : "default"}
               onChange={onChangeDate}
             />
@@ -297,7 +293,7 @@ export default function ExtendDeadline() {
           disabled={submitting}
           style={{
             marginTop: 30,
-            height: 53,
+            height: moderateScale(53),
             borderRadius: 10,
             alignItems: "center",
             justifyContent: "center",

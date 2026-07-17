@@ -109,10 +109,15 @@ const ValidatedInput: React.FC<ValidatedInputProps> = ({
         )}
       </View>
       {displayError ? (
-        <Text style={styles.errorText}>{displayError}</Text>
+        <Text style={styles.errorText}>{
+          typeof displayError === "string" ? displayError : String(displayError)
+        }</Text>
       ) : helperText ? (
-        <Text style={styles.helperText}>{helperText}</Text>
-      ) : null}    </View>
+        <Text style={styles.helperText}>{
+          typeof helperText === "string" ? helperText : String(helperText)
+        }</Text>
+      ) : null}
+    </View>
   );
 };
 
