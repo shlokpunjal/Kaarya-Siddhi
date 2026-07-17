@@ -994,6 +994,8 @@ import requests as http_requests  # avoid clashing with your existing 'requests'
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from sheets_sync import sync_tasks_from_sheet
+from deadline_reminders import send_deadline_reminders
+from notify_utils import send_push_notification
 
 load_dotenv()
 
@@ -1001,6 +1003,11 @@ app = FastAPI(title="Kaarya Siddhi API")
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(sync_tasks_from_sheet, "interval", minutes=5)
+# Runs once a day at 9:00 AM IST — well within business hours, and early
+# enough that a task due tomorrow still gives the employee a full day's
+# notice. Timezone is pinned explicitly since the server host's local
+# time may not be IST.
+scheduler.add_job(send_deadline_reminders, "cron", hour=9, minute=0, timezone="Asia/Kolkata")
 scheduler.start()
 
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -1053,29 +1060,6 @@ def get_current_user(authorization: str = Header(None)):
     token = authorization.split(" ")[1]
     payload = decode_access_token(token)
     return payload
-
-def send_push_notification(push_token: str, title: str, body: str, data: dict | None = None):
-    if not push_token:
-        return
-    try:
-        payload = {
-            "to": push_token,
-            "title": title,
-            "body": body,
-            "sound": "default",
-        }
-        if data:
-            payload["data"] = data
-
-        http_requests.post(
-            "https://exp.host/--/api/v2/push/send",
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=10,
-        )
-    except Exception as e:
-        print(f"Push notification failed: {e}")
-
 
 ALLOWED_ORIGINS = [
     "http://localhost:8081",
@@ -2012,6 +1996,17 @@ async def manual_sheet_sync(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Only admins can trigger sync.")
     result = sync_tasks_from_sheet()
+    return result
+
+
+@app.post("/admin/send-deadline-reminders")
+async def manual_deadline_reminders(current_user: dict = Depends(get_current_user)):
+    # Manual trigger for testing — the real one runs daily at 9am IST via
+    # the scheduler above. Safe to call anytime: deadline_reminder_sent
+    # guards against double-notifying a task that already got its reminder.
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can trigger this.")
+    result = send_deadline_reminders()
     return result
 
 

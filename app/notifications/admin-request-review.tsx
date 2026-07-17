@@ -549,7 +549,7 @@ export default function AdminRequestReview() {
   const fetchRequest = async () => {
     const { data, error } = await supabase
       .from("extension_requests")
-      .select("*, tasks(title, priority, assigned_to, deadline)")
+      .select("*, tasks(title, priority, assigned_to, deadline), requester:users!requested_by(name)")
       .eq("id", requestId)
       .single();
 
@@ -630,7 +630,13 @@ export default function AdminRequestReview() {
       .eq("id", request.id);
 
     if (!error && pendingDecision === "accepted") {
-      await supabase.from("tasks").update({ deadline: request.requested_deadline }).eq("id", request.task_id);
+      // Resetting deadline_reminder_sent here matters: without it, a task
+      // that already got its "due tomorrow" reminder for the OLD deadline
+      // would silently never get one for the new, extended deadline.
+      await supabase
+        .from("tasks")
+        .update({ deadline: request.requested_deadline, deadline_reminder_sent: false })
+        .eq("id", request.task_id);
     }
 
     setDeciding(false);
@@ -757,7 +763,7 @@ export default function AdminRequestReview() {
             {request.tasks?.title ?? "Untitled Task"}
           </Text>
           <Text style={{ ...typography.label, color: colors.text.secondary }}>
-            Requested by {request.tasks?.assigned_to ?? "—"}
+            Requested by {request.requester?.name ?? "—"}
           </Text>
         </View>
 
