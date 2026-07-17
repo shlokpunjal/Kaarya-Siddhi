@@ -65,7 +65,13 @@ CREATE TABLE tasks (
     updated_at TIMESTAMP DEFAULT NOW(),
     attachment_url TEXT,
     label TEXT,
-    suggestion TEXT
+    suggestion TEXT,
+
+    -- Guards the daily "due tomorrow" reminder job (backend/deadline_
+    -- reminders.py) against re-notifying the same task for the same
+    -- deadline. Reset to false whenever the deadline actually changes
+    -- (see app/notifications/admin-request-review.tsx).
+    deadline_reminder_sent BOOLEAN NOT NULL DEFAULT false
 );
 
 --------------------------------------------------
