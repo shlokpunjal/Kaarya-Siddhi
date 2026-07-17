@@ -25,9 +25,6 @@ import AdminProfileSkeleton from "../../components/AdminProfileSkeleton";
 import { API_BASE_URL } from "../../constants/api";
 import { router } from "expo-router";
 import { authFetch } from "../../utils/authFetch";
-import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
-import CollapsibleSection from '../../components/CollapsibleSection';
-import ConfirmModal from '../../components/confirmModal';
 import { wp, moderateScale } from '../../utils/responsive';
 
 type UserRow = {
@@ -764,9 +761,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
-  scrollContent: { padding: wp(5.3), paddingBottom: 40 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  // scrollContent: { padding: wp(5.3), paddingBottom: 40 },
+  // headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  // roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   card: { borderRadius: 18, borderWidth: 2, padding: 18, marginBottom: 16 },
   cardTopRow: { flexDirection: "row", justifyContent: "flex-end" },
   editPill: {
