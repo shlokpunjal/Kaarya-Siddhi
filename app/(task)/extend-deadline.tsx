@@ -34,7 +34,7 @@ import { sendPushOnly } from "../../lib/notify";
 
 
 export default function ExtendDeadline() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
 
@@ -254,13 +254,27 @@ export default function ExtendDeadline() {
             <Ionicons name="calendar-outline" size={20} color={colors.brand.accent} />
           </TouchableOpacity>
           {showPicker && (
-            <DateTimePicker
-              value={newDeadline ?? getNextDayAfterDeadline(task.deadline)}
-              mode="date"
-              minimumDate={getNextDayAfterDeadline(task.deadline)}
-              display={Platform.OS === "ios" ? "inline" : "default"}
-              onChange={onChangeDate}
-            />
+            <View
+              style={{
+                marginTop: 10,
+                backgroundColor: colors.base.surfaceL1,
+                borderColor: colors.base.border,
+                borderWidth: 1,
+                borderRadius: 16,
+                overflow: "hidden",
+                paddingVertical: Platform.OS === "ios" ? 4 : 0,
+              }}
+            >
+              <DateTimePicker
+                value={newDeadline ?? getNextDayAfterDeadline(task.deadline)}
+                mode="date"
+                minimumDate={getNextDayAfterDeadline(task.deadline)}
+                display={Platform.OS === "ios" ? "inline" : "default"}
+                onChange={onChangeDate}
+                accentColor={colors.brand.primary}
+                themeVariant={isDark ? "dark" : "light"}
+              />
+            </View>
           )}
         </View>
 

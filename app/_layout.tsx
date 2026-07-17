@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import { enableScreens } from 'react-native-screens';
 import * as Notifications from "expo-notifications";
 import { sendLocalNotification } from "../utils/notifications";
+import { registerAndSavePushToken } from "../lib/pushNotifications";
 
 enableScreens(false);
 SplashScreen.preventAutoHideAsync();
@@ -51,6 +52,42 @@ function notifTitle(type: string): string {
 // Rendered INSIDE <AuthProvider>, so useAuth() is valid here. Owns both the
 // realtime "show a local notification when a row lands" watcher and the
 // tap-to-navigate listener for actual pushes (once those work on a dev build).
+function navigateFromNotificationData(data: Record<string, any>, router: ReturnType<typeof useRouter>) {
+  if (!data?.type) return;
+
+  switch (data.type) {
+    case "connection_request":
+      router.push({
+        pathname: "/notifications/admin-connection-review",
+        params: { employeeEmail: data.employee_email, adminEmail: data.admin_email },
+      });
+      break;
+    case "connection_accepted":
+    case "connection_rejected":
+      router.push("/notifications/employee");
+      break;
+    case "extension_request":
+      router.push({
+        pathname: "/notifications/admin-request-review",
+        params: { requestId: data.extension_request_id },
+      });
+      break;
+    case "extension_accepted":
+    case "extension_rejected":
+      router.push({
+        pathname: "/notifications/employee-request-detail",
+        params: { requestId: data.extension_request_id },
+      });
+      break;
+    case "task_assigned":
+      router.push({
+        pathname: "/(task)/task-detail",
+        params: { taskId: data.taskId },
+      });
+      break;
+  }
+}
+
 function NotificationBridge() {
   const router = useRouter();
   const { userEmail } = useAuth();
@@ -68,6 +105,14 @@ function NotificationBridge() {
         .eq("email", userEmail)
         .single();
       if (!userRow) return;
+
+      // Register this device for real push notifications and save the
+      // token to users.expo_push_token — without this, admins/employees
+      // never receive anything in the OS notification tray, only the
+      // in-app list and the local-notification fallback below.
+      registerAndSavePushToken().catch((err) =>
+        console.log("Push token registration failed:", err)
+      );
 
       notifChannel = supabase
         .channel(`global_notifs_${userRow.id}`)
@@ -101,41 +146,22 @@ function NotificationBridge() {
   }, [userEmail]);
 
   useEffect(() => {
+    // App was fully killed and got launched BY tapping the notification —
+    // addNotificationResponseReceivedListener below won't have been
+    // registered in time to catch that original tap, so check for it
+    // separately on mount.
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!response) return;
+      const data = response.notification.request.content.data as Record<string, any>;
+      // Router may not be mounted yet this early in a cold start — the
+      // splash screen already holds for ~1.5s, so a short delay here is
+      // safe and avoids a router.push that silently no-ops.
+      setTimeout(() => navigateFromNotificationData(data, router), 700);
+    });
+
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, any>;
-      if (!data?.type) return;
-
-      switch (data.type) {
-        case "connection_request":
-          router.push({
-            pathname: "/notifications/admin-connection-review",
-            params: { employeeEmail: data.employee_email, adminEmail: data.admin_email },
-          });
-          break;
-        case "connection_accepted":
-        case "connection_rejected":
-          router.push("/notifications/employee");
-          break;
-        case "extension_request":
-          router.push({
-            pathname: "/notifications/admin-request-review",
-            params: { requestId: data.extension_request_id },
-          });
-          break;
-        case "extension_accepted":
-        case "extension_rejected":
-          router.push({
-            pathname: "/notifications/employee-request-detail",
-            params: { requestId: data.extension_request_id },
-          });
-          break;
-        case "task_assigned":
-          router.push({
-            pathname: "/(task)/task-detail",
-            params: { taskId: data.taskId },
-          });
-          break;
-      }
+      navigateFromNotificationData(data, router);
     });
 
     return () => sub.remove();
