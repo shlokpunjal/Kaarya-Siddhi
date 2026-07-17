@@ -154,7 +154,12 @@ export default function ExtendDeadline() {
       })();
     }
   };
-
+  function getNextDayAfterDeadline(deadline: string | null): Date {
+    const base = deadline ? new Date(deadline) : new Date();
+    const next = new Date(base);
+    next.setDate(next.getDate() + 1);
+    return next;
+  }
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
       {/* Header */}
@@ -251,9 +256,9 @@ export default function ExtendDeadline() {
           </TouchableOpacity>
           {showPicker && (
             <DateTimePicker
-              value={newDeadline ?? new Date()}
+              value={newDeadline ?? getNextDayAfterDeadline(task.deadline)}
               mode="date"
-              minimumDate={new Date()}
+              minimumDate={getNextDayAfterDeadline(task.deadline)}
               display={Platform.OS === "ios" ? "inline" : "default"}
               onChange={onChangeDate}
             />

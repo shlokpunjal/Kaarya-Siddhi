@@ -9,6 +9,7 @@ import { TaskStatus, TaskPriority, Task } from '../../types/task';
 import { typography } from '../../theme/theme';
 import { wp, hp } from '../../utils/responsive';
 import { useTheme } from '../../context/ThemeContext';
+import AdminTasksSkeleton from '../../components/AdminTasksSkeleton';
 
 type FilterType = 'all' | 'status' | 'priority' | 'label' | 'deadlineAsc' | 'deadlineDesc' | 'priorityHighLow' | 'priorityLowHigh';
 
@@ -197,9 +198,7 @@ export default function EmployeeTasks() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.brand.accent} />
-      </SafeAreaView>
+      <AdminTasksSkeleton />
     );
   }
 
@@ -281,8 +280,15 @@ export default function EmployeeTasks() {
                   </Text>
                 </View>
               </View>
-              <Text style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}>
-                {task.label} · {task.priority.toUpperCase()} priority · Due {task.dueDate}
+              <Text
+                style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}
+              >
+                {task.label} · {task.priority.toUpperCase()} · Due{" "}
+                {new Date(task.dueDate).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
               </Text>
             </Pressable>
           ))

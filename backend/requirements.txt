@@ -20,3 +20,5 @@ dotenv
 supabase
 openpyxl
 reportlab
+apscheduler
+gspread

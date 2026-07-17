@@ -24,7 +24,9 @@ import ConfirmModal from "../../components/confirmModal";
 import { router } from "expo-router";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import { wp, moderateScale } from "../../utils/responsive";
-
+import { API_BASE_URL } from "../../constants/api";
+import { authFetch } from "../../utils/authFetch"; // adjust path if needed
+import EmployeeProfileSkeleton from "../../components/EmployeeProfileSkeleton";
 
 type UserRow = {
   id: string;
@@ -71,6 +73,8 @@ export default function EmployeeProfile() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
   const [logoutVisible, setLogoutVisible] = useState(false);
+  const [changeAdminVisible, setChangeAdminVisible] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -169,6 +173,56 @@ export default function EmployeeProfile() {
 
   const handleLogout = () => {
     setLogoutVisible(true);
+  };
+
+  const handleChangeAdmin = () => {
+    setChangeAdminVisible(true);
+  };
+
+  const confirmChangeAdmin = async () => {
+    if (!currentUser) return;
+
+    try {
+      setDisconnecting(true);
+      console.log("Starting disconnect request...");
+
+      const response = await authFetch("/employee/disconnect-admin", {
+        method: "POST",
+        body: JSON.stringify({
+          employee_email: currentUser.email,
+        }),
+      });
+
+      console.log("Response status:", response.status);
+      const data = await response.json();
+      console.log("Response data:", data);
+
+      if (!response.ok) {
+        Alert.alert(
+          "Could not disconnect",
+          data.detail || "Something went wrong.",
+        );
+        return;
+      }
+
+      console.log("Success, navigating...");
+      setChangeAdminVisible(false);
+      setConnectionStatus("none");
+      setAdminName(null);
+
+      router.replace({
+        pathname: "/(auth)/RequestAdmin",
+        params: { email: currentUser.email },
+      });
+    } catch (error: any) {
+      console.log("Caught error:", error);
+      Alert.alert(
+        "Could not disconnect",
+        error?.message || "Something went wrong.",
+      );
+    } finally {
+      setDisconnecting(false);
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -292,18 +346,7 @@ export default function EmployeeProfile() {
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: colors.base.background,
-            alignItems: "center",
-            justifyContent: "center",
-          },
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.brand.accent} />
-      </SafeAreaView>
+      <EmployeeProfileSkeleton />
     );
   }
 
@@ -373,8 +416,8 @@ export default function EmployeeProfile() {
                 ]}
               >
                 {connectionStatus === "pending"
-                  ? "Your request to join an admin's workspace is pending approval."
-                  : "You're not connected to any admin yet."}
+                  ? "You aren't connected to an admin's workspace yet."
+                  : "You aren't connected to any admin yet."}
               </Text>
             </View>
 
@@ -717,6 +760,54 @@ export default function EmployeeProfile() {
           </CollapsibleSection>
         </View>
 
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.base.surfaceL1,
+              borderColor: colors.base.border,
+              paddingVertical: 4,
+            },
+          ]}
+        >
+          <Pressable
+            style={[
+              styles.changeAdminRow,
+              connectionStatus !== "accepted" && styles.changeAdminRowDisabled,
+            ]}
+            onPress={handleChangeAdmin}
+            disabled={connectionStatus !== "accepted"}
+          >
+            <View style={styles.changeAdminLeft}>
+              <Ionicons
+                name="swap-horizontal-outline"
+                size={20}
+                color={connectionStatus === "accepted" ? colors.brand.accent : colors.text.secondary}
+              />
+              <View style={{ marginLeft: 12 }}>
+                <Text
+                  style={[
+                    typography.heading3,
+                    { color: connectionStatus === "accepted" ? colors.text.primary : colors.text.secondary },
+                  ]}
+                >
+                  Change Admin
+                </Text>
+                <Text style={[typography.label, { color: colors.text.secondary, marginTop: 2 }]}>
+                  {connectionStatus === "accepted" ? adminName : "Not connected"}
+                </Text>
+              </View>
+            </View>
+            {connectionStatus === "accepted" && (
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.text.secondary}
+              />
+            )}
+          </Pressable>
+        </View>
+
         <Pressable
           style={[styles.logoutRow, { backgroundColor: colors.brand.primary }]}
           onPress={handleLogout}
@@ -779,11 +870,36 @@ export default function EmployeeProfile() {
           logout();
         }}
       />
+      <ConfirmModal
+        visible={changeAdminVisible}
+        title="Change Admin"
+        message="This will disconnect you from your current admin. You'll need to request a new admin connection. Are you sure?"
+        confirmText={disconnecting ? "Changing..." : "Change"}
+        cancelText="Cancel"
+        destructive
+        onCancel={() => setChangeAdminVisible(false)}
+        onConfirm={confirmChangeAdmin}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  changeAdminRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  changeAdminRowDisabled: {
+    opacity: 0.5,
+  },
+  changeAdminLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
   safeArea: { flex: 1 },
   scrollContent: { padding: wp(5.3), paddingBottom: 40 },
   headerRow: {

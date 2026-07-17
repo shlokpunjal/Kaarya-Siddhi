@@ -18,7 +18,12 @@ import { typography } from '../../theme/theme';
 import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone, isValidName } from "../../constants/validators";
+import useLoading from "../../hooks/useLoading";
 
+
+const LOGO_SIZE = 120;
+const LOGO_IMAGE_INSET = 5;
+const CARD_RADIUS = 24;
 
 export default function AdminSignup() {
   const [name, setName] = useState("");
@@ -29,6 +34,7 @@ export default function AdminSignup() {
 
 
   const [loading, setLoading] = useState(false);
+  const { showLoading, hideLoading } = useLoading();
 
 
   const [errors, setErrors] = useState({
@@ -117,6 +123,7 @@ export default function AdminSignup() {
     try {
       setLoading(true);
       setErrors({ name: "", department: "", phone: "", email: "" });
+      showLoading("Creating your account...");
 
       // Create Account
       const signupResponse = await fetch(`${API_BASE_URL}/signup`, {
@@ -148,6 +155,7 @@ export default function AdminSignup() {
             email: signupData.detail || "Signup failed",
           }));
         }
+        hideLoading();
         return;
       }
 
@@ -170,9 +178,11 @@ export default function AdminSignup() {
           ...prev,
           email: otpData.detail || "Failed to send OTP",
         }));
+        hideLoading();
         return;
       }
 
+      hideLoading();
       router.push({
         pathname: "/(auth)/OtpVerify",
         params: {
@@ -183,6 +193,7 @@ export default function AdminSignup() {
         },
       });
     } catch (error) {
+      hideLoading();
       console.log(error);
       setErrors((prev) => ({
         ...prev,
@@ -219,7 +230,7 @@ export default function AdminSignup() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.title}>Create Admin Account</Text>
+              <Text style={[styles.title, typography.subheading]}>Create Admin Account</Text>
 
               <View style={{ width: "100%", alignItems: "center" }}>
                 <ValidatedInput
@@ -343,16 +354,16 @@ const styles = StyleSheet.create({
     marginTop: 35,
     justifyContent: "center",
     alignItems: "center",
-    height: 120,
-    width: 120,
-    borderRadius: 60,
+    height: LOGO_SIZE,
+    width: LOGO_SIZE,
+    borderRadius: LOGO_SIZE / 2,
     backgroundColor: ACCENT,
   },
 
   logo: {
-    width: 115,
-    height: 115,
-    borderRadius: 60,
+    width: LOGO_SIZE - LOGO_IMAGE_INSET,
+    height: LOGO_SIZE - LOGO_IMAGE_INSET,
+    borderRadius: (LOGO_SIZE - LOGO_IMAGE_INSET) / 2,
   },
 
   card: {
@@ -360,7 +371,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "85%",
     backgroundColor: "white",
-    borderRadius: 24,
+    borderRadius: CARD_RADIUS,
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 20,
@@ -405,7 +416,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "white",
     fontSize: 16,
-    // fontWeight: "700",
     fontFamily: "Poppins_400Regular",
     letterSpacing: 0.3,
   },
@@ -420,12 +430,14 @@ const styles = StyleSheet.create({
   login: {
     alignItems: "center",
     justifyContent: "center",
+    flexDirection:"row",
+    gap:3,
   },
 
   loginT: {
     color: PRIMARY,
     fontFamily: "Poppins_600SemiBold",
-    marginTop: 4,
+    marginTop: 27.3,
     textDecorationLine: "underline",
   },
 });

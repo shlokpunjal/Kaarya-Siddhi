@@ -273,9 +273,7 @@ export default function AdminTasks() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.brand.accent} />
-      </SafeAreaView>
+      <AdminTasksSkeleton />
     );
   }
 
@@ -357,8 +355,15 @@ export default function AdminTasks() {
                   </Text>
                 </View>
               </View>
-              <Text style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}>
-                {employeeDisplayName(task.assignedTo)} · {task.label} · {task.priority.toUpperCase()} · Due {task.dueDate}
+              <Text
+                style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}
+              >
+                {employeeDisplayName(task.assignedTo)} · {task.label} · {task.priority.toUpperCase()} · Due{" "}
+                {new Date(task.dueDate).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
               </Text>
             </Pressable>
           ))

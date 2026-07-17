@@ -230,9 +230,7 @@ export default function AdminProfile() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.brand.primary} />
-      </SafeAreaView>
+      <AdminProfileSkeleton />
     );
   }
 
