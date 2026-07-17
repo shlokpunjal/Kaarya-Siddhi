@@ -35,7 +35,7 @@ import { wp, moderateScale } from "../../utils/responsive";
 
 
 export default function ExtendDeadline() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
 
