@@ -14,7 +14,8 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
-  
+import CalendarScreenSkeleton from "../../components/CalendarScreenSkeleton";
+
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
 interface Task { id: string; title: string; descp: string; category: TaskCategory; }
 
@@ -232,9 +233,7 @@ export default function CalendarScreen() {
 
   if (loading) {
     return (
-      <View style={[s.container, { backgroundColor: base.background, alignItems: "center", justifyContent: "center" }]}>
-        <ActivityIndicator size="large" color={brand.accent} />
-      </View>
+      <CalendarScreenSkeleton />
     );
   }
 

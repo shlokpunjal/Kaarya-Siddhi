@@ -10,6 +10,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme, useThemeMode, ThemeMode } from '../../context/ThemeContext';
 import CollapsibleSection from '../../components/CollapsibleSection';
 import ConfirmModal from '../../components/confirmModal';
+import AdminProfileSkeleton from '../../components/AdminProfileSkeleton';
 
 type UserRow = {
   id: string;
@@ -229,9 +230,7 @@ export default function AdminProfile() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.brand.primary} />
-      </SafeAreaView>
+      <AdminProfileSkeleton />
     );
   }
 
