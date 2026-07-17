@@ -16,6 +16,8 @@ import { typography } from '../../theme/theme';
 import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone } from "../../constants/validators";
+import useLoading from "../../hooks/useLoading";
+
 
 const AdminLogin = () => {
   const [ph, setPh] = useState("");
@@ -23,6 +25,7 @@ const AdminLogin = () => {
   const [cooldown, setCooldown] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const { showLoading, hideLoading } = useLoading();
 
   const [errors, setErrors] = useState({
     phone: "",
@@ -76,6 +79,8 @@ const AdminLogin = () => {
       setIsSending(true);
       setErrors({ phone: "", email: "" });
 
+      showLoading("Sending verification code...");
+
       const loginResponse = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: {
@@ -106,6 +111,7 @@ const AdminLogin = () => {
           email: message,
         }));
 
+        hideLoading();
         return;
       }
 
@@ -138,10 +144,12 @@ const AdminLogin = () => {
           email: message,
         }));
 
+        hideLoading();
         return;
       }
 
       startCooldown();
+      hideLoading();
 
       router.push({
         pathname: "/(auth)/OtpVerify",
@@ -153,6 +161,7 @@ const AdminLogin = () => {
         },
       });
     } catch (error) {
+      hideLoading();
       console.log(error);
       setErrors((prev) => ({
         ...prev,
@@ -307,7 +316,6 @@ const styles = StyleSheet.create({
   LoginText: {
     color: "white",
     fontSize: 16,
-    // fontWeight: "700",
     fontFamily: "Poppins_400Regular",
     letterSpacing: 0.3,
   },

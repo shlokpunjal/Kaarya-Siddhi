@@ -224,7 +224,12 @@ const clearOtherNotifications = async () => {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          padding: 20,
+        }}
+      >
         {/* ---------- Requests box ---------- */}
         <TouchableOpacity
           onPress={() => router.push("/notifications/admin-requests-list")}
@@ -293,7 +298,50 @@ const clearOtherNotifications = async () => {
         </View>
 
         {otherNotifications.length === 0 ? (
-          <Text style={{ ...typography.body, color: colors.text.secondary }}>You're all caught up.</Text>
+          <View
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              paddingHorizontal: 32,
+              marginTop: -35, // adjust if needed
+            }}
+          >
+            <View
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 36,
+                backgroundColor: 'rgba(0, 0, 0, 0.08)', // subtle circle behind icon
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <Ionicons name="notifications-outline" size={32} color={colors.text.secondary} />
+            </View>
+
+            <Text
+              style={{
+                ...typography.subheading, // or a bold/medium variant
+                color: colors.text.primary,
+                marginBottom: 10,
+                textAlign: 'center',
+              }}
+            >
+              You're all caught up
+            </Text>
+
+            <Text
+              style={{
+                ...typography.body,
+                color: colors.text.secondary,
+                textAlign: 'center',
+              }}
+            >
+              New notifications will show up here.
+            </Text>
+          </View>
         ) : (
           otherNotifications.map((n) => (
             <View

@@ -18,9 +18,9 @@ import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
 import { registerPushToken } from "../../utils/pushToken";
-import TrainLoadingAnimation from "../../components/TrainLoadingAnimation";
 
 import { sendLoginNotification } from "../../utils/notifications";
+import useLoading from "../../hooks/useLoading";
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -41,6 +41,7 @@ const OtpVerify = () => {
     name?: string;
   }>();
   const { saveSession } = useAuth();
+  const { showLoading, hideLoading } = useLoading();
 
   const [otpError, setOtpError] = useState("");
   const [resendMessage, setResendMessage] = useState("");
@@ -104,6 +105,7 @@ const OtpVerify = () => {
     try {
       setIsVerifying(true);
       setOtpError("");
+      showLoading("Verifying your code...");
 
       const response = await fetch(`${API_BASE_URL}/verify-otp`, {
         method: "POST",
@@ -132,7 +134,9 @@ const OtpVerify = () => {
           const backPath =
             role === "admin" ? "/(auth)/AdminSignup" : "/(auth)/EmployeeSignup";
 
-          router.replace({
+          hideLoading();
+          hideLoading();
+        router.replace({
             pathname: backPath,
             params: {
               prefillNameTaken: "1",
@@ -142,6 +146,7 @@ const OtpVerify = () => {
         }
 
         setOtpError(data.detail || "Invalid OTP");
+        hideLoading();
         return;
       }
       await saveSession(
@@ -163,7 +168,9 @@ const OtpVerify = () => {
 
       if (mode === "signup") {
         if (data.role === "admin") {
-          router.replace({
+          hideLoading();
+          hideLoading();
+        router.replace({
             pathname: "/(onboarding)/profileSetup1",
             params: { role: "admin", name },
           });
@@ -171,7 +178,9 @@ const OtpVerify = () => {
         }
 
         if (data.role === "employee") {
-          router.replace({
+          hideLoading();
+          hideLoading();
+        router.replace({
             pathname: "/(auth)/RequestAdmin",
             params: { email: data.email, name },
           });
@@ -184,11 +193,13 @@ const OtpVerify = () => {
       );
 
       if (data.role === "admin") {
+        hideLoading();
         router.replace("/(admin)");
         return;
       }
 
       if (data.role === "employee" && !data.workspace_id) {
+        hideLoading();
         router.replace({
           pathname: "/(auth)/RequestAdmin",
           params: { email: data.email },
@@ -196,8 +207,10 @@ const OtpVerify = () => {
         return;
       }
 
+      hideLoading();
       router.replace("/(employee)");
     } catch (error: any) {
+      hideLoading();
       console.log("FULL ERROR:", error);
       const elapsed = Date.now() - startTime;
       if (elapsed < MIN_VISIBLE_MS) {
@@ -270,10 +283,7 @@ const OtpVerify = () => {
                 style={styles.imageStyling}
               />
             </View>
-            <View style={styles.trainAboveCard}>
-              <TrainLoadingAnimation active={isVerifying} />
-            </View>
-            {/* Card — restored to its original standalone styling, no wrapper */}
+{/* Card — restored to its original standalone styling, no wrapper */}
             <Animated.View
               style={[
                 styles.divi,

@@ -15,29 +15,31 @@ import { typography } from "../../theme/theme";
 import { useRouter } from "expo-router";
 import { wp, moderateScale } from "../../utils/responsive";
 import { supabase } from "../../lib/supabase";
+import CalendarScreenSkeleton from "../../components/CalendarScreenSkeleton";
+
 
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
 interface Task { id: string; title: string; descp: string; category: TaskCategory; }
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const MONTH_NAMES = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 
 function toDateString(y: number, m: number, d: number): string {
-  return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 function buildGrid(year: number, month: number): string[] {
-  const firstDow    = new Date(year, month - 1, 1).getDay();
+  const firstDow = new Date(year, month - 1, 1).getDay();
   const startOffset = (firstDow + 6) % 7; // Mon=0 … Sun=6
   const daysInMonth = new Date(year, month, 0).getDate();
-  const prevMonth   = month === 1 ? 12 : month - 1;
-  const prevYear    = month === 1 ? year - 1 : year;
-  const daysInPrev  = new Date(prevYear, prevMonth, 0).getDate();
-  const nextMonth   = month === 12 ? 1 : month + 1;
-  const nextYear    = month === 12 ? year + 1 : year;
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  const daysInPrev = new Date(prevYear, prevMonth, 0).getDate();
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
 
   const cells: string[] = [];
   for (let i = startOffset - 1; i >= 0; i--)
@@ -64,8 +66,17 @@ type TaskRow = {
   workspace_id: string;
 };
 
-function mapStatusToCategory(status: TaskRow["status"]): TaskCategory {
-  return status === "in_review" ? "inReview" : status;
+function mapStatusToCategory(status: TaskRow["status"], deadline: string): TaskCategory {
+  if (status === "completed") return "completed";
+  if (status === "in_review") return "inReview";
+
+  // Compare calendar dates only (not exact timestamps) so a task stays
+  // "pending" for the entirety of its deadline day, and only becomes
+  // "overdue" starting the day after.
+  const deadlineDate = deadline ? deadline.slice(0, 10) : null;
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const isPastDeadline = deadlineDate ? deadlineDate < todayDate : false;
+  return isPastDeadline ? "overdue" : "pending";
 }
 
 function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
@@ -77,7 +88,7 @@ function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
       id: row.id,
       title: row.title,
       descp: row.description ?? "",
-      category: mapStatusToCategory(row.status),
+      category: mapStatusToCategory(row.status, row.deadline),
     };
     if (!map[dateKey]) map[dateKey] = [];
     map[dateKey].push(task);
@@ -90,25 +101,25 @@ export default function CalendarScreen() {
   const { brand, base, text, status } = colors;
   const router = useRouter();
   const todayISO = new Date().toISOString().split("T")[0];
-  const todayY   = parseInt(todayISO.slice(0, 4), 10);
-  const todayM   = parseInt(todayISO.slice(5, 7), 10);
+  const todayY = parseInt(todayISO.slice(0, 4), 10);
+  const todayM = parseInt(todayISO.slice(5, 7), 10);
 
-  const [viewYear,  setViewYear]  = useState(todayY);
+  const [viewYear, setViewYear] = useState(todayY);
   const [viewMonth, setViewMonth] = useState(todayM);
-  const [selected,  setSelected]  = useState(todayISO);
+  const [selected, setSelected] = useState(todayISO);
 
   const [tasksMap, setTasksMap] = useState<Record<string, Task[]>>({});
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
- const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
 
   // ── Resolve employee's user id, fetch their tasks, realtime subscribe ───
   useEffect(() => {
-   let isMounted = true;
+    let isMounted = true;
     let tasksChannel: ReturnType<typeof supabase.channel> | null = null;
     let createdTasksChannel: ReturnType<typeof supabase.channel> | null = null;
     let extensionsChannel: ReturnType<typeof supabase.channel> | null = null;
-   const fetchTasks = async (userId: string) => {
+    const fetchTasks = async (userId: string) => {
       const { data, error } = await supabase
         .from("tasks")
         .select("*")
@@ -211,15 +222,15 @@ export default function CalendarScreen() {
 
   const categoryColor: Record<TaskCategory, string> = {
     completed: status.completed,
-    inReview:  status.inReview,
-    pending:   status.pending,
-    overdue:   status.overdue,
+    inReview: status.inReview,
+    pending: status.pending,
+    overdue: status.overdue,
   };
   const categoryLabel: Record<TaskCategory, string> = {
     completed: "Completed",
-    inReview:  "In Review",
-    pending:   "Pending",
-    overdue:   "Overdue",
+    inReview: "In Review",
+    pending: "Pending",
+    overdue: "Overdue",
   };
 
   function getCats(ds: string): TaskCategory[] {
@@ -237,29 +248,27 @@ export default function CalendarScreen() {
     else setViewMonth(m => m + 1);
   }
 
-  const grid          = buildGrid(viewYear, viewMonth);
-  const curPrefix     = toDateString(viewYear, viewMonth, 1).slice(0, 7);
+  const grid = buildGrid(viewYear, viewMonth);
+  const curPrefix = toDateString(viewYear, viewMonth, 1).slice(0, 7);
   // Hide 6th row if fully overflow
-  const rowCount      = grid.slice(35, 42).every(ds => ds.slice(0, 7) !== curPrefix) ? 5 : 6;
+  const rowCount = grid.slice(35, 42).every(ds => ds.slice(0, 7) !== curPrefix) ? 5 : 6;
 
   if (loading) {
     return (
-      <View style={[s.container, { backgroundColor: base.background, alignItems: "center", justifyContent: "center" }]}>
-        <ActivityIndicator size="large" color={brand.accent} />
-      </View>
+      <CalendarScreenSkeleton />
     );
   }
 
   return (
     <ScrollView
-   style={[s.container, { backgroundColor: base.background }]}
-   refreshControl={
-     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brand.accent} colors={[brand.accent]} />
-   }
- >
+      style={[s.container, { backgroundColor: base.background }]}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brand.accent} colors={[brand.accent]} />
+      }
+    >
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={[s.header, { backgroundColor: brand.primary }]}>
-          <Text style={[typography.heading, { color: brand.onPrimary }]}>Calendar</Text>
+        <Text style={[typography.heading, { color: brand.onPrimary }]}>Calendar</Text>
       </View>
 
       {/* ── Calendar card ──────────────────────────────────────────────── */}
@@ -312,11 +321,11 @@ export default function CalendarScreen() {
                 >
                   {grid.slice(rowIdx * 7, rowIdx * 7 + 7).map((ds, colIdx) => {
                     const isCurrent = ds.slice(0, 7) === curPrefix;
-                    const isToday   = ds === todayISO;
-                    const isSel     = ds === selected;
-                    const cats      = getCats(ds);
-                    const hasTasks  = cats.length > 0 && isCurrent;
-                    const isLastCol  = colIdx === 6;
+                    const isToday = ds === todayISO;
+                    const isSel = ds === selected;
+                    const cats = getCats(ds);
+                    const hasTasks = cats.length > 0 && isCurrent;
+                    const isLastCol = colIdx === 6;
                     const isFirstCol = colIdx === 0;
                     const cellIsLastRow = isLastRow;
 
@@ -330,7 +339,7 @@ export default function CalendarScreen() {
                       setSelected(ds);
                     };
 
-             return (
+                    return (
                       <Pressable
                         key={ds}
                         onPress={onPress}
@@ -370,17 +379,17 @@ export default function CalendarScreen() {
                         {/* Date number — centered, dots stacked below */}
                         <View style={s.cellInner}>
                           <Text
-                     style={[
-                       s.cellNum,
-                       { color: isCurrent ? text.primary : text.secondary },
-                       !isCurrent && { opacity: 0.28 },
-                       colIdx === 6 && isCurrent && {
-                         color: status.overdue,
-                         fontFamily: "Poppins-SemiBold",
-                       },
-                       isToday && { color: "#FFFFFF", fontFamily: "Poppins-SemiBold" },
-                     ]}
-                   >
+                            style={[
+                              s.cellNum,
+                              { color: isCurrent ? text.primary : text.secondary },
+                              !isCurrent && { opacity: 0.28 },
+                              colIdx === 6 && isCurrent && {
+                                color: status.overdue,
+                                fontFamily: "Poppins-SemiBold",
+                              },
+                              isToday && { color: "#FFFFFF", fontFamily: "Poppins-SemiBold" },
+                            ]}
+                          >
                             {parseInt(ds.slice(8), 10)}
                           </Text>
 
@@ -437,7 +446,7 @@ export default function CalendarScreen() {
                   s.taskCard,
                   {
                     backgroundColor: base.surfaceL1,
-                    borderColor:     base.border,
+                    borderColor: base.border,
                     borderLeftColor: categoryColor[task.category],
                   },
                 ]}
@@ -455,7 +464,7 @@ export default function CalendarScreen() {
             ))
           ) : (
             <View style={[s.emptyState, { borderColor: base.border }]}>
-              <Text style={[s.emptyTitle,    { color: text.secondary }]}>No tasks scheduled</Text>
+              <Text style={[s.emptyTitle, { color: text.secondary }]}>No tasks scheduled</Text>
               <Text style={[s.emptySubtitle, { color: text.secondary }]}>This day is clear</Text>
             </View>
           )}
@@ -487,7 +496,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     overflow: "hidden",
     ...Platform.select({
-      ios:     { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
+      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
       android: { elevation: 3 },
     }),
   },
@@ -501,7 +510,7 @@ const s = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 4,
   },
-  arrow:      { fontSize: moderateScale(34), lineHeight: 36, fontFamily: "Poppins-Regular" },
+  arrow: { fontSize: moderateScale(34), lineHeight: 36, fontFamily: "Poppins-Regular" },
   monthTitle: { fontSize: moderateScale(28), fontFamily: "Poppins-SemiBold" },
 
   /* Weekday header */
@@ -529,7 +538,7 @@ const s = StyleSheet.create({
   monthDivider: {
     height: 1,
     marginHorizontal: wp(3.7),
-    marginBottom:8,
+    marginBottom: 8,
   },
   cell: {
     flex: 1,
@@ -593,14 +602,14 @@ const s = StyleSheet.create({
     paddingVertical: 7,
     borderTopWidth: 1,
   },
-  legendItem:  { flexDirection: "row", alignItems: "center", gap: 4 },
-  legendDot:   { width: moderateScale(7), height: moderateScale(7), borderRadius: 4 },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  legendDot: { width: moderateScale(7), height: moderateScale(7), borderRadius: 4 },
   legendLabel: { fontSize: moderateScale(10), fontFamily: "Poppins-Regular" },
 
   /* Task section */
   taskSection: { flex: 1, paddingHorizontal: wp(3.2), paddingTop: 10 },
   taskHeading: { fontSize: moderateScale(15), fontFamily: "Poppins-SemiBold", marginBottom: 8 },
-  taskScroll:  { paddingBottom: 24 },
+  taskScroll: { paddingBottom: 24 },
 
   taskCard: {
     borderRadius: 12,
@@ -609,7 +618,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderLeftWidth: 4,
     ...Platform.select({
-      ios:     { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
+      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
       android: { elevation: 2 },
     }),
   },
@@ -621,9 +630,9 @@ const s = StyleSheet.create({
     gap: 8,
   },
   taskTitle: { fontSize: moderateScale(14), fontFamily: "Poppins-Medium", flex: 1 },
-  badge:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   badgeText: { fontSize: moderateScale(10), fontFamily: "Poppins-Medium" },
-  taskDesc:  { fontSize: moderateScale(12), fontFamily: "Poppins-Regular", lineHeight: 18 },
+  taskDesc: { fontSize: moderateScale(12), fontFamily: "Poppins-Regular", lineHeight: 18 },
 
   /* Empty state */
   emptyState: {
@@ -634,6 +643,6 @@ const s = StyleSheet.create({
     borderRadius: 12,
     marginTop: 8,
   },
-  emptyTitle:    { fontSize: moderateScale(14), fontFamily: "Poppins-Medium" },
+  emptyTitle: { fontSize: moderateScale(14), fontFamily: "Poppins-Medium" },
   emptySubtitle: { fontSize: moderateScale(12), fontFamily: "Poppins-Regular", marginTop: 4, opacity: 0.6 },
 });
