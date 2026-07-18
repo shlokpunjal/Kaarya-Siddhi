@@ -503,7 +503,6 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
-  Alert,
   ScrollView,
   ActivityIndicator,
   Platform,
@@ -516,6 +515,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { createNotification } from "../../lib/notify";
+import { useToast } from "../../context/ToastContext";
 
 const statusMeta = (colors: any, status: string) => {
   if (status === "accepted")
@@ -535,6 +535,7 @@ export default function AdminRequestReview() {
   const { colors } = useTheme();
   const router = useRouter();
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
+  const { showToast } = useToast();
 
   const [request, setRequest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -643,7 +644,7 @@ export default function AdminRequestReview() {
     setModalVisible(false);
 
     if (error) {
-      Alert.alert("Could not update", error.message);
+      showToast(error.message || "Could not update request", "error");
       return;
     }
 
@@ -668,11 +669,8 @@ export default function AdminRequestReview() {
       metadata: { extension_request_id: request.id },
     });
 
-    Alert.alert(
-      pendingDecision === "accepted" ? "Request accepted" : "Request rejected",
-      "The employee will be notified.",
-      [{ text: "OK", onPress: () => router.back() }]
-    );
+    showToast("The employee will be notified.", "success");
+    setTimeout(() => router.back(), 900);
   };
 
   const formatDate = (d: string) =>
