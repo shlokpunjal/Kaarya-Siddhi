@@ -1,4 +1,4 @@
 
-export const API_BASE_URL = "http://10.159.22.156:8000"; // Replace with your backend API base URL
+export const API_BASE_URL = "http://192.168.31.88:8000"; // Replace with your backend API base URL
 
 

@@ -17,6 +17,8 @@ import { enableScreens } from 'react-native-screens';
 import * as Notifications from "expo-notifications";
 import { sendLocalNotification } from "../utils/notifications";
 import { registerAndSavePushToken } from "../lib/pushNotifications";
+import { ToastProvider } from "../context/ToastContext";
+
 
 enableScreens(true);
 SplashScreen.preventAutoHideAsync();
@@ -210,6 +212,7 @@ export default function RootLayout() {
       <NotificationBridge />
 
       <ThemeProvider>
+        <ToastProvider>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: BRAND_PRIMARY } }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />
@@ -222,6 +225,7 @@ export default function RootLayout() {
           <Stack.Screen name="reports/genExcel" />
           <Stack.Screen name="reports/genPdf" />
         </Stack>
+        </ToastProvider>
 
         {showSplash && (
           <Animated.View pointerEvents="none" style={[styles.splash, { opacity: splashOpacity }]}>

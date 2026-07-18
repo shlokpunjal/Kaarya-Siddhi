@@ -2022,3 +2022,6 @@ app.include_router(pdf_report_router)
 
 from routes.cloudinary_signature import router as cloudinary_signature_router
 app.include_router(cloudinary_signature_router)
+
+from routes.users import router as users_router
+app.include_router(users_router)
