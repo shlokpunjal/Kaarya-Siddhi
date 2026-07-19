@@ -8,6 +8,7 @@ import { fetchEofficeFiles, fetchEmployees } from '../../../lib/eoffice';
 import type { EofficeFile } from '../../../types/eoffice';
 import { getCurrentUser } from '../../../lib/currentUser';
 import { Ionicons } from '@expo/vector-icons';
+import EofficeListSkeleton from '../../../components/EofficeListSkeleton';
 
 export default function EofficeList() {
   const { colors } = useTheme();
@@ -68,45 +69,47 @@ export default function EofficeList() {
         Track files pending across offices
       </Text>
 
-      <FlatList
-        data={files}
-        keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ paddingBottom: 24 }}
-        ListEmptyComponent={
-          !loading ? (
-            <Text style={[typography.body, { color: colors.text.secondary, textAlign: 'center', marginTop: 40 }]}>
-              No files added yet
-            </Text>
-          ) : null
-        }
-        renderItem={({ item }) => (
-          <Pressable
-            style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}
-            onPress={() => router.push(`/reports/eoffice/${item.id}`)}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[typography.subheading, { color: colors.text.primary }]}>
-                File #{item.file_no}
+      {loading ? (<EofficeListSkeleton />) : (
+        <FlatList
+          data={files}
+          keyExtractor={(item) => item.id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          ListEmptyComponent={
+            !loading ? (
+              <Text style={[typography.body, { color: colors.text.secondary, textAlign: 'center', marginTop: 40 }]}>
+                No files added yet
               </Text>
-              <Text style={[typography.label, { color: colors.text.secondary, marginTop: 2 }]}>
-                Sr. No. {item.sr_no} · Pending with {employeeMap[item.pending_with] ?? 'Unknown'}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.statusBadge,
-                { backgroundColor: item.completed ? colors.status.completed : colors.status.overdue },
-              ]}
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <Pressable
+              style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}
+              onPress={() => router.push(`/reports/eoffice/${item.id}`)}
             >
-              <Text style={styles.statusText}>
-                {item.completed ? 'Done' : `${daysPending(item.pending_since)}d`}
-              </Text>
-            </View>
-          </Pressable>
-        )}
-      />
+              <View style={{ flex: 1 }}>
+                <Text style={[typography.subheading, { color: colors.text.primary }]}>
+                  File #{item.file_no}
+                </Text>
+                <Text style={[typography.label, { color: colors.text.secondary, marginTop: 2 }]}>
+                  Sr. No. {item.sr_no} · Pending with {employeeMap[item.pending_with] ?? 'Unknown'}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: item.completed ? colors.status.completed : colors.status.overdue },
+                ]}
+              >
+                <Text style={styles.statusText}>
+                  {item.completed ? 'Done' : `${daysPending(item.pending_since)}d`}
+                </Text>
+              </View>
+            </Pressable>
+          )}
+        />
 
+      )}
       <Pressable
         style={[styles.fab, { backgroundColor: colors.brand.accent }]}
         onPress={() => router.push('/reports/eoffice/new')}
