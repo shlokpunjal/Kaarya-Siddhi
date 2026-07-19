@@ -19,9 +19,10 @@ import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone, isValidName } from "../../constants/validators";
 import useLoading from "../../hooks/useLoading";
+import { wp, moderateScale } from "../../utils/responsive";
 
 
-const LOGO_SIZE = 120;
+const LOGO_SIZE = moderateScale(120);
 const LOGO_IMAGE_INSET = 5;
 const CARD_RADIUS = 24;
 
@@ -340,7 +341,7 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: PRIMARY,
     paddingVertical: 18,
-    paddingHorizontal: 20,
+    paddingHorizontal: wp(5.3),
   },
 
   headerText: {
@@ -394,7 +395,7 @@ const styles = StyleSheet.create({
 
   button: {
     backgroundColor: ACCENT,
-    height: 52,
+    height: moderateScale(52),
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",

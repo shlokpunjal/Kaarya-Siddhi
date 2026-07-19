@@ -6,6 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { wp, hp, moderateScale } from "../../utils/responsive";
 
 const { colors } = lightTheme;
 
@@ -90,15 +91,15 @@ const styles = StyleSheet.create({
   header: {
   backgroundColor: colors.brand.primary,
   paddingVertical: 18,
-  paddingHorizontal: 20,
-  height: 72,
+  paddingHorizontal: wp(5.3),
+  height: moderateScale(72),
   flexDirection: "row",
   alignItems: "center",
 },
   headerText: { color: "#fff" },
   backBtn: { padding: 6, marginRight: 4 },
-  container: { flex: 1, paddingHorizontal: 30, paddingTop: 60, alignItems: "center",marginTop:50 },
-  logo: { width: 100, height: 100, borderRadius: 35, marginBottom: 10 },
+  container: { flex: 1, paddingHorizontal: wp(8), paddingTop: hp(7.4), alignItems: "center",marginTop:hp(6.2) },
+  logo: { width:moderateScale( 100), height: moderateScale(100), borderRadius: 35, marginBottom: 10 },
   title: { color: colors.text.primary, marginBottom: 24 },
   card: {
     backgroundColor: colors.base.surfaceL1,
