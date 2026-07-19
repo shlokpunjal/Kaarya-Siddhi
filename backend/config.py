@@ -6,7 +6,6 @@ load_dotenv()
 # ---- JWT / Auth ----
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_HOURS = 24
 REFRESH_TOKEN_DAYS = 30
 ACCESS_TOKEN_MINUTES = 30
 
@@ -20,8 +19,25 @@ OTP_RESEND_SECONDS = 30
 MAX_DAILY_ATTEMPTS = 3
 
 # ---- CORS ----
-ALLOWED_ORIGINS = [
-    "http://localhost:8081",       # Expo web dev server (if you ever test on web)
-    "http://localhost:19006",      # Expo web alt port
-    "exp://192.168.31.88:8081",    # Expo Go on your LAN — replace with your actual dev IP
+# Local dev origins never change, so they're hardcoded. The production
+# origin comes from an env var instead of being baked into source — set
+# FRONTEND_ORIGIN in Render's environment config once you have a real
+# deployed web/admin origin (a plain Expo Go / built APK client doesn't
+# send an Origin header at all, so this only matters if you ever add a
+# browser-based surface).
+_DEV_ORIGINS = [
+    "http://localhost:8081",   # Expo web dev server
+    "http://localhost:19006",  # Expo web alt port
 ]
+
+_prod_origin = os.getenv("FRONTEND_ORIGIN")
+_dev_lan_origin = os.getenv("DEV_LAN_ORIGIN")  # e.g. exp://192.168.x.x:8081, set locally in your own .env, never committed
+
+ALLOWED_ORIGINS = _DEV_ORIGINS + [o for o in (_prod_origin, _dev_lan_origin) if o]
+
+# ---- Rate limiting ----
+# Applied per-IP on auth endpoints that are otherwise unauthenticated
+# (signup, login, send-otp, verify-otp, check-name) to blunt brute-force
+# and account-enumeration attempts. See rate_limit.py.
+AUTH_RATE_LIMIT = "5/minute"
+LOOKUP_RATE_LIMIT = "15/minute"  # for read-only checks like check-name
