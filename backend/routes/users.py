@@ -8,6 +8,22 @@ from schemas import DeleteAccountResponse
 
 router = APIRouter()
 
+
+@router.get("/me")
+async def get_me(current_user: dict = Depends(get_current_user)):
+    user = (
+        supabase.table("users")
+        .select("*")
+        .eq("email", current_user["sub"])
+        .execute()
+    )
+
+    if not user.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+
+    return user.data[0]
+
+
 @router.delete("/delete-account", response_model=DeleteAccountResponse)
 async def delete_account(current_user: dict = Depends(get_current_user)):
     user = (
