@@ -6,7 +6,6 @@ import {
   ScrollView,
   ActivityIndicator,
   TextInput,
-  Alert,
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,11 +15,13 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
+import { useToast } from "../../context/ToastContext";
 
 export default function Complete() {
   const { colors } = useTheme();
   const router = useRouter();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
+  const { showToast } = useToast();
 
   const [task, setTask] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +48,7 @@ export default function Complete() {
   // ── Admin sends the task back with a suggestion → status resets to pending ──
   const handleAddSuggestion = async () => {
     if (!feedback.trim()) {
-      Alert.alert("Add feedback", "Please write a suggestion before sending it back.");
+      showToast("Please write a suggestion before sending it back.", "warning");
       return;
     }
 
@@ -64,46 +65,45 @@ export default function Complete() {
 
       if (error) throw error;
 
-      Alert.alert(
-        "Suggestion sent",
+      showToast(
         "The task has been sent back to the employee as pending, with your feedback.",
-        [{ text: "OK", onPress: () => router.back() }]
+        "success"
       );
+      setTimeout(() => router.back(), 900);
     } catch (error: any) {
-      Alert.alert("Could not send suggestion", error?.message || "Something went wrong.");
+      showToast(error?.message || "Could not send suggestion", "error");
     } finally {
       setSubmitting(null);
     }
   };
 
   // ── Mark the task complete → shows up as completed for admin & employee ─────
- // ── Mark the task complete → shows up as completed for admin & employee ─────
-const handleMarkComplete = async () => {
-  try {
-    setSubmitting("complete");
+  const handleMarkComplete = async () => {
+    try {
+      setSubmitting("complete");
 
-    const { error } = await supabase
-      .from("tasks")
-      .update({
-        status: "completed",
-        suggestion: null,
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", taskId);
+      const { error } = await supabase
+        .from("tasks")
+        .update({
+          status: "completed",
+          suggestion: null,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", taskId);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    Alert.alert(
-      "Task completed",
-      "This task has been marked as complete. It will be automatically deleted 15 days from now.",
-      [{ text: "OK", onPress: () => router.back() }]
-    );
-  } catch (error: any) {
-    Alert.alert("Could not complete task", error?.message || "Something went wrong.");
-  } finally {
-    setSubmitting(null);
-  }
-};
+      showToast(
+        "This task has been marked as complete. It will be automatically deleted 15 days from now.",
+        "success"
+      );
+      setTimeout(() => router.back(), 900);
+    } catch (error: any) {
+      showToast(error?.message || "Could not complete task", "error");
+    } finally {
+      setSubmitting(null);
+    }
+  };
 
   if (loading) {
     return (

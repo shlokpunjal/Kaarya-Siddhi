@@ -55,3 +55,7 @@ class DisconnectAdminRequest(BaseModel):
 
 class LogoutRequest(BaseModel):
     refresh_token: str
+
+class DeleteAccountResponse(BaseModel):
+    success: bool
+    message: str
