@@ -17,6 +17,7 @@ import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone } from "../../constants/validators";
 import useLoading from "../../hooks/useLoading";
+import { wp, moderateScale } from "../../utils/responsive";
 
 
 const AdminLogin = () => {
@@ -298,7 +299,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#E8870A",
-    height: 48,
+    height: moderateScale(48),
     width: "60%",
     borderRadius: 14,
     shadowColor: "#E8870A",
@@ -323,7 +324,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#1A2744",
-    height: 52,
+    height: moderateScale(52),
     borderRadius: 16,
     marginTop: 18,
     shadowColor: "#1A2744",
@@ -349,7 +350,7 @@ const styles = StyleSheet.create({
   },
   mainbar: {
     backgroundColor: "#1A2744",
-    padding: 20,
+    padding: wp(5.3),
   },
   maintext: {
     color: "white",
@@ -360,16 +361,16 @@ const styles = StyleSheet.create({
   imagestyle: {
     justifyContent: "center",
     alignItems: "center",
-    height: 120,
-    width: 120,
+    height: moderateScale(120),
+    width: moderateScale(120),
     top: 50,
-    borderRadius: 120,
+    borderRadius: moderateScale(120),
     backgroundColor: "#E8870A",
   },
   imageStyling: {
-    height: 115,
-    width: 115,
-    borderRadius: 120,
+    height: moderateScale(115),
+    width:moderateScale(115),
+    borderRadius: moderateScale(120),
     bottom: 0,
   },
   divi: {

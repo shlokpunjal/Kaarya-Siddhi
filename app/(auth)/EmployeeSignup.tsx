@@ -19,6 +19,7 @@ import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone, isValidName } from "../../constants/validators";
 import useLoading from "../../hooks/useLoading";
+import { wp, moderateScale } from "../../utils/responsive";
 
 export default function EmployeeSignup() {
   const [name, setName] = useState("");
@@ -356,7 +357,7 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: PRIMARY,
     paddingVertical: 18,
-    paddingHorizontal: 20,
+    paddingHorizontal: wp(5.3),
   },
 
   headerText: {
@@ -370,16 +371,16 @@ const styles = StyleSheet.create({
     marginTop: 35,
     justifyContent: "center",
     alignItems: "center",
-    height: 120,
-    width: 120,
-    borderRadius: 60,
+    height: moderateScale(120),
+    width: moderateScale(120),
+    borderRadius: moderateScale(60),
     backgroundColor: ACCENT,
   },
 
   logo: {
-    width: 115,
-    height: 115,
-    borderRadius: 60,
+    width: moderateScale(115),
+    height: moderateScale(115),
+    borderRadius: moderateScale(60),
   },
 
   card: {
@@ -393,7 +394,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderWidth: 2,
     borderColor: "transparent",
-
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.08,
@@ -424,12 +424,11 @@ const styles = StyleSheet.create({
 
   button: {
     backgroundColor: ACCENT,
-    height: 52,
+    height: moderateScale(52),
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 14,
-
     shadowColor: ACCENT,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,

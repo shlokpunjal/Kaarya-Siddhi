@@ -6,7 +6,6 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,6 +19,8 @@ import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { wp, hp, moderateScale } from "../../utils/responsive";
+import { useToast } from "../../context/ToastContext";
+import { AlertModal } from "../../components/AlertModal";
 
 type Priority = "low" | "medium" | "high";
 
@@ -34,6 +35,7 @@ export default function Newtask() {
   const router = useRouter();
   const { taskId } = useLocalSearchParams<{ taskId?: string }>();
   const isEditMode = !!taskId;
+  const { showToast } = useToast();
 
   const [taskName, setTaskName] = useState("");
 
@@ -46,6 +48,7 @@ export default function Newtask() {
   const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
   // ── If editing, load the existing task ──────────────────────────────────────
   const [fetchingTask, setFetchingTask] = useState(isEditMode);
@@ -63,7 +66,7 @@ export default function Newtask() {
 
       if (error || !data) {
         console.error("Failed to load task for editing:", error?.message);
-        Alert.alert("Error", "Could not load this task.");
+        showToast("Could not load this task.", "error");
         setFetchingTask(false);
         return;
       }
@@ -103,30 +106,6 @@ export default function Newtask() {
     setAttachedFiles((prev) => prev.filter((f) => f.name !== name));
   };
 
-  // const uploadSingleFile = async (file: any) => {
-  //   const formData = new FormData();
-  //   formData.append("file", {
-  //     uri: file.uri,
-  //     name: file.name,
-  //     type: file.mimeType || "application/octet-stream",
-  //   } as any);
-  //   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
-  //   const response = await fetch(
-  //     `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-  //     { method: "POST", body: formData }
-  //   );
-  //   const data = await response.json();
-  //   if (!data.secure_url) {
-  //     throw new Error(`Cloudinary upload failed: ${data.error?.message ?? "unknown error"}`);
-  //   }
-  //   return {
-  //     file_url: data.secure_url,
-  //     file_name: file.name,
-  //     file_type: file.name.split(".").pop()?.toLowerCase() ?? "file",
-  //   };
-  // };
-
   const uploadSingleFile = async (file: any) => {
     const secureUrl = await uploadToCloudinary(
       {
@@ -146,7 +125,7 @@ export default function Newtask() {
   // ── Create OR update depending on mode ──────────────────────────────────────
   const handleAddTask = async () => {
     if (!taskName.trim()) {
-      alert("Please enter a task name");
+      showToast("Please enter a task name", "warning");
       return;
     }
 
@@ -155,7 +134,7 @@ export default function Newtask() {
 
       const email = await AsyncStorage.getItem("userEmail");
       if (!email) {
-        alert("Your session has expired. Please log back in.");
+        showToast("Your session has expired. Please log back in.", "error");
         return;
       }
 
@@ -166,7 +145,7 @@ export default function Newtask() {
         .single();
 
       if (userLookupError || !currentUser || !currentUser.workspace_id) {
-        alert("Could not find your workspace. Please log back in.");
+        showToast("Could not find your workspace. Please log back in.", "error");
         return;
       }
 
@@ -202,8 +181,8 @@ export default function Newtask() {
           if (fileError) throw fileError;
         }
 
-        alert("Task updated successfully");
-        router.back();
+        showToast("Task updated successfully", "success");
+        setTimeout(() => router.back(), 900);
       } else {
         // ── Create new task ──
         const { data: task, error: taskError } = await supabase
@@ -236,12 +215,12 @@ export default function Newtask() {
           if (fileError) throw fileError;
         }
 
-        alert("Task created successfully");
-        router.back();
+        showToast("Task created successfully", "success");
+        setTimeout(() => router.back(), 900);
       }
     } catch (error: any) {
       console.error("Full error:", error);
-      alert("Error: " + (error?.message || JSON.stringify(error)));
+      showToast(error?.message || "Something went wrong", "error");
     } finally {
       setLoading(false);
     }
@@ -249,14 +228,7 @@ export default function Newtask() {
 
   // ── Delete task (edit mode only) ────────────────────────────────────────────
   const handleDeleteTask = () => {
-    Alert.alert(
-      "Delete Task",
-      "Are you sure you want to delete this task? This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: confirmDeleteTask },
-      ]
-    );
+    setDeleteConfirmVisible(true);
   };
 
   const confirmDeleteTask = async () => {
@@ -273,10 +245,12 @@ export default function Newtask() {
       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
       if (error) throw error;
 
-      Alert.alert("Deleted", "Task has been deleted.");
-      router.back();
+      setDeleteConfirmVisible(false);
+      showToast("Task has been deleted.", "success");
+      setTimeout(() => router.back(), 900);
     } catch (error: any) {
-      Alert.alert("Delete failed", error?.message || "Something went wrong.");
+      setDeleteConfirmVisible(false);
+      showToast(error?.message || "Delete failed", "error");
     } finally {
       setDeleting(false);
     }
@@ -359,7 +333,6 @@ export default function Newtask() {
             style={inputStyle}
           />
 
-          {/* ── Deadline — calendar picker ── */}
           {/* ── Deadline — calendar picker (view-only when editing) ── */}
           <View style={{ marginTop: 14 }}>
             <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 6, paddingLeft: 4 }}>
@@ -443,6 +416,7 @@ export default function Newtask() {
               </>
             )}
           </View>
+
           {/* Priority */}
           <View style={{ marginTop: 14 }}>
             <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 8, paddingLeft: 4 }}>
@@ -540,6 +514,17 @@ export default function Newtask() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <AlertModal
+        visible={deleteConfirmVisible}
+        type="warning"
+        title="Delete Task"
+        message="Are you sure you want to delete this task? This action cannot be undone."
+        confirmText={deleting ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        onConfirm={confirmDeleteTask}
+        onCancel={() => setDeleteConfirmVisible(false)}
+      />
     </SafeAreaView>
   );
 }

@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
 import { PRIVACY_POLICY_TEXT } from "../../constants/privacyPolicyText";
+import { wp, moderateScale } from "../../utils/responsive";
 
 const { colors } = lightTheme;
 
@@ -110,9 +111,9 @@ export default function PrivacyPolicy() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.base.background },
-  header: { backgroundColor: colors.brand.primary, paddingVertical: 18, paddingHorizontal: 20, height: 72, justifyContent: "center" },
+  header: { backgroundColor: colors.brand.primary, paddingVertical: 18, paddingHorizontal: wp(5.3), height: moderateScale(72), justifyContent: "center" },
   headerText: { color: "#fff" },
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 16 },
+  container: { flex: 1, paddingHorizontal: wp(5.3), paddingTop: 16 },
   scrollArea: {
     flex: 1,
     backgroundColor: colors.base.surfaceL1,
@@ -120,7 +121,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.base.border,
   },
-  scrollContent: { padding: 20 },
+  scrollContent: { padding: wp(5.3) },
   policyText: { color: colors.text.primary, lineHeight: 20 },
   hint: { textAlign: "center", color: colors.text.secondary, marginTop: 8 },
   acceptBtn: {
