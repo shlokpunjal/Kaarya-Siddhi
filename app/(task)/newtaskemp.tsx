@@ -21,6 +21,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/AlertModal";
+import { toLocalDateString } from "../../utils/dateFormat";
 
 type Priority = "low" | "medium" | "high";
 
@@ -160,7 +161,7 @@ export default function Newtask() {
           .from("tasks")
           .update({
             title: taskName,
-            deadline: deadlineDate ? deadlineDate.toISOString().split("T")[0] : null,
+            deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
             description: description || null,
             ...(mainFileUrl ? { attachment_url: mainFileUrl } : {}),
             priority: selectedPriority ?? "medium",
@@ -190,7 +191,7 @@ export default function Newtask() {
           .insert({
             title: taskName,
             assigned_to: currentUser.id, // self-assigned
-            deadline: deadlineDate ? deadlineDate.toISOString().split("T")[0] : null,
+            deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
             description: description || null,
             attachment_url: mainFileUrl,
             status: "pending",

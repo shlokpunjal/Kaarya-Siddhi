@@ -32,6 +32,7 @@ import { supabase } from "../../lib/supabase";
 import { sendPushOnly } from "../../lib/notify";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
+import { toLocalDateString } from "../../utils/dateFormat";
 
 export default function ExtendDeadline() {
   const { colors, isDark } = useTheme();
@@ -104,7 +105,7 @@ export default function ExtendDeadline() {
         requested_by: task.assigned_to,
         workspace_id: task.workspace_id,
         current_deadline: task.deadline,
-        requested_deadline: newDeadline.toISOString().split("T")[0],
+        requested_deadline: toLocalDateString(newDeadline),
         reason: reason.trim(),
       })
       .select()
@@ -241,7 +242,7 @@ export default function ExtendDeadline() {
                 color: newDeadline ? colors.text.primary : colors.text.secondary,
               }}
             >
-              {newDeadline ? newDeadline.toISOString().split("T")[0] : "Select a date"}
+              {newDeadline ? toLocalDateString(newDeadline) : "Select a date"}
             </Text>
             <Ionicons name="calendar-outline" size={20} color={colors.brand.accent} />
           </TouchableOpacity>
