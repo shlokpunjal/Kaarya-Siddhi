@@ -8,6 +8,7 @@ import { fetchEofficeFileById, updateEofficeFile, fetchEmployees, type Employee 
 import { getCurrentUser, type CurrentUser } from '../../../lib/currentUser';
 import type { EofficeFile } from '../../../types/eoffice';
 import { Ionicons } from '@expo/vector-icons';
+import EofficeDetailSkeleton from '../../../components/EofficeDetailSkeleton';
 
 export default function EofficeDetail() {
     const { colors } = useTheme();
@@ -121,9 +122,7 @@ export default function EofficeDetail() {
 
     if (loading) {
         return (
-            <SafeAreaView style={[styles.container, { backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }]}>
-                <ActivityIndicator size="large" color={colors.brand.accent} />
-            </SafeAreaView>
+            <EofficeDetailSkeleton />
         );
     }
 
