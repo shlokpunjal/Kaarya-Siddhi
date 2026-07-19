@@ -9,7 +9,7 @@ export default function CalendarScreenSkeleton() {
   return (
     <View style={[styles.container, { backgroundColor: base.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: brand.primary }]}>
+      <View style={[styles.header]}>
         <SkeletonBox width={110} height={24} borderRadius={6} />
       </View>
 
@@ -91,12 +91,13 @@ export default function CalendarScreenSkeleton() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    height: 60,
-    justifyContent: 'center',
-    paddingLeft: 20,
-    marginTop: Platform.OS === 'android' ? 36 : 44,
-  },
+ /* Header */
+    header: {
+       height: 60,
+       justifyContent: "center",
+       paddingLeft: 22,
+       marginTop: Platform.OS === "android" ? 22 : 30,
+     },
   calendarBlock: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
   calendarCard: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   monthRow: {
