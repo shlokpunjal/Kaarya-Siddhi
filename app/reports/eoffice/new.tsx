@@ -8,6 +8,7 @@ import { typography } from '../../../theme/theme';
 import { createEofficeFile, fetchEmployees, type Employee } from '../../../lib/eoffice';
 import { getCurrentUser } from '../../../lib/currentUser';
 import { Ionicons } from '@expo/vector-icons';
+import SkeletonBox from '../../../components/SkeletonBox';
 
 export default function NewEofficeFile() {
     const { colors } = useTheme();
@@ -25,6 +26,19 @@ export default function NewEofficeFile() {
 
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+
+    const [loadingEmployees, setLoadingEmployees] = useState(true);
+
+    useEffect(() => {
+        getCurrentUser()
+            .then((user) => {
+                if (user) return fetchEmployees(user.workspace_id);
+                return [];
+            })
+            .then(setEmployees)
+            .catch((err) => console.error('Failed to load employees', err))
+            .finally(() => setLoadingEmployees(false));
+    }, []);
 
     useEffect(() => {
         getCurrentUser()
@@ -205,9 +219,17 @@ export default function NewEofficeFile() {
                                 </Pressable>
                             )}
                             ListEmptyComponent={
-                                <Text style={[typography.body, { color: colors.text.secondary, padding: 16 }]}>
-                                    No employees found
-                                </Text>
+                                loadingEmployees ? (
+                                    <View style={{ padding: 16, gap: 12 }}>
+                                        {[0, 1, 2].map((i) => (
+                                            <SkeletonBox key={i} width="70%" height={16} borderRadius={4} />
+                                        ))}
+                                    </View>
+                                ) : (
+                                    <Text style={[typography.body, { color: colors.text.secondary, padding: 16 }]}>
+                                        No employees found
+                                    </Text>
+                                )
                             }
                         />
                     </View>
