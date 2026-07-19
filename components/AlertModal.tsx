@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from "react";
 import { Modal, StyleSheet, Text, View, Pressable, Platform, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
+import { typography } from '../theme/theme';
+
 
 export type AlertModalType = "success" | "error" | "warning" | "confirm";
 
@@ -70,7 +72,7 @@ export function AlertModal({
           </View>
           <Text style={[styles.title, { color: titleColor }]}>{title}</Text>
           {!!message && (
-            <Text style={[styles.message, { color: messageColor }]}>{message}</Text>
+            <Text style={[styles.message, typography.body, { color: messageColor }]}>{message}</Text>
           )}
 
           <View style={styles.buttonRow}>
@@ -82,7 +84,7 @@ export function AlertModal({
                 ]}
                 onPress={onCancel}
               >
-                <Text style={[styles.cancelText, { color: cancelTextColor }]}>{cancelText}</Text>
+                <Text style={[styles.cancelText, typography.body, { color: cancelTextColor }]}>{cancelText}</Text>
               </Pressable>
             )}
             <Pressable
@@ -93,7 +95,7 @@ export function AlertModal({
               ]}
               onPress={onConfirm}
             >
-              <Text style={styles.confirmText}>{confirmText}</Text>
+              <Text style={[styles.confirmText, typography.body]}>{confirmText}</Text>
             </Pressable>
           </View>
         </Animated.View>
