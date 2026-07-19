@@ -168,7 +168,7 @@ export default function TaskDetailAdmin() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator size="large" color={colors.brand.primary} />
+        <ActivityIndicator size="large" color={colors.brand.accent} />
         <Text style={{ ...typography.body, color: colors.text.secondary, marginTop: 12 }}>
           Loading task...
         </Text>
@@ -192,7 +192,7 @@ export default function TaskDetailAdmin() {
           Task not found.
         </Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <Text style={{ color: colors.brand.primary, ...typography.body }}>Go Back</Text>
+          <Text style={{ color: colors.brand.accent, ...typography.body }}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -374,7 +374,7 @@ export default function TaskDetailAdmin() {
                   gap: 10,
                 }}
               >
-                <Ionicons name="document" size={22} color={colors.brand.primary} />
+                <Ionicons name="document" size={22} color={colors.brand.accent} />
                 <Text
                   numberOfLines={1}
                   style={{ flex: 1, ...typography.body, color: colors.text.primary }}
