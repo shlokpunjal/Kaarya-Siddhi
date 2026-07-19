@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { StyleSheet, View, Text, TouchableOpacity, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getToken, getStoredProfile } from "../../lib/secureSession";
 import { typography } from "../../theme/theme";
 import { moderateScale } from "../../utils/responsive";
 
@@ -13,10 +13,10 @@ export default function LoginChoice() {
 
   const checkSession = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
-      const role = await AsyncStorage.getItem("role");
-
+      const token = await getToken();
       if (!token) return;
+
+      const { role } = await getStoredProfile();
 
       if (role === "admin") {
         router.replace("/(admin)");
@@ -97,7 +97,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 22,
     fontFamily: "Poppins_600SemiBold",
-    // alignSelf: "center",
   },
 
   welcome: {

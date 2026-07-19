@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View, Pressable, Platform, PanResponder } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
+import { typography } from "../theme/theme";
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
@@ -168,7 +169,8 @@ const styles = StyleSheet.create({
   message: {
     flex: 1,
     fontSize: 14,
-    fontWeight: "500",
+    fontFamily:"Poppins_600SemiBold",
+    // fontWeight: "500",
     lineHeight: 19,
   },
   closeButton: {

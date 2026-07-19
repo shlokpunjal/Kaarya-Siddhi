@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -10,6 +10,7 @@ import { TaskPriority, TaskStatus } from '../../types/task';
 import { API_BASE_URL } from '../../constants/api';
 import { router, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useToast } from '../../context/ToastContext';
 
 type FilterMode = 'status' | 'priority';
 
@@ -20,6 +21,7 @@ const sanitizeDate = (value: string) => value.replace(/[–—−]/g, '-').trim(
 
 export default function GenPdf() {
   const { colors } = useTheme();
+  const { showToast } = useToast();
 
   const [filterMode, setFilterMode] = useState<FilterMode>('status');
   const [selectedValue, setSelectedValue] = useState<string>('');
@@ -107,7 +109,7 @@ export default function GenPdf() {
         dialogTitle: 'Task Report',
       });
     } else {
-      Alert.alert('Report saved', `Saved to: ${reportFileUri}`);
+      showToast(`Report saved to: ${reportFileUri}`, 'success');
     }
   };
 
@@ -135,7 +137,7 @@ export default function GenPdf() {
             <Ionicons name="chevron-back" size={26} color={colors.text.primary} />
           </Pressable>
           <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 4, alignSelf: "center" }]}>
-            Generate Excel Report
+            Generate PDF Report
           </Text>
         </View>
         <Text style={[typography.body, { color: colors.text.secondary, marginBottom: 22 }]}>
