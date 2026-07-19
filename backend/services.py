@@ -2,7 +2,6 @@ import os
 import re
 
 import requests
-import requests as http_requests
 
 from fastapi import HTTPException
 
@@ -85,23 +84,6 @@ The Kaarya Siddhi Team
     if response.status_code >= 400:
         raise Exception(f"Brevo send failed ({response.status_code}): {response.text}")
 
-
-def send_push_notification(push_token: str, title: str, body: str, data: dict | None = None):
-    if not push_token:
-        return
-    try:
-        payload = {"to": push_token, "title": title, "body": body, "sound": "default"}
-        if data:
-            payload["data"] = data
-
-        http_requests.post(
-            "https://exp.host/--/api/v2/push/send",
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=10,
-        )
-    except Exception as e:
-        print(f"Push notification failed: {e}")
 
 def delete_user_account(supabase, user_id: str, email: str, role: str) -> None:
     # Tables keyed by email (confirmed from main.py usage)
