@@ -22,7 +22,7 @@ import { createNotification } from "../../lib/notify";
 import { sendLocalNotification } from "../../utils/notifications";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
-
+import { toLocalDateString } from "../../utils/dateFormat";
 
 type Priority = "low" | "medium" | "high";
 
@@ -204,7 +204,7 @@ export default function Newtask() {
         .insert({
           title: taskName,
           assigned_to: selectedEmployeeId,
-          deadline: deadlineDate ? deadlineDate.toISOString().split("T")[0] : null,
+          deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
           description: description || null,
           attachment_url: mainFileUrl,
           status: "pending",
