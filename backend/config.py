@@ -12,6 +12,13 @@ ACCESS_TOKEN_MINUTES = 30
 if not JWT_SECRET:
     raise RuntimeError("JWT_SECRET is not set in .env — add it before starting the server.")
 
+# ---- Cron ----
+# Shared secret for the external scheduler (cron-job.org) that pings
+# /cron/send-deadline-reminders. Render's free tier can sleep, so this
+# endpoint uses a static secret header instead of a user JWT — a cron
+# pinger can't maintain a login session. Set CRON_SECRET in Render's
+# environment config.
+CRON_SECRET = os.getenv("CRON_SECRET")
 # ---- OTP ----
 MAX_VERIFY_ATTEMPTS = 5
 OTP_EXPIRY_MINUTES = 10
