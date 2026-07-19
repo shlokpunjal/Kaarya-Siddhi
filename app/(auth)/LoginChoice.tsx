@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { typography } from "../../theme/theme";
+import { moderateScale } from "../../utils/responsive";
 
 export default function LoginChoice() {
   useEffect(() => {
@@ -142,7 +143,7 @@ const styles = StyleSheet.create({
 
   button: {
     width: "100%",
-    height: 55,
+    height: moderateScale(55),
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
@@ -182,17 +183,17 @@ const styles = StyleSheet.create({
   imagestyle: {
     justifyContent: "center",
     alignItems: "center",
-    height: 120,
-    width: 120,
+    height: moderateScale(120),
+    width: moderateScale(120),
     marginTop: 50,
-    borderRadius: 120,
+    borderRadius: moderateScale(120),
     backgroundColor: "#E8870A",
     alignSelf: "center",
   },
   imageStyling: {
-    height: 116,
-    width: 116,
-    borderRadius: 120,
+    height: moderateScale(116),
+    width: moderateScale(116),
+    borderRadius: moderateScale(120),
     bottom: 0,
   },
 });

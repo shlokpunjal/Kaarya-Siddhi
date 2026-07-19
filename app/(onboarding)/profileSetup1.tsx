@@ -9,6 +9,7 @@ import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
+import { wp, hp, moderateScale } from "../../utils/responsive";
 
 
 const { colors } = lightTheme;
@@ -119,7 +120,7 @@ export default function ProfileSetup1() {
             {photo ? (
               <Image source={{ uri: photo }} style={styles.photoImg} />
             ) : (
-              <Ionicons name="camera" size={50} color={colors.text.secondary} />
+              <Ionicons name="camera" size={moderateScale(50)} color={colors.text.secondary} />
             )}
           </TouchableOpacity>
           <Text style={[styles.uploadLabel, typography.heading3]}>Upload Profile Picture</Text>
@@ -161,9 +162,9 @@ export default function ProfileSetup1() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.base.background },
-  header: { backgroundColor: colors.brand.primary, paddingVertical: 18, paddingHorizontal: 20, height: 72 },
+  header: { backgroundColor: colors.brand.primary, paddingVertical: 18, paddingHorizontal: wp(5.3), height: moderateScale(72) },
   headerText: { color: "#fff" },
-  container: { flex: 1, paddingHorizontal: 30, paddingTop: 40, marginTop: 50 },
+  container: { flex: 1, paddingHorizontal: wp(8), paddingTop: hp(4.9), marginTop: hp(6.2) },
   greeting: { textAlign: "center", color: colors.brand.primary, marginBottom: 4 },
   title: { textAlign: "center", color: colors.text.secondary, marginBottom: 20 },
   card: {
@@ -175,16 +176,16 @@ const styles = StyleSheet.create({
     borderColor: colors.base.border,
   },
   photoCircle: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: moderateScale(84),
+    height: moderateScale(84),
+    borderRadius: moderateScale(84) / 2,
     backgroundColor: colors.base.surfaceL2,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 10,
     overflow: "hidden",
   },
-  photoImg: { width: 84, height: 84 },
+  photoImg: { width: moderateScale(84), height: moderateScale(84) },
   uploadLabel: { color: colors.text.primary, marginBottom: 16 },
   input: {
     width: "100%",
