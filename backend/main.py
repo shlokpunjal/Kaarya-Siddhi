@@ -1,4 +1,4 @@
-# from fastapi import FastAPI, HTTPException, Depends
+# from fastapi import FastAPI, HTTPException, Depends,Header
 # from fastapi.middleware.cors import CORSMiddleware
 # from pydantic import BaseModel
 # from dotenv import load_dotenv
@@ -964,7 +964,7 @@
 
 
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends,Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -1015,6 +1015,7 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
 REFRESH_TOKEN_DAYS = 30
 ACCESS_TOKEN_MINUTES = 30
+CRON_SECRET = os.getenv("CRON_SECRET")
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
@@ -2010,6 +2011,16 @@ async def manual_deadline_reminders(current_user: dict = Depends(get_current_use
     return result
 
 
+@app.post("/cron/send-deadline-reminders")
+async def cron_deadline_reminders(x_cron_secret: str = Header(None)):
+    # Called by an external scheduler (cron-job.org) since Render's free
+    # tier can put the app to sleep, making the in-process APScheduler
+    # cron above unreliable. Secret-header auth instead of a user JWT,
+    # since a cron pinger can't maintain a login session.
+    if not CRON_SECRET or x_cron_secret != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid cron secret.")
+    result = send_deadline_reminders()
+    return result
 
 
 from routes.excel_report import router as excel_report_router   
