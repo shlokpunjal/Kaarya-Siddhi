@@ -16,6 +16,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { API_BASE_URL } from "../../constants/api";
+import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 
 type Status = "pending" | "accepted" | "rejected";
@@ -121,19 +122,19 @@ export default function AdminConnectionReview() {
       <View
         style={{
           backgroundColor: colors.brand.primary,
-          height: 60,
+          height: moderateScale(60),
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 15,
         }}
       >
-        <Ionicons onPress={() => router.back()} name="arrow-back" size={26} color={colors.brand.onPrimary} />
-        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: 15 }}>
+        <Ionicons onPress={() => router.back()} name="arrow-back" size={moderateScale(26)} color={colors.brand.onPrimary} />
+        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: moderateScale(15) }}>
           Connection Request
         </Text>
       </View>
 
-      <View style={{ padding: 20 }}>
+      <View style={{ padding: wp(5.3) }}>
         {/* ── Status hero ── */}
         <View
           style={{
@@ -146,16 +147,16 @@ export default function AdminConnectionReview() {
         >
           <View
             style={{
-              height: 64,
-              width: 64,
-              borderRadius: 32,
+              height: moderateScale(64),
+              width: moderateScale(64),
+              borderRadius: moderateScale(32),
               backgroundColor: meta.color + "26",
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 12,
             }}
           >
-            <Ionicons name={meta.icon} size={34} color={meta.color} />
+            <Ionicons name={meta.icon} size={moderateScale(34)} color={meta.color} />
           </View>
           <Text style={{ ...typography.heading3, color: meta.color }}>{meta.label}</Text>
         </View>
@@ -175,16 +176,16 @@ export default function AdminConnectionReview() {
         >
           <View
             style={{
-              height: 72,
-              width: 72,
-              borderRadius: 36,
+              height: moderateScale(72),
+              width: moderateScale(72),
+              borderRadius: moderateScale(36),
               backgroundColor: colors.brand.accent + "22",
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 14,
             }}
           >
-            <Ionicons name="person" size={36} color={colors.brand.accent} />
+            <Ionicons name="person" size={moderateScale(36)} color={colors.brand.accent} />
           </View>
           <Text style={{ ...typography.heading3, color: colors.text.primary, textAlign: "center" }}>
             {employeeName ?? employeeEmail}
@@ -202,7 +203,7 @@ export default function AdminConnectionReview() {
               disabled={deciding !== null}
               style={{
                 flex: 1,
-                height: 54,
+                height: moderateScale(54),
                 borderRadius: 14,
                 flexDirection: "row",
                 alignItems: "center",
@@ -227,7 +228,7 @@ export default function AdminConnectionReview() {
               disabled={deciding !== null}
               style={{
                 flex: 1,
-                height: 54,
+                height: moderateScale(54),
                 borderRadius: 14,
                 flexDirection: "row",
                 alignItems: "center",
