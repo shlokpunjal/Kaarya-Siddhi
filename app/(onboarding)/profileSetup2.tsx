@@ -6,6 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { moderateScale, wp, hp } from "../../utils/responsive";
 
 const { colors } = lightTheme;
 
@@ -86,13 +87,13 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.brand.primary,
     paddingVertical: 18,
-    paddingHorizontal: 12,
+    paddingHorizontal: wp(3.2),
     flexDirection: "row",
     alignItems: "center",
   },
   backBtn: { padding: 6, marginRight: 4 },
   headerText: { color: "#fff" },
-  container: { flex: 1, paddingHorizontal: 30, paddingTop: 60, alignItems: "center",marginTop:60 },
+  container: { flex: 1, paddingHorizontal: wp(8), paddingTop: hp(7.4), alignItems: "center",marginTop:hp(7.4) },
   bellCircle: { marginBottom: 12 },
   title: { color: colors.text.primary, marginBottom: 24, textAlign: "center" },
   card: {
@@ -116,7 +117,7 @@ const styles = StyleSheet.create({
   skipWrap: { alignSelf: "flex-end", marginTop: 14 },
   skip: { textDecorationLine: "underline", color: colors.text.primary,marginRight:5,marginTop:-28},
   dotsWrap: { marginTop: "auto", marginBottom: 40, alignItems: "center" },
-  logo:{height:80,width:80},
+  logo:{height: moderateScale(80),width: moderateScale(80)},
   back:{
     textDecorationLine: "underline", color: colors.text.primary,marginLeft:-320,
   }

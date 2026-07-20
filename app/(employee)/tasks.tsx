@@ -283,12 +283,7 @@ export default function EmployeeTasks() {
               <Text
                 style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}
               >
-                {task.label} · {task.priority.toUpperCase()} · Due{" "}
-                {new Date(task.dueDate).toLocaleDateString("en-IN", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
+                {task.label} · {task.priority.toUpperCase()} · Due {task.dueDate.split('T')[0]}
               </Text>
             </Pressable>
           ))

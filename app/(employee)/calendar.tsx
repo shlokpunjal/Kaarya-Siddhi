@@ -18,6 +18,15 @@ import { supabase } from "../../lib/supabase";
 import CalendarScreenSkeleton from "../../components/CalendarScreenSkeleton";
 
 
+
+// Removes any existing channel with this name before creating a new one —
+// prevents "cannot add postgres_changes callbacks... after subscribe()"
+// errors caused by Strict Mode / Fast Refresh double-invoking effects.
+function getFreshChannel(name: string) {
+  const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
+  if (existing) supabase.removeChannel(existing);
+  return supabase.channel(name);
+}
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
 interface Task { id: string; title: string; descp: string; category: TaskCategory; }
 
@@ -158,10 +167,7 @@ export default function CalendarScreen() {
       await fetchTasks(userId);
       if (isMounted) setLoading(false);
 
-      // Refetch when a task itself changes (e.g. deadline updated after an
-      // extension is accepted).
-      tasksChannel = supabase
-        .channel("employee-calendar-tasks-assigned")
+      tasksChannel = getFreshChannel("employee-calendar-tasks-assigned")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "tasks", filter: `assigned_to=eq.${userId}` },
@@ -169,11 +175,7 @@ export default function CalendarScreen() {
         )
         .subscribe();
 
-      // Also refetch for tasks this employee created themselves (Supabase
-      // realtime filters only support single-column equality, so this needs
-      // its own channel rather than an OR condition).
-      createdTasksChannel = supabase
-        .channel("employee-calendar-tasks-created")
+      createdTasksChannel = getFreshChannel("employee-calendar-tasks-created")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "tasks", filter: `created_by=eq.${userId}` },
@@ -181,19 +183,14 @@ export default function CalendarScreen() {
         )
         .subscribe();
 
-      // Also refetch the moment an extension request is decided, so the
-      // calendar updates immediately rather than waiting on the tasks-table
-      // write that follows it.
-      extensionsChannel = supabase
-        .channel("employee-calendar-extension-requests")
+      extensionsChannel = getFreshChannel("employee-calendar-extension-requests")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "extension_requests", filter: `requested_by=eq.${userId}` },
           () => { fetchTasks(userId); }
         )
         .subscribe();
-    };
-
+         };
     init();
 
     return () => {
@@ -267,8 +264,8 @@ export default function CalendarScreen() {
       }
     >
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <View style={[s.header, { backgroundColor: brand.primary }]}>
-        <Text style={[typography.heading, { color: brand.onPrimary }]}>Calendar</Text>
+      <View style={[s.header]}>
+        <Text style={[typography.heading, { color: text.primary }]}>Calendar</Text>
       </View>
 
       {/* ── Calendar card ──────────────────────────────────────────────── */}
@@ -484,13 +481,13 @@ const s = StyleSheet.create({
   header: {
     height: moderateScale(60),
     justifyContent: "center",
-    paddingLeft: wp(5.3),
-    marginTop: Platform.OS === "android" ? 36 : 44,
+    paddingLeft: 22,
+    marginTop: Platform.OS === "android" ? 22 : 30,
   },
-  headerText: { fontSize: moderateScale(22), fontFamily: "Poppins-SemiBold" },
+  headerText: { fontFamily: "Poppins-SemiBold" },
 
   /* Calendar card */
-  calendarBlock: { paddingHorizontal: wp(3.2), paddingTop: 8, paddingBottom: 4 },
+  calendarBlock: { paddingHorizontal: wp(3.2), paddingTop: 1, paddingBottom: 4 },
   calendarCard: {
     borderRadius: 16,
     borderWidth: 1,
@@ -537,7 +534,7 @@ const s = StyleSheet.create({
   /* Divider line between month nav and weekday labels */
   monthDivider: {
     height: 1,
-    marginHorizontal: wp(3.7),
+    marginHorizontal:0,
     marginBottom: 8,
   },
   cell: {

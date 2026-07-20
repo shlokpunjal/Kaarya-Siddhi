@@ -9,10 +9,9 @@ export default function CalendarScreenSkeleton() {
 
   return (
     <View style={[styles.container, { backgroundColor: base.background }]}>
-      {/* Header — uses a plain semi-transparent white box, not SkeletonBox,
-          since SkeletonBox's surfaceL2 color isn't designed for dark backgrounds */}
-      <View style={[styles.header, { backgroundColor: brand.primary }]}>
-        <View style={styles.headerSkeletonBox} />
+      {/* Header */}
+      <View style={[styles.header]}>
+        <SkeletonBox width={110} height={24} borderRadius={6} />
       </View>
 
       {/* Calendar card */}
@@ -93,19 +92,14 @@ export default function CalendarScreenSkeleton() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    height: moderateScale(60),
-    justifyContent: 'center',
-    paddingLeft: wp(5.3),
-    marginTop: Platform.OS === 'android' ? 36 : 44,
-  },
-  headerSkeletonBox: {
-    width: moderateScale(110),
-    height: moderateScale(24),
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  calendarBlock: { paddingHorizontal: wp(3.2), paddingTop: 8, paddingBottom: 4 },
+ /* Header */
+    header: {
+       height: 60,
+       justifyContent: "center",
+       paddingLeft: 22,
+       marginTop: Platform.OS === "android" ? 22 : 30,
+     },
+  calendarBlock: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
   calendarCard: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   monthRow: {
     flexDirection: 'row',

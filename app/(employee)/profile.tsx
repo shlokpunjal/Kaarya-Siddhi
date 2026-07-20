@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Alert,
   Image,
   Modal,
   ActivityIndicator,
@@ -27,6 +26,7 @@ import { wp, moderateScale } from "../../utils/responsive";
 import { API_BASE_URL } from "../../constants/api";
 import { authFetch } from "../../utils/authFetch"; // adjust path if needed
 import EmployeeProfileSkeleton from "../../components/EmployeeProfileSkeleton";
+import { useToast } from "../../context/ToastContext";
 
 type UserRow = {
   id: string;
@@ -43,10 +43,10 @@ const THEME_OPTIONS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { value: "light", label: "Light", icon: "sunny-outline" },
-  { value: "dark", label: "Dark", icon: "moon-outline" },
-  { value: "system", label: "System", icon: "phone-portrait-outline" },
-];
+    { value: "light", label: "Light", icon: "sunny-outline" },
+    { value: "dark", label: "Dark", icon: "moon-outline" },
+    { value: "system", label: "System", icon: "phone-portrait-outline" },
+  ];
 
 const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
@@ -55,6 +55,7 @@ export default function EmployeeProfile() {
   const { colors } = useTheme();
   const { mode, setMode } = useThemeMode();
   const { logout } = useAuth();
+  const { showToast } = useToast();
 
   const [currentUser, setCurrentUser] = useState<UserRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +69,7 @@ export default function EmployeeProfile() {
   const [connectionStatus, setConnectionStatus] = useState<
     "none" | "pending" | "accepted"
   >("none");
+
   const [adminName, setAdminName] = useState<string | null>(null);
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -166,8 +168,9 @@ export default function EmployeeProfile() {
         prev ? { ...prev, name, mobile_number: contact, email } : prev,
       );
       setEditing(false);
+      showToast("Profile updated", "success");
     } catch (error: any) {
-      Alert.alert("Could not save", error?.message || "Something went wrong.");
+      showToast(error?.message || "Could not save changes", "error");
     } finally {
       setSaving(false);
     }
@@ -200,10 +203,7 @@ export default function EmployeeProfile() {
       console.log("Response data:", data);
 
       if (!response.ok) {
-        Alert.alert(
-          "Could not disconnect",
-          data.detail || "Something went wrong.",
-        );
+        showToast(data.detail || "Could not disconnect", "error");
         return;
       }
 
@@ -218,17 +218,14 @@ export default function EmployeeProfile() {
       });
     } catch (error: any) {
       console.log("Caught error:", error);
-      Alert.alert(
-        "Could not disconnect",
-        error?.message || "Something went wrong.",
-      );
+      showToast(error?.message || "Could not disconnect", "error");
     } finally {
       setDisconnecting(false);
     }
   };
 
   async function deleteAccount() {
-    const res = await authFetch(`${API_BASE_URL}/auth/delete-account`, {
+    const res = await authFetch(`/delete-account`, {
       method: "DELETE",
     });
     if (!res.ok) {
@@ -239,10 +236,7 @@ export default function EmployeeProfile() {
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(
-        "Permission needed",
-        "Please allow photo library access to set a profile picture.",
-      );
+      showToast("Please allow photo library access to set a profile picture.", "warning");
       return;
     }
 
@@ -259,39 +253,6 @@ export default function EmployeeProfile() {
     setAvatarUri(localUri); // optimistic preview
     setUploading(true);
 
-    // try {
-    //   const formData = new FormData();
-    //   formData.append("file", {
-    //     uri: localUri,
-    //     type: "image/jpeg",
-    //     name: `avatar_${currentUser!.id}.jpg`,
-    //   } as any);
-    //   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-    //   formData.append("folder", "profile_pics");
-
-    //   const uploadRes = await fetch(
-    //     `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-    //     { method: "POST", body: formData },
-    //   );
-    //   const uploadData = await uploadRes.json();
-
-    //   if (!uploadData.secure_url) {
-    //     throw new Error(
-    //       uploadData.error?.message || "Cloudinary upload failed",
-    //     );
-    //   }
-
-    //   const { error } = await supabase
-    //     .from("users")
-    //     .update({ profile_pic_url: uploadData.secure_url })
-    //     .eq("id", currentUser!.id);
-
-    //   if (error) throw error;
-
-    //   setAvatarUri(uploadData.secure_url);
-    //   setCurrentUser((prev) =>
-    //     prev ? { ...prev, profile_pic_url: uploadData.secure_url } : prev,
-    //   );
     try {
       const secureUrl = await uploadToCloudinary(
         {
@@ -314,7 +275,7 @@ export default function EmployeeProfile() {
         prev ? { ...prev, profile_pic_url: secureUrl } : prev,
       );
     } catch (err: any) {
-      Alert.alert("Upload failed", err.message || "Could not upload photo.");
+      showToast(err.message || "Could not upload photo.", "error");
       setAvatarUri(currentUser?.profile_pic_url ?? null); // revert preview
     } finally {
       setUploading(false);
@@ -399,7 +360,7 @@ export default function EmployeeProfile() {
                 ]}
               >
                 {connectionStatus === "pending"
-                  ? "Your request for admin connetion isn't approved yet."
+                  ? "Your request for admin connection isn't approved yet."
                   : "You aren't connected to any admin yet."}
               </Text>
             </View>
@@ -889,8 +850,8 @@ export default function EmployeeProfile() {
             await deleteAccount();
             setDeleteVisible(false);
             router.replace("/LoginChoice");
-          } catch (err) {
-            console.error("Delete account failed:", err);
+          } catch (err: any) {
+            showToast(err?.message || "Could not delete account", "error");
           } finally {
             setDeleting(false);
           }
@@ -1045,5 +1006,4 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginTop: 12,
   },
-  
 });

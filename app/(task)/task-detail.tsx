@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,11 +16,14 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from '../../utils/responsive';
+import { useToast } from "../../context/ToastContext";
+import { AlertModal } from "../../components/AlertModal";
 
 export default function TaskDetail() {
   const { colors } = useTheme();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const statusColorMap: Record<string, string> = {
     overdue: colors.status.overdue,
@@ -58,6 +60,7 @@ useEffect(() => {
   const [submitting, setSubmitting] = useState(false);
   const [hasPendingExtension, setHasPendingExtension] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
 
   // "Own task" governs both edit/delete icons AND the Review-or-Complete button —
@@ -153,14 +156,7 @@ useEffect(() => {
 
   // ── Delete task ───────────────────────────────────────────────────────────────
   const handleDeleteTask = () => {
-    Alert.alert(
-      "Delete Task",
-      "Are you sure you want to delete this task? This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: confirmDeleteTask },
-      ]
-    );
+    setDeleteConfirmVisible(true);
   };
 
   const confirmDeleteTask = async () => {
@@ -177,10 +173,12 @@ useEffect(() => {
       const { error } = await supabase.from("tasks").delete().eq("id", task.id);
       if (error) throw error;
 
-      Alert.alert("Deleted", "Task has been deleted.");
-      router.back();
+      setDeleteConfirmVisible(false);
+      showToast("Task has been deleted.", "success");
+      setTimeout(() => router.back(), 900);
     } catch (error: any) {
-      Alert.alert("Delete failed", error?.message || "Something went wrong.");
+      setDeleteConfirmVisible(false);
+      showToast(error?.message || "Delete failed", "error");
     } finally {
       setDeleting(false);
     }
@@ -197,7 +195,7 @@ useEffect(() => {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator size="large" color={colors.brand.primary} />
+        <ActivityIndicator size="large" color={colors.brand.accent} />
         <Text style={{ ...typography.body, color: colors.text.secondary, marginTop: 12 }}>
           Loading task...
         </Text>
@@ -221,7 +219,7 @@ useEffect(() => {
           Task not found.
         </Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <Text style={{ color: colors.brand.primary, ...typography.body }}>Go Back</Text>
+          <Text style={{ color: colors.brand.accent, ...typography.body }}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -318,7 +316,7 @@ useEffect(() => {
                   }
                   disabled={deleting}
                 >
-                  <Ionicons name="create-outline" size={22} color={colors.brand.primary} />
+                  <Ionicons name="create-outline" size={22} color={colors.brand.accent} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleDeleteTask} disabled={deleting}>
                   {deleting ? (
@@ -445,7 +443,7 @@ useEffect(() => {
               <Ionicons
                 name="person-circle-outline"
                 size={16}
-                color={colors.brand.primary}
+                color={colors.brand.accent}
                 style={{ marginTop: 1 }}
               />
               <Text style={{ ...typography.label, color: colors.text.secondary, flex: 1 }}>
@@ -495,7 +493,7 @@ useEffect(() => {
                   gap: 10,
                 }}
               >
-                <Ionicons name="document" size={22} color={colors.brand.primary} />
+                <Ionicons name="document" size={22} color={colors.brand.accent} />
                 <Text
                   numberOfLines={1}
                   style={{ flex: 1, ...typography.body, color: colors.text.primary }}
@@ -581,6 +579,17 @@ useEffect(() => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <AlertModal
+        visible={deleteConfirmVisible}
+        type="warning"
+        title="Delete Task"
+        message="Are you sure you want to delete this task? This action cannot be undone."
+        confirmText={deleting ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        onConfirm={confirmDeleteTask}
+        onCancel={() => setDeleteConfirmVisible(false)}
+      />
     </SafeAreaView>
   );
 }

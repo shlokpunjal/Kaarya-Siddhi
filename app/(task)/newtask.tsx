@@ -21,7 +21,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createNotification } from "../../lib/notify";
 import { sendLocalNotification } from "../../utils/notifications";
 import { wp, hp, moderateScale } from "../../utils/responsive";
-
+import { useToast } from "../../context/ToastContext";
+import { toLocalDateString } from "../../utils/dateFormat";
 
 type Priority = "low" | "medium" | "high";
 
@@ -39,6 +40,7 @@ const PRIORITIES: { label: string; value: Priority; color: string; bg: string }[
 export default function Newtask() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [taskName, setTaskName] = useState("");
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
@@ -146,30 +148,6 @@ export default function Newtask() {
     setAttachedFiles((prev) => prev.filter((f) => f.name !== name));
   };
 
-  // const uploadSingleFile = async (file: any) => {
-  //   const formData = new FormData();
-  //   formData.append("file", {
-  //     uri: file.uri,
-  //     name: file.name,
-  //     type: file.mimeType || "application/octet-stream",
-  //   } as any);
-  //   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
-  //   const response = await fetch(
-  //     `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-  //     { method: "POST", body: formData }
-  //   );
-  //   const data = await response.json();
-  //   if (!data.secure_url) {
-  //     throw new Error(`Cloudinary upload failed: ${data.error?.message ?? "unknown error"}`);
-  //   }
-  //   return {
-  //     file_url: data.secure_url,
-  //     file_name: file.name,
-  //     file_type: file.name.split(".").pop()?.toLowerCase() ?? "file",
-  //   };
-  // };
-
   const uploadSingleFile = async (file: any) => {
     const secureUrl = await uploadToCloudinary(
       {
@@ -188,11 +166,11 @@ export default function Newtask() {
 
   const handleAddTask = async () => {
     if (!taskName.trim()) {
-      alert("Please enter a task name");
+      showToast("Please enter a task name", "warning");
       return;
     }
     if (!selectedEmployeeId) {
-      alert("Please select a valid employee from the list");
+      showToast("Please select a valid employee from the list", "warning");
       return;
     }
 
@@ -201,7 +179,7 @@ export default function Newtask() {
 
       const email = await AsyncStorage.getItem("userEmail");
       if (!email) {
-        alert("Your session has expired. Please log back in.");
+        showToast("Your session has expired. Please log back in.", "error");
         return;
       }
 
@@ -212,7 +190,7 @@ export default function Newtask() {
         .single();
 
       if (userLookupError || !currentUser || !currentUser.workspace_id) {
-        alert("Could not find your workspace. Please log back in.");
+        showToast("Could not find your workspace. Please log back in.", "error");
         return;
       }
 
@@ -226,7 +204,7 @@ export default function Newtask() {
         .insert({
           title: taskName,
           assigned_to: selectedEmployeeId,
-          deadline: deadlineDate ? deadlineDate.toISOString().split("T")[0] : null,
+          deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
           description: description || null,
           attachment_url: mainFileUrl,
           status: "pending",
@@ -250,7 +228,7 @@ export default function Newtask() {
         const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
         if (fileError) throw fileError;
       }
-      
+
       await createNotification({
         userId: selectedEmployeeId,
         type: "task_assigned",
@@ -261,12 +239,12 @@ export default function Newtask() {
       sendLocalNotification("Task Created", `"${taskName}" has been assigned.`).catch((err) =>
         console.log("Local notification failed:", err)
       );
-      
-      alert("Task created successfully");
-      router.back();
+
+      showToast("Task created successfully", "success");
+      setTimeout(() => router.back(), 900);
     } catch (error: any) {
       console.error("Full error:", error);
-      alert("Error: " + (error?.message || JSON.stringify(error)));
+      showToast(error?.message || "Something went wrong while creating the task", "error");
     } finally {
       setLoading(false);
     }

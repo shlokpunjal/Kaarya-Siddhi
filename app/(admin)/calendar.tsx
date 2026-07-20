@@ -17,6 +17,14 @@ import { wp, moderateScale } from "../../utils/responsive";
 import { supabase } from "../../lib/supabase";
 import CalendarScreenSkeleton from "../../components/CalendarScreenSkeleton";
 
+// Removes any existing channel with this name before creating a new one —
+// prevents "cannot add postgres_changes callbacks... after subscribe()"
+// errors caused by Strict Mode / Fast Refresh double-invoking effects.
+function getFreshChannel(name: string) {
+  const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
+  if (existing) supabase.removeChannel(existing);
+  return supabase.channel(name);
+}
 type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
 interface Task {
   id: string;
@@ -162,8 +170,7 @@ export default function CalendarScreen() {
       await fetchTasks(workspaceId);
       if (isMounted) setLoading(false);
 
-      tasksChannel = supabase
-        .channel("admin-calendar-tasks")
+     tasksChannel = getFreshChannel("admin-calendar-tasks")
         .on(
           "postgres_changes",
           {
@@ -178,8 +185,7 @@ export default function CalendarScreen() {
         )
         .subscribe();
 
-      extensionsChannel = supabase
-        .channel("admin-calendar-extension-requests")
+      extensionsChannel = getFreshChannel("admin-calendar-extension-requests")
         .on(
           "postgres_changes",
           {
@@ -275,13 +281,11 @@ export default function CalendarScreen() {
         />
       }
     >
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <View style={[s.header, { backgroundColor: brand.primary }]}>
-        <Text style={[typography.heading, { color: brand.onPrimary }]}>
-          Calendar
-        </Text>
-      </View>
-
+       {/* ── Header ─────────────────────────────────────────────────────── */}
+            <View style={[s.header]}>
+              <Text style={[typography.heading, { color: text.primary }]}>Calendar</Text>
+            </View>
+      
       {/* ── Calendar card ──────────────────────────────────────────────── */}
       <View style={s.calendarBlock}>
         <View
@@ -531,16 +535,14 @@ export default function CalendarScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-
-  /* Header */
-  header: {
+/* Header */
+    header: {
     height: moderateScale(60),
     justifyContent: "center",
-    paddingLeft: wp(5.3),
-    marginTop: Platform.OS === "android" ? 36 : 44,
+    paddingLeft: 22,
+    marginTop: Platform.OS === "android" ? 22 : 30,
   },
-  headerText: { fontSize: moderateScale(22), fontFamily: "Poppins-SemiBold" },
-
+  headerText: { fontFamily: "Poppins-SemiBold" },
   /* Calendar card */
   calendarBlock: {
     paddingHorizontal: wp(3.2),

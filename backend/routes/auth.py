@@ -1,7 +1,7 @@
-import random
+import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from supabase_client import supabase
 from auth_utils import get_current_user, create_access_token, create_refresh_token, hash_token
@@ -10,9 +10,20 @@ from schemas import (
     SignupRequest, LoginRequest, SendOTPRequest, VerifyOTPRequest,
     SavePushTokenRequest, CheckNameRequest, RefreshRequest, LogoutRequest,
 )
-from config import MAX_VERIFY_ATTEMPTS, OTP_EXPIRY_MINUTES, OTP_RESEND_SECONDS, MAX_DAILY_ATTEMPTS
+from config import (
+    MAX_VERIFY_ATTEMPTS, OTP_EXPIRY_MINUTES, OTP_RESEND_SECONDS, MAX_DAILY_ATTEMPTS,
+    AUTH_RATE_LIMIT, LOOKUP_RATE_LIMIT,
+)
+from rate_limit import limiter
 
 router = APIRouter()
+
+
+def _generate_otp() -> str:
+    # secrets, not random — random.randint is not cryptographically
+    # secure and there's no reason to accept that risk for a 6-digit
+    # code that gates account access.
+    return str(secrets.randbelow(900000) + 100000)
 
 
 @router.post("/save-push-token")
@@ -23,7 +34,8 @@ async def save_push_token(data: SavePushTokenRequest, user: dict = Depends(get_c
 
 
 @router.post("/check-name")
-async def check_name(data: CheckNameRequest):
+@limiter.limit(LOOKUP_RATE_LIMIT)
+async def check_name(request: Request, data: CheckNameRequest):
     name = data.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Name cannot be empty.")
@@ -35,7 +47,8 @@ async def check_name(data: CheckNameRequest):
 
 
 @router.post("/signup")
-async def signup(data: SignupRequest):
+@limiter.limit(AUTH_RATE_LIMIT)
+async def signup(request: Request, data: SignupRequest):
     data.email = normalize_email(data.email)
     data.name = data.name.strip()
 
@@ -67,7 +80,8 @@ async def signup(data: SignupRequest):
 
 
 @router.post("/login")
-async def login(data: LoginRequest):
+@limiter.limit(AUTH_RATE_LIMIT)
+async def login(request: Request, data: LoginRequest):
     data.email = normalize_email(data.email)
 
     user = (
@@ -86,7 +100,8 @@ async def login(data: LoginRequest):
 
 
 @router.post("/send-otp")
-async def send_otp(data: SendOTPRequest):
+@limiter.limit(AUTH_RATE_LIMIT)
+async def send_otp(request: Request, data: SendOTPRequest):
     data.email = normalize_email(data.email)
 
     user = (
@@ -121,7 +136,7 @@ async def send_otp(data: SendOTPRequest):
         wait = OTP_RESEND_SECONDS - int((now - last_sent).total_seconds())
         raise HTTPException(status_code=429, detail=f"Please wait {wait} seconds.")
 
-    otp = str(random.randint(100000, 999999))
+    otp = _generate_otp()
 
     try:
         send_email_otp(data.email, otp)
@@ -148,7 +163,8 @@ async def send_otp(data: SendOTPRequest):
 
 
 @router.post("/verify-otp")
-async def verify_otp(data: VerifyOTPRequest):
+@limiter.limit(AUTH_RATE_LIMIT)
+async def verify_otp(request: Request, data: VerifyOTPRequest):
     data.email = normalize_email(data.email)
 
     session = supabase.table("otp_sessions").select("*").eq("email", data.email).execute()
@@ -232,6 +248,10 @@ async def refresh_token_endpoint(data: RefreshRequest):
     row = row.data[0]
 
     if row["revoked"]:
+        # Reuse of a revoked token = possible theft. Nuke all sessions for
+        # this user, and log it — this used to fail silently, which meant
+        # you'd never actually find out if it happened.
+        print(f"SECURITY: revoked refresh token reused for {row['user_email']} — revoking all sessions.")
         supabase.table("refresh_tokens").update({"revoked": True}).eq("user_email", row["user_email"]).execute()
         raise HTTPException(status_code=401, detail="Session invalid. Please login again.")
 
