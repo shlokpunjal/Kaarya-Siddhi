@@ -31,6 +31,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { wp, moderateScale } from "../../utils/responsive";
 
 type ConnectionNotif = {
   id: string;
@@ -226,7 +227,7 @@ export default function AdminRequestsList() {
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "space-between",
-              paddingHorizontal: 20,
+              paddingHorizontal: wp(5.3),
               paddingBottom: 12,
             }}
           >
@@ -242,7 +243,7 @@ export default function AdminRequestsList() {
               <ActivityIndicator size="large" color={colors.brand.primary} />
             </View>
           ) : (
-            <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 4 }}>
+            <ScrollView contentContainerStyle={{ padding: wp(5.3), paddingTop: 4 }}>
               {/* ---------- Connection Requests ---------- */}
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <Ionicons name="people-outline" size={16} color={colors.text.secondary} />
@@ -281,9 +282,9 @@ export default function AdminRequestsList() {
                 >
                   <View
                     style={{
-                      height: 44,
-                      width: 44,
-                      borderRadius: 22,
+                      height: moderateScale(44),
+                      width: moderateScale(44),
+                      borderRadius: moderateScale(22),
                       backgroundColor: colors.status.pending + "1E",
                       alignItems: "center",
                       justifyContent: "center",

@@ -1,4 +1,3 @@
-// import React, { useState } from "react";
 import {
   View,
   Text,
@@ -18,7 +17,6 @@ import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone, isValidName } from "../../constants/validators";
-import useLoading from "../../hooks/useLoading";
 import { wp, moderateScale } from "../../utils/responsive";
 
 export default function EmployeeSignup() {
@@ -28,7 +26,6 @@ export default function EmployeeSignup() {
   const [email, setEmail] = useState("");
   const [nameChecking, setNameChecking] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { showLoading, hideLoading } = useLoading();
 
   const [errors, setErrors] = useState({
     name: "",
@@ -128,7 +125,6 @@ export default function EmployeeSignup() {
 
     try {
       setLoading(true);
-      showLoading("Creating your account...");
       setErrors({
         name: "",
         department: "",
@@ -170,7 +166,6 @@ export default function EmployeeSignup() {
         } else {
           setCardError(signupData.detail || "Signup failed");
         }
-        hideLoading();
         return;
       }
       const otpResponse = await fetch(`${API_BASE_URL}/send-otp`, {
@@ -188,11 +183,9 @@ export default function EmployeeSignup() {
 
       if (!otpResponse.ok) {
         setCardError(otpData.detail || "Failed to send OTP");
-        hideLoading();
         return;
       }
 
-      hideLoading();
       router.push({
         pathname: "/(auth)/OtpVerify",
         params: {
@@ -203,7 +196,6 @@ export default function EmployeeSignup() {
         },
       });
     } catch (error) {
-      hideLoading();
       console.log(error);
       setCardError("Something went wrong. Please try again.");
     } finally {
@@ -305,7 +297,12 @@ export default function EmployeeSignup() {
                   disabled={loading}
                 >
                   {loading ? (
-                    <ActivityIndicator color="white" />
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={styles.buttonText}>Creating</Text>
+                      <View style={{ width: 18, height: 18, marginLeft: 8 }}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      </View>
+                    </View>
                   ) : (
                     <Text style={styles.buttonText}>Create Account</Text>
                   )}
@@ -408,7 +405,6 @@ const styles = StyleSheet.create({
   title: {
     textAlign: "center",
     fontSize: 18,
-    // fontWeight: "700",
     color: PRIMARY,
     marginBottom: 4,
     fontFamily: "Poppins_400Regular",
@@ -445,7 +441,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "white",
     fontSize: 16,
-    // fontWeight: "700",
     fontFamily: "Poppins_400Regular",
     letterSpacing: 0.3,
   },
@@ -460,8 +455,8 @@ const styles = StyleSheet.create({
   login: {
     alignItems: "center",
     justifyContent: "center",
-    flexDirection:"row",
-    gap:3,
+    flexDirection: "row",
+    gap: 3,
   },
 
   loginT: {

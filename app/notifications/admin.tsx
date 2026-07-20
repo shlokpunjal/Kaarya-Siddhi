@@ -15,6 +15,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { moderateScale } from "../../utils/responsive";
 
 
 export default function AdminNotifications() {
@@ -207,7 +208,7 @@ const clearOtherNotifications = async () => {
       <View
         style={{
           backgroundColor: colors.brand.primary,
-          height: 60,
+          height: moderateScale(60),
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 15,
@@ -216,7 +217,7 @@ const clearOtherNotifications = async () => {
         <Ionicons
           onPress={() => router.back()}
           name="arrow-back"
-          size={26}
+          size={moderateScale(26)}
           color={colors.brand.onPrimary}
         />
         <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: 15 }}>
@@ -246,9 +247,9 @@ const clearOtherNotifications = async () => {
         >
           <View
             style={{
-              height: 40,
-              width: 40,
-              borderRadius: 20,
+              height: moderateScale(40),
+              width: moderateScale(40),
+              borderRadius: moderateScale(20),
               backgroundColor: colors.brand.onPrimary + "22",
               alignItems: "center",
               justifyContent: "center",
