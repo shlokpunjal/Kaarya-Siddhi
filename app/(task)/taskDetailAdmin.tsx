@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,11 +15,13 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
+import { useToast } from "../../context/ToastContext";
 
 export default function TaskDetailAdmin() {
   const { colors } = useTheme();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
   const router = useRouter();
+  const { showToast } = useToast();
 
   // Keyed by the normalized in-app status ("inReview"), not the raw DB value.
   const statusColorMap: Record<string, string> = {
@@ -147,10 +148,10 @@ export default function TaskDetailAdmin() {
 
       setTask((prev: any) => ({ ...prev, status: "inReview" }));
 
-      Alert.alert("Success", "Task submitted successfully!");
-      router.back();
+      showToast("Task submitted successfully!", "success");
+      setTimeout(() => router.back(), 900);
     } catch (error: any) {
-      Alert.alert("Submit failed", error?.message || "Something went wrong.");
+      showToast(error?.message || "Submit failed", "error");
     } finally {
       setSubmitting(false);
     }
@@ -167,7 +168,7 @@ export default function TaskDetailAdmin() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator size="large" color={colors.brand.primary} />
+        <ActivityIndicator size="large" color={colors.brand.accent} />
         <Text style={{ ...typography.body, color: colors.text.secondary, marginTop: 12 }}>
           Loading task...
         </Text>
@@ -191,7 +192,7 @@ export default function TaskDetailAdmin() {
           Task not found.
         </Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <Text style={{ color: colors.brand.primary, ...typography.body }}>Go Back</Text>
+          <Text style={{ color: colors.brand.accent, ...typography.body }}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -373,7 +374,7 @@ export default function TaskDetailAdmin() {
                   gap: 10,
                 }}
               >
-                <Ionicons name="document" size={22} color={colors.brand.primary} />
+                <Ionicons name="document" size={22} color={colors.brand.accent} />
                 <Text
                   numberOfLines={1}
                   style={{ flex: 1, ...typography.body, color: colors.text.primary }}

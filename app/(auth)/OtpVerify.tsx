@@ -18,9 +18,9 @@ import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
 import { registerPushToken } from "../../utils/pushToken";
-
 import { sendLoginNotification } from "../../utils/notifications";
 import useLoading from "../../hooks/useLoading";
+import { wp, moderateScale } from "../../utils/responsive";
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -136,7 +136,7 @@ const OtpVerify = () => {
 
           hideLoading();
           hideLoading();
-        router.replace({
+          router.replace({
             pathname: backPath,
             params: {
               prefillNameTaken: "1",
@@ -170,7 +170,7 @@ const OtpVerify = () => {
         if (data.role === "admin") {
           hideLoading();
           hideLoading();
-        router.replace({
+          router.replace({
             pathname: "/(onboarding)/profileSetup1",
             params: { role: "admin", name },
           });
@@ -180,7 +180,7 @@ const OtpVerify = () => {
         if (data.role === "employee") {
           hideLoading();
           hideLoading();
-        router.replace({
+          router.replace({
             pathname: "/(auth)/RequestAdmin",
             params: { email: data.email, name },
           });
@@ -283,7 +283,7 @@ const OtpVerify = () => {
                 style={styles.imageStyling}
               />
             </View>
-{/* Card — restored to its original standalone styling, no wrapper */}
+            {/* Card — restored to its original standalone styling, no wrapper */}
             <Animated.View
               style={[
                 styles.divi,
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#E8870A",
-    height: 48,
+    height: moderateScale(48),
     width: "50%",
     borderRadius: 10,
     elevation: 4,
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#1A2744",
-    height: 52,
+    height: moderateScale(52),
     width: "100%",
     borderRadius: 16,
     marginTop: 14,
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
   },
   resendButton: {
     width: "100%",
-    height: 52,
+    height: moderateScale(52),
     borderRadius: 16,
     marginTop: 16,
     alignItems: "center",
@@ -470,10 +470,10 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: "#E5E7EB",
-    height: 48,
-    width: 280,
+    height: moderateScale(48),
+    width: moderateScale(280),
     justifyContent: "center",
-    paddingLeft: 20,
+    paddingLeft: wp(5.3),
     borderRadius: 10,
     marginTop: 16,
     borderColor: "#6B7280",
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   },
   mainbar: {
     backgroundColor: "#1A2744",
-    padding: 18,
+    padding: wp(4.8),
   },
   maintext: {
     color: "white",
@@ -513,16 +513,16 @@ const styles = StyleSheet.create({
   imagestyle: {
     justifyContent: "center",
     alignItems: "center",
-    height: 120,
-    width: 120,
+    height: moderateScale(120),
+    width: moderateScale(120),
     marginTop: 60,
-    borderRadius: 96,
+    borderRadius: moderateScale(96),
     backgroundColor: "#E8870A",
   },
   imageStyling: {
-    height: 115,
-    width: 115,
-    borderRadius: 96,
+    height: moderateScale(115),
+    width: moderateScale(115),
+    borderRadius: moderateScale(96),
     bottom: 0,
   },
   divi: {
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     width: "85%",
     borderRadius: 24,
 
-    paddingHorizontal: 20,
+    paddingHorizontal: wp(5.3),
     paddingTop: 22,
     paddingBottom: 18,
 
@@ -563,8 +563,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   otpInput: {
-    width: 42,
-    height: 52,
+    width: moderateScale(42),
+    height: moderateScale(52),
     marginHorizontal: 3.5,
     borderRadius: 14,
     borderWidth: 1.5,
@@ -585,8 +585,8 @@ const styles = StyleSheet.create({
   },
 
   otpBox: {
-    width: 40,
-    height: 48,
+    width: moderateScale(40),
+    height: moderateScale(48),
     borderRadius: 12,
     backgroundColor: "#F8FAFC",
     borderWidth: 1.5,

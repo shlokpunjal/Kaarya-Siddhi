@@ -18,7 +18,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   Platform,
   ScrollView,
   ActivityIndicator,
@@ -32,12 +31,14 @@ import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { sendPushOnly } from "../../lib/notify";
 import { wp, moderateScale } from "../../utils/responsive";
-
+import { useToast } from "../../context/ToastContext";
+import { toLocalDateString } from "../../utils/dateFormat";
 
 export default function ExtendDeadline() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
+  const { showToast } = useToast();
 
   const [task, setTask] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -87,11 +88,11 @@ export default function ExtendDeadline() {
 
   const handleSubmit = async () => {
     if (!newDeadline) {
-      Alert.alert("Pick a date", "Please choose a new deadline.");
+      showToast("Please choose a new deadline.", "error");
       return;
     }
     if (!reason.trim()) {
-      Alert.alert("Add a reason", "Please tell us why you need an extension.");
+      showToast("Please tell us why you need an extension.", "error");
       return;
     }
 
@@ -104,7 +105,7 @@ export default function ExtendDeadline() {
         requested_by: task.assigned_to,
         workspace_id: task.workspace_id,
         current_deadline: task.deadline,
-        requested_deadline: newDeadline.toISOString().split("T")[0],
+        requested_deadline: toLocalDateString(newDeadline),
         reason: reason.trim(),
       })
       .select()
@@ -115,21 +116,17 @@ export default function ExtendDeadline() {
     if (error) {
       // unique index "one_pending_request_per_task" throws code 23505 if one already exists
       if (error.code === "23505") {
-        Alert.alert(
-          "Not allowed",
-          "A pending extension request already exists for this task."
-        );
+        showToast("A pending extension request already exists for this task.", "error");
       } else {
-        Alert.alert("Could not submit", error.message);
+        showToast(error.message || "Could not submit your request", "error");
       }
       return;
     }
 
     // Show success right away — don't make the person wait on push delivery
     // to someone else's device.
-    Alert.alert("Request sent", "Your extension request has been sent to the admin.", [
-      { text: "OK", onPress: () => router.back() },
-    ]);
+    showToast("Your extension request has been sent to the admin.", "success");
+    setTimeout(() => router.back(), 900);
 
     // Notify admins in the background. Fire-and-forget: a slow or failed
     // push should never block or fail the person's own request confirmation.
@@ -245,7 +242,7 @@ export default function ExtendDeadline() {
                 color: newDeadline ? colors.text.primary : colors.text.secondary,
               }}
             >
-              {newDeadline ? newDeadline.toISOString().split("T")[0] : "Select a date"}
+              {newDeadline ? toLocalDateString(newDeadline) : "Select a date"}
             </Text>
             <Ionicons name="calendar-outline" size={20} color={colors.brand.accent} />
           </TouchableOpacity>

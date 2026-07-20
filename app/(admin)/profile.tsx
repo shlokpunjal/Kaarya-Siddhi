@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Alert,
   Image,
   Modal,
   ActivityIndicator,
@@ -26,6 +25,7 @@ import { API_BASE_URL } from "../../constants/api";
 import { router } from "expo-router";
 import { authFetch } from "../../utils/authFetch";
 import { wp, moderateScale } from '../../utils/responsive';
+import { useToast } from "../../context/ToastContext";
 
 type UserRow = {
   id: string;
@@ -56,6 +56,7 @@ export default function AdminProfile() {
   const { colors } = useTheme();
   const { mode, setMode } = useThemeMode();
   const { logout } = useAuth();
+  const { showToast } = useToast();
 
   const [currentUser, setCurrentUser] = useState<UserRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -192,8 +193,9 @@ export default function AdminProfile() {
         prev ? { ...prev, name, mobile_number: contact, email } : prev,
       );
       setEditing(false);
+      showToast("Profile updated", "success");
     } catch (error: any) {
-      Alert.alert("Could not save", error?.message || "Something went wrong.");
+      showToast(error?.message || "Could not save changes", "error");
     } finally {
       setSaving(false);
     }
@@ -204,7 +206,7 @@ export default function AdminProfile() {
   };
 
   async function deleteAccount() {
-    const res = await authFetch(`${API_BASE_URL}/auth/delete-account`, {
+    const res = await authFetch(`/delete-account`, {
       method: "DELETE",
     });
     if (!res.ok) {
@@ -214,10 +216,7 @@ export default function AdminProfile() {
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(
-        "Permission needed",
-        "Please allow photo library access to set a profile picture.",
-      );
+      showToast("Please allow photo library access to set a profile picture.", "warning");
       return;
     }
 
@@ -245,11 +244,6 @@ export default function AdminProfile() {
 
   if (loading) {
     return <AdminProfileSkeleton />;
-    return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.brand.primary} />
-      </SafeAreaView>
-    );
   }
 
   if (!currentUser) {
@@ -735,8 +729,8 @@ export default function AdminProfile() {
             await deleteAccount();
             setDeleteVisible(false);
             router.replace("/LoginChoice");
-          } catch (err) {
-            console.error("Delete account failed:", err);
+          } catch (err: any) {
+            showToast(err?.message || "Could not delete account", "error");
           } finally {
             setDeleting(false);
           }
@@ -748,22 +742,14 @@ export default function AdminProfile() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 40 },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
   },
-  roleBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  // scrollContent: { padding: wp(5.3), paddingBottom: 40 },
-  // headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  // roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  scrollContent: { padding: wp(5.3), paddingBottom: 40 },
+  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   card: { borderRadius: 18, borderWidth: 2, padding: 18, marginBottom: 16 },
   cardTopRow: { flexDirection: "row", justifyContent: "flex-end" },
   editPill: {

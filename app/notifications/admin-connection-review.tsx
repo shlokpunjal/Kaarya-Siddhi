@@ -7,7 +7,7 @@
 // decision without waiting on navigation or realtime.
 
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -16,6 +16,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { API_BASE_URL } from "../../constants/api";
+import { useToast } from "../../context/ToastContext";
 
 type Status = "pending" | "accepted" | "rejected";
 
@@ -34,6 +35,7 @@ export default function AdminConnectionReview() {
     employeeEmail: string;
     adminEmail: string;
   }>();
+  const { showToast } = useToast();
 
   const [employeeName, setEmployeeName] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("pending");
@@ -95,13 +97,10 @@ export default function AdminConnectionReview() {
       // refetch or realtime round-trip.
       setStatus(decision);
 
-      Alert.alert(
-        decision === "accepted" ? "Request accepted" : "Request rejected",
-        "The employee will be notified.",
-        [{ text: "OK", onPress: () => router.back() }]
-      );
+      showToast("The employee will be notified.", "success");
+      setTimeout(() => router.back(), 900);
     } catch (err: any) {
-      Alert.alert("Could not update", err.message ?? "Something went wrong.");
+      showToast(err.message ?? "Could not update request", "error");
     } finally {
       setDeciding(null);
     }

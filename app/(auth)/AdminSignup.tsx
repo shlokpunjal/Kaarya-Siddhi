@@ -19,9 +19,10 @@ import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone, isValidName } from "../../constants/validators";
 import useLoading from "../../hooks/useLoading";
+import { wp, moderateScale } from "../../utils/responsive";
 
 
-const LOGO_SIZE = 120;
+const LOGO_SIZE = moderateScale(120);
 const LOGO_IMAGE_INSET = 5;
 const CARD_RADIUS = 24;
 
@@ -76,7 +77,7 @@ export default function AdminSignup() {
     return () => {
       if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
     };
-  }, [name]);
+  }, [name]); // ensures that name is unique
 
   function validate() {
     const newErrors = { name: "", department: "", phone: "", email: "" };
@@ -103,7 +104,7 @@ export default function AdminSignup() {
       isValid = false;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // ensures that email is valid
     if (!email.trim()) {
       newErrors.email = "Please enter a valid email";
       isValid = false;
@@ -115,6 +116,7 @@ export default function AdminSignup() {
     setErrors(newErrors);
     return isValid;
   }
+  
   async function createAccount() {
     if (!validate()) {
       return;
@@ -340,7 +342,7 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: PRIMARY,
     paddingVertical: 18,
-    paddingHorizontal: 20,
+    paddingHorizontal: wp(5.3),
   },
 
   headerText: {
@@ -394,7 +396,7 @@ const styles = StyleSheet.create({
 
   button: {
     backgroundColor: ACCENT,
-    height: 52,
+    height: moderateScale(52),
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",

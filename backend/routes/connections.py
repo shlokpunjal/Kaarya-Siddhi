@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from supabase_client import supabase
 from auth_utils import get_current_user
-from services import normalize_email, send_push_notification
+from services import normalize_email
+from notify_utils import send_push_notification
 from schemas import ConnectRequest, ConnectionRespond, DisconnectAdminRequest
 
 router = APIRouter()
@@ -15,6 +16,12 @@ router = APIRouter()
 async def connect_request(data: ConnectRequest, current_user: dict = Depends(get_current_user)):
     employee_email = normalize_email(data.employee_email)
     admin_email = normalize_email(data.admin_email)
+
+    # Only the employee themselves can send a connection request as that
+    # employee — otherwise any logged-in account could spam requests
+    # from/to arbitrary emails it doesn't own.
+    if current_user.get("sub") != employee_email or current_user.get("role") != "employee":
+        raise HTTPException(status_code=403, detail="You can only send a connection request as yourself.")
 
     # Employee must exist
     employee = (
@@ -109,9 +116,18 @@ async def connect_request(data: ConnectRequest, current_user: dict = Depends(get
 
 
 @router.get("/connection-status/{employee_email}/{admin_email}")
-async def connection_status(employee_email: str, admin_email: str):
+async def connection_status(
+    employee_email: str,
+    admin_email: str,
+    current_user: dict = Depends(get_current_user),
+):
     employee_email = normalize_email(employee_email)
     admin_email = normalize_email(admin_email)
+
+    # Either party to the connection can check its status — nobody else.
+    caller = current_user.get("sub")
+    if caller not in (employee_email, admin_email):
+        raise HTTPException(status_code=403, detail="You can only check your own connections.")
 
     request = (
         supabase.table("connections")
@@ -131,6 +147,10 @@ async def connection_status(employee_email: str, admin_email: str):
 async def pending_requests(admin_email: str, current_user: dict = Depends(get_current_user)):
     admin_email = normalize_email(admin_email)
 
+    # Only the admin who owns this inbox can see their pending requests.
+    if current_user.get("sub") != admin_email or current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="You can only view your own pending requests.")
+
     requests = (
         supabase.table("connections")
         .select("*")
@@ -147,6 +167,10 @@ async def connection_respond(data: ConnectionRespond, current_user: dict = Depen
     employee_email = normalize_email(data.employee_email)
     admin_email = normalize_email(data.admin_email)
     new_status = "accepted" if data.accept else "rejected"
+
+    # Only the admin the request was sent to can accept/reject it.
+    if current_user.get("sub") != admin_email or current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="You can only respond to your own connection requests.")
 
     connection = (
         supabase.table("connections")
@@ -247,6 +271,9 @@ async def connection_respond(data: ConnectionRespond, current_user: dict = Depen
 @router.get("/employee/connection-status/{employee_email}")
 async def employee_connection_status(employee_email: str, current_user: dict = Depends(get_current_user)):
     employee_email = normalize_email(employee_email)
+
+    if current_user.get("sub") != employee_email:
+        raise HTTPException(status_code=403, detail="You can only check your own connection status.")
 
     request = (
         supabase.table("connections")

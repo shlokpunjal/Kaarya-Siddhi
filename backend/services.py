@@ -2,7 +2,6 @@ import os
 import re
 
 import requests
-import requests as http_requests
 
 from fastapi import HTTPException
 
@@ -86,19 +85,29 @@ The Kaarya Siddhi Team
         raise Exception(f"Brevo send failed ({response.status_code}): {response.text}")
 
 
-def send_push_notification(push_token: str, title: str, body: str, data: dict | None = None):
-    if not push_token:
-        return
-    try:
-        payload = {"to": push_token, "title": title, "body": body, "sound": "default"}
-        if data:
-            payload["data"] = data
+def delete_user_account(supabase, user_id: str, email: str, role: str) -> None:
+    # Tables keyed by email (confirmed from main.py usage)
+    supabase.table("otp_sessions").delete().eq("email", email).execute()
+    supabase.table("refresh_tokens").delete().eq("user_email", email).execute()
 
-        http_requests.post(
-            "https://exp.host/--/api/v2/push/send",
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=10,
-        )
-    except Exception as e:
-        print(f"Push notification failed: {e}")
+    # Tables with FK constraints on users.id (from information_schema query)
+    supabase.table("otp_tokens").delete().eq("user_id", user_id).execute()
+    supabase.table("notifications").delete().eq("user_id", user_id).execute()
+    supabase.table("task_submissions").delete().eq("submitted_by", user_id).execute()
+    supabase.table("task_reviews").delete().eq("reviewed_by", user_id).execute()
+    supabase.table("chat_messages").delete().eq("sender_id", user_id).execute()
+    supabase.table("extension_requests").delete().eq("requested_by", user_id).execute()
+
+    # Not FK-constrained per the query, but still worth cleaning up to avoid orphaned rows
+    if role == "employee":
+        supabase.table("connections").delete().eq("employee_email", email).execute()
+        supabase.table("tasks").delete().eq("assigned_to", user_id).execute()
+
+    elif role == "admin":
+        supabase.table("connections").delete().eq("admin_email", email).execute()
+        supabase.table("workspaces").delete().eq("admin_id", user_id).execute()
+
+    result = supabase.table("users").delete().eq("id", user_id).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="User not found or already deleted")

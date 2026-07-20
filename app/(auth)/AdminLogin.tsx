@@ -17,6 +17,7 @@ import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone } from "../../constants/validators";
 import useLoading from "../../hooks/useLoading";
+import { wp, moderateScale } from "../../utils/responsive";
 
 
 const AdminLogin = () => {
@@ -33,7 +34,7 @@ const AdminLogin = () => {
   });
 
   const startCooldown = () => {
-    setCooldown(30);
+    setCooldown(30); // the 30 sec pause shown to the user
     intervalRef.current = setInterval(() => {
       setCooldown((prev) => {
         if (prev <= 1) {
@@ -43,7 +44,7 @@ const AdminLogin = () => {
         return prev - 1;
       });
     }, 1000);
-  };
+  }; 
 
   function validate() {
     const newErrors = { phone: "", email: "" };
@@ -57,7 +58,7 @@ const AdminLogin = () => {
       isValid = false;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; //checks is the email valid
     if (!email.trim()) {
       newErrors.email = "Please enter a valid email";
       isValid = false;
@@ -148,7 +149,7 @@ const AdminLogin = () => {
         return;
       }
 
-      startCooldown();
+      startCooldown(); //here the resend starts
       hideLoading();
 
       router.push({
@@ -176,6 +177,8 @@ const AdminLogin = () => {
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
+
+      // Header
       <View style={styles.mainbar}>
         <BackButton />
         <Text style={[styles.maintext, typography.heading]}>Admin Login</Text>
@@ -190,7 +193,9 @@ const AdminLogin = () => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-        >
+        > 
+
+          // Logo Image 
           <View style={styles.mainStyle}>
             <View style={styles.imagestyle}>
               <Image
@@ -198,6 +203,8 @@ const AdminLogin = () => {
                 style={styles.imageStyling}
               />
             </View>
+
+            // The actual card having inputs and buttons
             <View
               style={[
                 styles.divi,
@@ -264,6 +271,7 @@ const AdminLogin = () => {
               )}
             </View>
 
+            // Footer with create account button
             <View>
               <Text style={styles.createStyle}>Create new Account?</Text>
             </View>
@@ -298,7 +306,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#E8870A",
-    height: 48,
+    height: moderateScale(48),
     width: "60%",
     borderRadius: 14,
     shadowColor: "#E8870A",
@@ -323,7 +331,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#1A2744",
-    height: 52,
+    height: moderateScale(52),
     borderRadius: 16,
     marginTop: 18,
     shadowColor: "#1A2744",
@@ -349,7 +357,7 @@ const styles = StyleSheet.create({
   },
   mainbar: {
     backgroundColor: "#1A2744",
-    padding: 20,
+    padding: wp(5.3),
   },
   maintext: {
     color: "white",
@@ -360,16 +368,16 @@ const styles = StyleSheet.create({
   imagestyle: {
     justifyContent: "center",
     alignItems: "center",
-    height: 120,
-    width: 120,
+    height: moderateScale(120),
+    width: moderateScale(120),
     top: 50,
-    borderRadius: 120,
+    borderRadius: moderateScale(120),
     backgroundColor: "#E8870A",
   },
   imageStyling: {
-    height: 115,
-    width: 115,
-    borderRadius: 120,
+    height: moderateScale(115),
+    width:moderateScale(115),
+    borderRadius: moderateScale(120),
     bottom: 0,
   },
   divi: {

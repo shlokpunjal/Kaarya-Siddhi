@@ -503,7 +503,6 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
-  Alert,
   ScrollView,
   ActivityIndicator,
   Platform,
@@ -516,6 +515,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { createNotification } from "../../lib/notify";
+import { useToast } from "../../context/ToastContext";
 
 const statusMeta = (colors: any, status: string) => {
   if (status === "accepted")
@@ -535,6 +535,7 @@ export default function AdminRequestReview() {
   const { colors } = useTheme();
   const router = useRouter();
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
+  const { showToast } = useToast();
 
   const [request, setRequest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -549,7 +550,7 @@ export default function AdminRequestReview() {
   const fetchRequest = async () => {
     const { data, error } = await supabase
       .from("extension_requests")
-      .select("*, tasks(title, priority, assigned_to, deadline)")
+      .select("*, tasks(title, priority, assigned_to, deadline), requester:users!requested_by(name)")
       .eq("id", requestId)
       .single();
 
@@ -630,14 +631,20 @@ export default function AdminRequestReview() {
       .eq("id", request.id);
 
     if (!error && pendingDecision === "accepted") {
-      await supabase.from("tasks").update({ deadline: request.requested_deadline }).eq("id", request.task_id);
+      // Resetting deadline_reminder_sent here matters: without it, a task
+      // that already got its "due tomorrow" reminder for the OLD deadline
+      // would silently never get one for the new, extended deadline.
+      await supabase
+        .from("tasks")
+        .update({ deadline: request.requested_deadline, deadline_reminder_sent: false })
+        .eq("id", request.task_id);
     }
 
     setDeciding(false);
     setModalVisible(false);
 
     if (error) {
-      Alert.alert("Could not update", error.message);
+      showToast(error.message || "Could not update request", "error");
       return;
     }
 
@@ -662,11 +669,8 @@ export default function AdminRequestReview() {
       metadata: { extension_request_id: request.id },
     });
 
-    Alert.alert(
-      pendingDecision === "accepted" ? "Request accepted" : "Request rejected",
-      "The employee will be notified.",
-      [{ text: "OK", onPress: () => router.back() }]
-    );
+    showToast("The employee will be notified.", "success");
+    setTimeout(() => router.back(), 900);
   };
 
   const formatDate = (d: string) =>
@@ -757,7 +761,7 @@ export default function AdminRequestReview() {
             {request.tasks?.title ?? "Untitled Task"}
           </Text>
           <Text style={{ ...typography.label, color: colors.text.secondary }}>
-            Requested by {request.tasks?.assigned_to ?? "—"}
+            Requested by {request.requester?.name ?? "—"}
           </Text>
         </View>
 
