@@ -17,15 +17,16 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
+import EmployeeNotificationsSkeleton from '../../components/EmployeeNotificationSkeleton';
 
 type NotifRow = {
   id: string;
   type:
-    | "connection_accepted"
-    | "connection_rejected"
-    | "extension_accepted"
-    | "extension_rejected"
-    | "task_assigned";
+  | "connection_accepted"
+  | "connection_rejected"
+  | "extension_accepted"
+  | "extension_rejected"
+  | "task_assigned";
   message: string;
   created_at: string;
   metadata: any;
@@ -132,6 +133,10 @@ export default function EmployeeNotifications() {
     // Connection notifications have no dedicated detail screen — just informational.
   };
 
+  if (loading && notifications.length === 0) {
+    return <EmployeeNotificationsSkeleton />;
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
       <View
@@ -199,7 +204,7 @@ export default function EmployeeNotifications() {
               style={{
                 ...typography.subheading, // or a bold/medium variant
                 color: colors.text.primary,
-                marginBottom:10,
+                marginBottom: 10,
                 textAlign: 'center',
               }}
             >

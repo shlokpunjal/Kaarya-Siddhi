@@ -18,6 +18,8 @@ import * as Notifications from "expo-notifications";
 import { sendLocalNotification } from "../utils/notifications";
 import { registerAndSavePushToken } from "../lib/pushNotifications";
 import { ToastProvider } from "../context/ToastContext";
+import OfflineScreen from "../components/OfflineScreen";
+
 
 
 enableScreens(false);
@@ -214,18 +216,20 @@ export default function RootLayout() {
 
       <ThemeProvider>
         <ToastProvider>
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: BRAND_PRIMARY } }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(onboarding)" />
-          <Stack.Screen name="(employee)" />
-          <Stack.Screen name="(admin)" />
-          <Stack.Screen name="(task)/task-detail" />
-          <Stack.Screen name="(task)/newtask" />
-          <Stack.Screen name="(task)/extend-deadline" />
-          <Stack.Screen name="reports/genExcel" />
-          <Stack.Screen name="reports/genPdf" />
-        </Stack>
+          <OfflineScreen>
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: BRAND_PRIMARY } }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(onboarding)" />
+              <Stack.Screen name="(employee)" />
+              <Stack.Screen name="(admin)" />
+              <Stack.Screen name="(task)/task-detail" />
+              <Stack.Screen name="(task)/newtask" />
+              <Stack.Screen name="(task)/extend-deadline" />
+              <Stack.Screen name="reports/genExcel" />
+              <Stack.Screen name="reports/genPdf" />
+            </Stack>
+          </OfflineScreen>
         </ToastProvider>
 
         {showSplash && (

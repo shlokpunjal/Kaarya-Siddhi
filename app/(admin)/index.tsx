@@ -11,6 +11,7 @@ import { Task } from '../../types/task';
 import { getGreeting } from '../../utils/greeting';
 import NoTasksAdmin from '../(task)/notasksAdmin';
 import { wp, hp, moderateScale } from '../../utils/responsive';
+import DashboardSkeleton from '../../components/DashboardSkeleton';
 
 // Matches the actual `tasks` table columns
 type TaskRow = {
@@ -184,10 +185,7 @@ useEffect(() => {
   
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={colors.brand.accent} />
-        <Text style={[typography.body, { marginTop: 10 }]}>Loading tasks...</Text>
-      </SafeAreaView>
+      <DashboardSkeleton/>
     );
   }
 
