@@ -358,7 +358,7 @@ export default function AdminTasks() {
                 </View>
               </View>
               <Text style={[typography.label, { color: colors.text.secondary, marginTop: 6 }]}>
-                {employeeDisplayName(task.assignedTo)} · {task.label} · {task.priority.toUpperCase()} · Due {task.dueDate}
+                {employeeDisplayName(task.assignedTo)} · {task.label} · {task.priority.toUpperCase()} · Due {task.dueDate.split('T')[0]}
               </Text>
             </Pressable>
           ))
