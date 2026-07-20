@@ -32,6 +32,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
+import AdminRequestsListSkeleton from '../../components/AdminRequestListSkeleton';
 
 type ConnectionNotif = {
   id: string;
@@ -239,9 +240,7 @@ export default function AdminRequestsList() {
           </View>
 
           {loading ? (
-            <View style={{ alignItems: "center", justifyContent: "center", padding: 40 }}>
-              <ActivityIndicator size="large" color={colors.brand.primary} />
-            </View>
+            <AdminRequestsListSkeleton />
           ) : (
             <ScrollView contentContainerStyle={{ padding: wp(5.3), paddingTop: 4 }}>
               {/* ---------- Connection Requests ---------- */}
