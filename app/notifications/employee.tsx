@@ -16,6 +16,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { moderateScale } from "../../utils/responsive";
 
 type NotifRow = {
   id: string;
@@ -136,14 +137,14 @@ export default function EmployeeNotifications() {
       <View
         style={{
           backgroundColor: colors.brand.primary,
-          height: 60,
+          height: moderateScale(60),
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 15,
         }}
       >
-        <Ionicons onPress={() => router.back()} name="arrow-back" size={26} color={colors.brand.onPrimary} />
-        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: 15 }}>
+        <Ionicons onPress={() => router.back()} name="arrow-back" size={moderateScale(26)} color={colors.brand.onPrimary} />
+        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: moderateScale(15) }}>
           Notifications
         </Text>
       </View>

@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { typography } from '../theme/theme';
 import { Theme } from '../theme/theme';
+import { moderateScale } from '../utils/responsive';
 
 type Props = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -41,7 +42,7 @@ export default function CollapsibleSection({ icon, title, summary, colors, child
 const styles = StyleSheet.create({
   wrapper: {},
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 4 },
-  iconCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  iconCircle: { width: moderateScale(34), height: moderateScale(34), borderRadius: moderateScale(17), alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   textCol: { flex: 1 },
   content: { paddingHorizontal: 4, paddingBottom: 18 },
 });

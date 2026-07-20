@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { typography } from '../theme/theme';
 import { useTheme } from '../context/ThemeContext';
+import { moderateScale } from '../utils/responsive';
 
 type ConfirmModalProps = {
   visible: boolean;
@@ -97,7 +98,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     marginRight: 8,
-    height: 46,
+    height: moderateScale(46),
     borderRadius: 10,
     borderWidth: 1,
     justifyContent: 'center',
@@ -106,7 +107,7 @@ const styles = StyleSheet.create({
   confirmButton: {
     flex: 1,
     marginLeft: 8,
-    height: 46,
+    height: moderateScale(46),
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
