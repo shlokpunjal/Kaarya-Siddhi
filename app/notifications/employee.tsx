@@ -152,10 +152,17 @@ export default function EmployeeNotifications() {
         contentContainerStyle={{
           flexGrow: 1,
           paddingHorizontal: 20,
+          paddingTop: 16,
           paddingBottom: 20,
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            marginBottom: 12,
+          }}
+        >
           {notifications.length > 0 && (
             <TouchableOpacity onPress={clearAll}>
               <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>

@@ -100,20 +100,25 @@ def send_deadline_reminders() -> dict:
     notified = 0
 
     for task in tasks:
-        employee_row = _fetch_user(task.get("assigned_to"))
-        admin_row = _fetch_user(task.get("created_by"))
+        try:
+            employee_row = _fetch_user(task.get("assigned_to"))
+            admin_row = _fetch_user(task.get("created_by"))
 
-        _notify(employee_row, task, for_admin=False, employee_name=None)
-        _notify(admin_row, task, for_admin=True, employee_name=employee_row["name"] if employee_row else None)
+            _notify(employee_row, task, for_admin=False, employee_name=None)
+            _notify(admin_row, task, for_admin=True, employee_name=employee_row["name"] if employee_row else None)
 
-        # Mark sent even if one/both users were missing a push token or the
-        # user row itself was gone — the reminder logic ran for this task
-        # and shouldn't be retried for the same deadline.
-        supabase.table("tasks").update({
-            "deadline_reminder_sent": True
-        }).eq("id", task["id"]).execute()
+            # Mark sent even if one/both users were missing a push token or the
+            # user row itself was gone — the reminder logic ran for this task
+            # and shouldn't be retried for the same deadline.
+            supabase.table("tasks").update({
+                "deadline_reminder_sent": True
+            }).eq("id", task["id"]).execute()
 
-        notified += 1
+            notified += 1
+        except Exception as e:
+            # Don't let one bad task record (bad UUID, missing user, etc.)
+            # crash the whole batch — log it and keep going for the rest.
+            print(f"Failed to send reminder for task {task.get('id')}: {e}")
 
     print(f"Deadline reminders: {notified} task(s) notified for {target}")
     return {"success": True, "date": target, "tasks_notified": notified}

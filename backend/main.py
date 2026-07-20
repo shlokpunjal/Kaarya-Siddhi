@@ -3,16 +3,8 @@
 # App entrypoint only. Every route now lives in routes/ — this file just
 # wires up FastAPI, CORS, rate limiting, the background scheduler, and
 # global exception handling.
-#
-# NOTE: this replaces a version of main.py that still defined /signup,
-# /login, /verify-otp, /connect-request, etc. directly, in parallel with
-# (and never actually calling) the routes/ modules. If you're migrating
-# from that file, the old_main.py / previous main.py can be deleted once
-# you've confirmed every endpoint below responds as expected.
-
 import logging
-
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -20,8 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from apscheduler.schedulers.background import BackgroundScheduler
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
-
-from config import ALLOWED_ORIGINS
+from config import ALLOWED_ORIGINS, CRON_SECRET
 from rate_limit import limiter
 from sheets_sync import sync_tasks_from_sheet
 from deadline_reminders import send_deadline_reminders
@@ -30,7 +21,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("kaarya_siddhi")
 
 app = FastAPI(title="Kaarya Siddhi API")
-
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -42,22 +32,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request, exc):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
-
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
     return JSONResponse(status_code=422, content={"detail": "Invalid request data. Please check your input."})
-
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request, exc):
     logger.exception(f"UNHANDLED ERROR on {request.url.path}")
     return JSONResponse(status_code=500, content={"detail": "Something went wrong on our end. Please try again."})
 
+@app.post("/cron/send-deadline-reminders")
+async def cron_deadline_reminders(x_cron_secret: str = Header(None)):
+    # Called by an external scheduler (cron-job.org) since Render's free
+    # tier can put the app to sleep, making the in-process APScheduler
+    # cron above unreliable. Secret-header auth instead of a user JWT,
+    # since a cron pinger can't maintain a login session.
+    if not CRON_SECRET or x_cron_secret != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid cron secret.")
+    result = send_deadline_reminders()
+    return result
 
 # ---- Background jobs ----
 scheduler = BackgroundScheduler()
@@ -68,7 +65,6 @@ scheduler.add_job(sync_tasks_from_sheet, "interval", minutes=5)
 # time may not be IST.
 scheduler.add_job(send_deadline_reminders, "cron", hour=9, minute=0, timezone="Asia/Kolkata")
 scheduler.start()
-
 
 # ---- Routers ----
 from routes.auth import router as auth_router
