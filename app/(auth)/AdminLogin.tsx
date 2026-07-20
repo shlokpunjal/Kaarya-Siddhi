@@ -34,7 +34,7 @@ const AdminLogin = () => {
   });
 
   const startCooldown = () => {
-    setCooldown(30);
+    setCooldown(30); // the 30 sec pause shown to the user
     intervalRef.current = setInterval(() => {
       setCooldown((prev) => {
         if (prev <= 1) {
@@ -44,7 +44,7 @@ const AdminLogin = () => {
         return prev - 1;
       });
     }, 1000);
-  };
+  }; 
 
   function validate() {
     const newErrors = { phone: "", email: "" };
@@ -58,7 +58,7 @@ const AdminLogin = () => {
       isValid = false;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; //checks is the email valid
     if (!email.trim()) {
       newErrors.email = "Please enter a valid email";
       isValid = false;
@@ -149,7 +149,7 @@ const AdminLogin = () => {
         return;
       }
 
-      startCooldown();
+      startCooldown(); //here the resend starts
       hideLoading();
 
       router.push({
@@ -177,6 +177,8 @@ const AdminLogin = () => {
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
+
+      // Header
       <View style={styles.mainbar}>
         <BackButton />
         <Text style={[styles.maintext, typography.heading]}>Admin Login</Text>
@@ -191,7 +193,9 @@ const AdminLogin = () => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-        >
+        > 
+
+          // Logo Image 
           <View style={styles.mainStyle}>
             <View style={styles.imagestyle}>
               <Image
@@ -199,6 +203,8 @@ const AdminLogin = () => {
                 style={styles.imageStyling}
               />
             </View>
+
+            // The actual card having inputs and buttons
             <View
               style={[
                 styles.divi,
@@ -265,6 +271,7 @@ const AdminLogin = () => {
               )}
             </View>
 
+            // Footer with create account button
             <View>
               <Text style={styles.createStyle}>Create new Account?</Text>
             </View>
