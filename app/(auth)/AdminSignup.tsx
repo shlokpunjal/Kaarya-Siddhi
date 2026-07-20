@@ -1,4 +1,3 @@
-// import React, { useState } from "react";
 import {
   View,
   Text,
@@ -18,7 +17,6 @@ import { typography } from '../../theme/theme';
 import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone, isValidName } from "../../constants/validators";
-import useLoading from "../../hooks/useLoading";
 import { wp, moderateScale } from "../../utils/responsive";
 
 
@@ -33,10 +31,7 @@ export default function AdminSignup() {
   const [phone, setPhone] = useState("");
   const [nameChecking, setNameChecking] = useState(false);
 
-
   const [loading, setLoading] = useState(false);
-  const { showLoading, hideLoading } = useLoading();
-
 
   const [errors, setErrors] = useState({
     name: "",
@@ -116,7 +111,7 @@ export default function AdminSignup() {
     setErrors(newErrors);
     return isValid;
   }
-  
+
   async function createAccount() {
     if (!validate()) {
       return;
@@ -125,7 +120,6 @@ export default function AdminSignup() {
     try {
       setLoading(true);
       setErrors({ name: "", department: "", phone: "", email: "" });
-      showLoading("Creating your account...");
 
       // Create Account
       const signupResponse = await fetch(`${API_BASE_URL}/signup`, {
@@ -157,7 +151,6 @@ export default function AdminSignup() {
             email: signupData.detail || "Signup failed",
           }));
         }
-        hideLoading();
         return;
       }
 
@@ -180,11 +173,9 @@ export default function AdminSignup() {
           ...prev,
           email: otpData.detail || "Failed to send OTP",
         }));
-        hideLoading();
         return;
       }
 
-      hideLoading();
       router.push({
         pathname: "/(auth)/OtpVerify",
         params: {
@@ -195,7 +186,6 @@ export default function AdminSignup() {
         },
       });
     } catch (error) {
-      hideLoading();
       console.log(error);
       setErrors((prev) => ({
         ...prev,
@@ -295,7 +285,12 @@ export default function AdminSignup() {
                   disabled={loading}
                 >
                   {loading ? (
-                    <ActivityIndicator color="white" />
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={styles.buttonText}>Creating</Text>
+                      <View style={{ width: 18, height: 18, marginLeft: 8 }}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      </View>
+                    </View>
                   ) : (
                     <Text style={styles.buttonText}>Create Account</Text>
                   )}
@@ -388,7 +383,6 @@ const styles = StyleSheet.create({
   title: {
     textAlign: "center",
     fontSize: 18,
-    // fontWeight: "700",
     color: PRIMARY,
     marginBottom: 4,
     fontFamily: "Poppins_400Regular",
@@ -432,8 +426,8 @@ const styles = StyleSheet.create({
   login: {
     alignItems: "center",
     justifyContent: "center",
-    flexDirection:"row",
-    gap:3,
+    flexDirection: "row",
+    gap: 3,
   },
 
   loginT: {

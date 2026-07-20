@@ -20,7 +20,7 @@ import { registerAndSavePushToken } from "../lib/pushNotifications";
 import { ToastProvider } from "../context/ToastContext";
 
 
-enableScreens(true);
+enableScreens(false);
 SplashScreen.preventAutoHideAsync();
 
 Notifications.setNotificationHandler({

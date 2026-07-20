@@ -7,18 +7,17 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef } from "react";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
-import { typography } from '../../theme/theme';
+import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone } from "../../constants/validators";
-import useLoading from "../../hooks/useLoading";
 import { wp, moderateScale } from "../../utils/responsive";
-
 
 const AdminLogin = () => {
   const [ph, setPh] = useState("");
@@ -26,7 +25,6 @@ const AdminLogin = () => {
   const [cooldown, setCooldown] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const { showLoading, hideLoading } = useLoading();
 
   const [errors, setErrors] = useState({
     phone: "",
@@ -44,7 +42,7 @@ const AdminLogin = () => {
         return prev - 1;
       });
     }, 1000);
-  }; 
+  };
 
   function validate() {
     const newErrors = { phone: "", email: "" };
@@ -80,8 +78,6 @@ const AdminLogin = () => {
       setIsSending(true);
       setErrors({ phone: "", email: "" });
 
-      showLoading("Sending verification code...");
-
       const loginResponse = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: {
@@ -101,7 +97,10 @@ const AdminLogin = () => {
 
         if (typeof loginData.detail === "string") {
           message = loginData.detail;
-        } else if (Array.isArray(loginData.detail) && loginData.detail.length > 0) {
+        } else if (
+          Array.isArray(loginData.detail) &&
+          loginData.detail.length > 0
+        ) {
           message = loginData.detail[0].msg;
         } else if (loginData.detail?.msg) {
           message = loginData.detail.msg;
@@ -112,7 +111,6 @@ const AdminLogin = () => {
           email: message,
         }));
 
-        hideLoading();
         return;
       }
 
@@ -145,12 +143,10 @@ const AdminLogin = () => {
           email: message,
         }));
 
-        hideLoading();
         return;
       }
 
       startCooldown(); //here the resend starts
-      hideLoading();
 
       router.push({
         pathname: "/(auth)/OtpVerify",
@@ -162,7 +158,6 @@ const AdminLogin = () => {
         },
       });
     } catch (error) {
-      hideLoading();
       console.log(error);
       setErrors((prev) => ({
         ...prev,
@@ -177,8 +172,6 @@ const AdminLogin = () => {
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-
-      // Header
       <View style={styles.mainbar}>
         <BackButton />
         <Text style={[styles.maintext, typography.heading]}>Admin Login</Text>
@@ -193,9 +186,7 @@ const AdminLogin = () => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-        > 
-
-          // Logo Image 
+        >
           <View style={styles.mainStyle}>
             <View style={styles.imagestyle}>
               <Image
@@ -204,12 +195,11 @@ const AdminLogin = () => {
               />
             </View>
 
-            // The actual card having inputs and buttons
             <View
               style={[
                 styles.divi,
                 (isOnCooldown || errors.phone || errors.email) &&
-                styles.diviExpanded,
+                  styles.diviExpanded,
               ]}
             >
               <Text style={[styles.divtext, typography.subheading]}>
@@ -221,7 +211,8 @@ const AdminLogin = () => {
                   placeholder="Enter Phone Number"
                   onChangeText={(text) => {
                     setPh(text);
-                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+                    if (errors.phone)
+                      setErrors((prev) => ({ ...prev, phone: "" }));
                   }}
                   keyboardType="phone-pad"
                   maxLength={10}
@@ -235,7 +226,8 @@ const AdminLogin = () => {
                   placeholder="Enter Email"
                   onChangeText={(text) => {
                     setEmail(text);
-                    if (errors.email) setErrors((prev) => ({ ...prev, email: "" }));
+                    if (errors.email)
+                      setErrors((prev) => ({ ...prev, email: "" }));
                   }}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -254,13 +246,20 @@ const AdminLogin = () => {
                   onPress={sendOTP}
                   disabled={isOnCooldown || isSending}
                 >
-                  <Text style={styles.LoginText}>
-                    {isSending
-                      ? "Sending..."
-                      : isOnCooldown
-                        ? "OTP Sent"
-                        : "Login"}
-                  </Text>
+                  {isSending ? (
+                    <View
+                      style={{ flexDirection: "row", alignItems: "center" }}
+                    >
+                      <Text style={styles.LoginText}>Sending</Text>
+                      <View style={{ width: 18, height: 18, marginLeft: 8 }}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.LoginText}>
+                      {isOnCooldown ? "OTP Sent" : "Login"}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
 
@@ -271,7 +270,6 @@ const AdminLogin = () => {
               )}
             </View>
 
-            // Footer with create account button
             <View>
               <Text style={styles.createStyle}>Create new Account?</Text>
             </View>
@@ -376,7 +374,7 @@ const styles = StyleSheet.create({
   },
   imageStyling: {
     height: moderateScale(115),
-    width:moderateScale(115),
+    width: moderateScale(115),
     borderRadius: moderateScale(120),
     bottom: 0,
   },
@@ -401,7 +399,6 @@ const styles = StyleSheet.create({
   },
   divtext: {
     fontSize: 18,
-    // fontWeight: "700",
     color: "#1A2744",
     fontFamily: "Poppins_400Regular",
   },

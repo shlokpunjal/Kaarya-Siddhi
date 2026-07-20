@@ -5,6 +5,7 @@ import {
   Image,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
   ScrollView,
@@ -19,7 +20,6 @@ import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
 import { registerPushToken } from "../../utils/pushToken";
 import { sendLoginNotification } from "../../utils/notifications";
-import useLoading from "../../hooks/useLoading";
 import { wp, moderateScale } from "../../utils/responsive";
 
 const OtpVerify = () => {
@@ -41,7 +41,6 @@ const OtpVerify = () => {
     name?: string;
   }>();
   const { saveSession } = useAuth();
-  const { showLoading, hideLoading } = useLoading();
 
   const [otpError, setOtpError] = useState("");
   const [resendMessage, setResendMessage] = useState("");
@@ -105,7 +104,6 @@ const OtpVerify = () => {
     try {
       setIsVerifying(true);
       setOtpError("");
-      showLoading("Verifying your code...");
 
       const response = await fetch(`${API_BASE_URL}/verify-otp`, {
         method: "POST",
@@ -134,8 +132,6 @@ const OtpVerify = () => {
           const backPath =
             role === "admin" ? "/(auth)/AdminSignup" : "/(auth)/EmployeeSignup";
 
-          hideLoading();
-          hideLoading();
           router.replace({
             pathname: backPath,
             params: {
@@ -146,7 +142,6 @@ const OtpVerify = () => {
         }
 
         setOtpError(data.detail || "Invalid OTP");
-        hideLoading();
         return;
       }
       await saveSession(
@@ -168,8 +163,6 @@ const OtpVerify = () => {
 
       if (mode === "signup") {
         if (data.role === "admin") {
-          hideLoading();
-          hideLoading();
           router.replace({
             pathname: "/(onboarding)/profileSetup1",
             params: { role: "admin", name },
@@ -178,8 +171,6 @@ const OtpVerify = () => {
         }
 
         if (data.role === "employee") {
-          hideLoading();
-          hideLoading();
           router.replace({
             pathname: "/(auth)/RequestAdmin",
             params: { email: data.email, name },
@@ -193,13 +184,11 @@ const OtpVerify = () => {
       );
 
       if (data.role === "admin") {
-        hideLoading();
         router.replace("/(admin)");
         return;
       }
 
       if (data.role === "employee" && !data.workspace_id) {
-        hideLoading();
         router.replace({
           pathname: "/(auth)/RequestAdmin",
           params: { email: data.email },
@@ -207,10 +196,8 @@ const OtpVerify = () => {
         return;
       }
 
-      hideLoading();
       router.replace("/(employee)");
     } catch (error: any) {
-      hideLoading();
       console.log("FULL ERROR:", error);
       const elapsed = Date.now() - startTime;
       if (elapsed < MIN_VISIBLE_MS) {
@@ -220,7 +207,6 @@ const OtpVerify = () => {
     } finally {
       setIsVerifying(false);
       isVerifyingRef.current = false;
-
     }
   };
 
@@ -283,15 +269,12 @@ const OtpVerify = () => {
                 style={styles.imageStyling}
               />
             </View>
-            {/* Card — restored to its original standalone styling, no wrapper */}
             <Animated.View
               style={[
                 styles.divi,
                 (isOnCooldown || otpError || resendMessage) && styles.diviExpanded,
               ]}
             >
-              {/* <TrainLoadingAnimation active={isVerifying} /> */}
-
               <Text style={[styles.divtext]}>Login to your workspace</Text>
 
               <View>
@@ -325,7 +308,6 @@ const OtpVerify = () => {
 
                         if (otpError) setOtpError("");
                         if (resendMessage) setResendMessage("");
-
 
                         if (number && index < 5) {
                           setFocusedIndex(index + 1);
@@ -370,9 +352,16 @@ const OtpVerify = () => {
                   disabled={otp.join("").length < 6 || isVerifying}
                   onPress={() => verifyOTP(otp.join(""))}
                 >
-                  <Text style={styles.LoginText}>
-                    {isVerifying ? "Verifying..." : "Verify OTP"}
-                  </Text>
+                  {isVerifying ? (
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={styles.LoginText}>Verifying</Text>
+                      <View style={{ width: 18, height: 18, marginLeft: 8 }}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.LoginText}>Verify OTP</Text>
+                  )}
                 </TouchableOpacity>
               </View>
 
@@ -403,7 +392,7 @@ const SUCCESS = "#2E7D32";
 
 const styles = StyleSheet.create({
   trainAboveCard: {
-    width: "85%", // matches card width so it measures correctly and aligns with the card below
+    width: "85%",
     marginTop: 30,
   },
   scrollContent: {

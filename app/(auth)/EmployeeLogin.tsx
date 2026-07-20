@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef } from "react";
@@ -16,7 +17,6 @@ import { typography } from '../../theme/theme';
 import BackButton from "../../components/backButton";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail, isValidPhone } from "../../constants/validators";
-import useLoading from "../../hooks/useLoading";
 import { wp, moderateScale } from "../../utils/responsive";
 
 const EmployeeLogin = () => {
@@ -24,7 +24,6 @@ const EmployeeLogin = () => {
   const [email, setEmail] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [isSending, setIsSending] = useState(false);
-  const { showLoading, hideLoading } = useLoading();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [errors, setErrors] = useState({
@@ -80,7 +79,6 @@ const EmployeeLogin = () => {
     try {
       setIsSending(true);
       setErrors({ phone: "", email: "" });
-      showLoading("Sending verification code...");
 
       // STEP 1 : Check account exists
       const loginResponse = await fetch(`${API_BASE_URL}/login`, {
@@ -98,7 +96,6 @@ const EmployeeLogin = () => {
       const loginData = await loginResponse.json();
 
       if (!loginResponse.ok) {
-        // Map backend field errors properly instead of always dumping on email
         const detail = (loginData.detail || "").toLowerCase();
         if (detail.includes("phone")) {
           setErrors((prev) => ({
@@ -111,7 +108,6 @@ const EmployeeLogin = () => {
             email: loginData.detail || "Account not found",
           }));
         }
-        hideLoading();
         return;
       }
 
@@ -134,13 +130,11 @@ const EmployeeLogin = () => {
           ...prev,
           email: otpData.detail || "Failed to send OTP",
         }));
-        hideLoading();
         return;
       }
 
       startCooldown();
 
-      hideLoading();
       router.push({
         pathname: "/OtpVerify",
         params: {
@@ -151,7 +145,6 @@ const EmployeeLogin = () => {
         },
       });
     } catch (error) {
-      hideLoading();
       console.log(error);
       setErrors((prev) => ({
         ...prev,
@@ -238,13 +231,18 @@ const EmployeeLogin = () => {
                   onPress={sendOTP}
                   disabled={isOnCooldown || isSending}
                 >
-                  <Text style={styles.LoginText}>
-                    {isSending
-                      ? "Sending..."
-                      : isOnCooldown
-                        ? "OTP Sent"
-                        : "Login"}
-                  </Text>
+                  {isSending ? (
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={styles.LoginText}>Sending</Text>
+                      <View style={{ width: 18, height: 18, marginLeft: 8 }}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.LoginText}>
+                      {isOnCooldown ? "OTP Sent" : "Login"}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
 
@@ -307,7 +305,6 @@ const styles = StyleSheet.create({
   LoginText: {
     color: "white",
     fontSize: 16,
-    // fontWeight: "700",
     fontFamily: "Poppins_400Regular",
     letterSpacing: 0.3,
   },
@@ -387,7 +384,6 @@ const styles = StyleSheet.create({
   },
   divtext: {
     fontSize: 18,
-    // fontWeight: "700",
     color: "#1A2744",
     fontFamily: "Poppins_400Regular",
   },
