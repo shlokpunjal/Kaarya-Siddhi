@@ -16,6 +16,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
+import { moderateScale } from "../../utils/responsive";
 
 const statusMeta = (colors: any, status: string) => {
   if (status === "accepted")
@@ -131,7 +132,7 @@ export default function EmployeeRequestDetail() {
       <View
         style={{
           backgroundColor: colors.brand.primary,
-          height: 60,
+          height: moderateScale(60),
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 15,
@@ -140,10 +141,10 @@ export default function EmployeeRequestDetail() {
         <Ionicons
           onPress={() => router.back()}
           name="arrow-back"
-          size={26}
+          size={moderateScale(26)}
           color={colors.brand.onPrimary}
         />
-        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: 15 }}>
+        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: moderateScale(15) }}>
           Request Details
         </Text>
       </View>
@@ -283,7 +284,7 @@ export default function EmployeeRequestDetail() {
         <TouchableOpacity
           onPress={() => router.back()}
           style={{
-            height: 50,
+            height: moderateScale(50),
             borderRadius: 12,
             backgroundColor: colors.brand.secprimary,
             alignItems: "center",

@@ -1,5 +1,6 @@
 import { View, StyleSheet } from "react-native";
 import { lightTheme } from "../theme/theme";
+import { moderateScale } from "../utils/responsive";
 
 const { colors } = lightTheme;
 
@@ -16,8 +17,8 @@ export default function ProgressDots({ total, current }: { total: number; curren
 const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "center", gap: 8 },
   dot: {
-    width: 10,
-    height: 10,
+    width: moderateScale(10),
+    height: moderateScale(10),
     borderRadius: 5,
     borderWidth: 1.5,
     borderColor: colors.brand.accent,
