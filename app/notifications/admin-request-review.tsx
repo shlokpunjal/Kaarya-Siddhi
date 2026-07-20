@@ -19,6 +19,7 @@ import { supabase } from "../../lib/supabase";
 import { createNotification } from "../../lib/notify";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
+import AdminRequestReviewSkeleton from '../../components/AdminRequestReviewSkeleton';
 
 const statusMeta = (colors: any, status: string) => {
   if (status === "accepted")
@@ -88,9 +89,7 @@ export default function AdminRequestReview() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color={colors.brand.primary} />
-      </SafeAreaView>
+      <AdminRequestReviewSkeleton />
     );
   }
 

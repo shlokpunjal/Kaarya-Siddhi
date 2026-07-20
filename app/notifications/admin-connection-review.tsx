@@ -18,6 +18,7 @@ import { supabase } from "../../lib/supabase";
 import { API_BASE_URL } from "../../constants/api";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
+import AdminConnectionReviewSkeleton from '../../components/AdminConnectionReviewSkeleton';
 
 type Status = "pending" | "accepted" | "rejected";
 
@@ -109,9 +110,7 @@ export default function AdminConnectionReview() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color={colors.brand.primary} />
-      </SafeAreaView>
+      <AdminConnectionReviewSkeleton />
     );
   }
 
