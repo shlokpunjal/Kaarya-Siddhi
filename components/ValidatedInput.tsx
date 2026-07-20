@@ -9,6 +9,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { moderateScale } from "../utils/responsive";
 
 const SUCCESS = "#2E7D32";
 const ERROR = "#D32F2F";
@@ -102,7 +103,7 @@ const ValidatedInput: React.FC<ValidatedInputProps> = ({
           ]}
         />
         {showTick && (
-          <Ionicons name="checkmark-circle" size={21} color={SUCCESS} style={styles.icon} />
+          <Ionicons name="checkmark-circle" size={moderateScale(21)} color={SUCCESS} style={styles.icon} />
         )}
         {showCross && (
           <Ionicons name="close-circle" size={21} color={ERROR} style={styles.icon} />
@@ -137,8 +138,8 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: "#E5E7EB",
-    height: 50,
-    width: 280,
+    height: moderateScale(50),
+    width: moderateScale(280),
     paddingLeft: 20,
     paddingRight: 40,
     borderRadius: 10,

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { View, StyleSheet, Animated, Easing, LayoutChangeEvent } from "react-native";
 import Svg, { Path, Rect, Circle, Line } from "react-native-svg";
+import { moderateScale } from "../utils/responsive";
 
 interface TrainLoadingAnimationProps {
   active: boolean;
@@ -18,8 +19,8 @@ const TrainLoadingAnimation: React.FC<TrainLoadingAnimationProps> = ({
   bodyColor = "#F2A438",
   darkColor = "#1A2744",
   trackColor = "#E5E7EB",
-  trainWidth = 62,
-  durationMs = 1500,
+  trainWidth = moderateScale(62),
+  durationMs = 1700,
 }) => {
   const [trackWidth, setTrackWidth] = useState(0);
   const [shouldRender, setShouldRender] = useState(false);
@@ -164,7 +165,7 @@ export default TrainLoadingAnimation;
 const styles = StyleSheet.create({
   wrapper: {
     width: "100%",
-    height: 40,
+    height: moderateScale(40),
     justifyContent: "flex-end",
     marginTop: 6,
     marginBottom: 6,

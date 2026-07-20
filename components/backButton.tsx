@@ -2,6 +2,7 @@ import React from 'react';
 import { TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { wp } from '../utils/responsive';
 
 type BackButtonProps = {
   color?: string;
@@ -23,7 +24,7 @@ export default function BackButton({ color = '#FFFFFF', onPress }: BackButtonPro
 const styles = StyleSheet.create({
   button: {
     position: 'absolute',
-    left: 20,
+    left: wp(5.3),
     top: 0,
     bottom: 0,
     justifyContent: 'center',

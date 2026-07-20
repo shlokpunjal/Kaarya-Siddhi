@@ -21,7 +21,6 @@ import { useTheme, useThemeMode, ThemeMode } from "../../context/ThemeContext";
 import CollapsibleSection from "../../components/CollapsibleSection";
 import ConfirmModal from "../../components/confirmModal";
 import AdminProfileSkeleton from "../../components/AdminProfileSkeleton";
-import { API_BASE_URL } from "../../constants/api";
 import { router } from "expo-router";
 import { authFetch } from "../../utils/authFetch";
 import { wp, moderateScale } from '../../utils/responsive';
