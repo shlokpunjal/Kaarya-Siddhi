@@ -136,7 +136,7 @@ const OtpVerify = () => {
 
           hideLoading();
           hideLoading();
-        router.replace({
+          router.replace({
             pathname: backPath,
             params: {
               prefillNameTaken: "1",
@@ -170,7 +170,7 @@ const OtpVerify = () => {
         if (data.role === "admin") {
           hideLoading();
           hideLoading();
-        router.replace({
+          router.replace({
             pathname: "/(onboarding)/profileSetup1",
             params: { role: "admin", name },
           });
@@ -180,7 +180,7 @@ const OtpVerify = () => {
         if (data.role === "employee") {
           hideLoading();
           hideLoading();
-        router.replace({
+          router.replace({
             pathname: "/(auth)/RequestAdmin",
             params: { email: data.email, name },
           });
@@ -283,7 +283,7 @@ const OtpVerify = () => {
                 style={styles.imageStyling}
               />
             </View>
-{/* Card — restored to its original standalone styling, no wrapper */}
+            {/* Card — restored to its original standalone styling, no wrapper */}
             <Animated.View
               style={[
                 styles.divi,

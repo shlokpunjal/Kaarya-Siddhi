@@ -77,7 +77,7 @@ export default function AdminSignup() {
     return () => {
       if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
     };
-  }, [name]);
+  }, [name]); // ensures that name is unique
 
   function validate() {
     const newErrors = { name: "", department: "", phone: "", email: "" };
@@ -104,7 +104,7 @@ export default function AdminSignup() {
       isValid = false;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // ensures that email is valid
     if (!email.trim()) {
       newErrors.email = "Please enter a valid email";
       isValid = false;
@@ -116,6 +116,7 @@ export default function AdminSignup() {
     setErrors(newErrors);
     return isValid;
   }
+  
   async function createAccount() {
     if (!validate()) {
       return;
