@@ -116,6 +116,7 @@ function NotificationBridge() {
         console.log("Push token registration failed:", err)
       );
 
+      //inserts the notification to notification table
       notifChannel = supabase
         .channel(`global_notifs_${userRow.id}`)
         .on(
