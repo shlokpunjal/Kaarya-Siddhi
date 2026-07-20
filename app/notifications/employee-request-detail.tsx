@@ -17,6 +17,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
+import EmployeeRequestDetailSkeleton from '../../components/EmployeeRequestDetailSkeleton';
 
 const statusMeta = (colors: any, status: string) => {
   if (status === "accepted")
@@ -79,16 +80,7 @@ export default function EmployeeRequestDetail() {
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={{
-          flex: 1,
-          backgroundColor: colors.base.background,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <ActivityIndicator size="large" color={colors.brand.primary} />
-      </SafeAreaView>
+      <EmployeeRequestDetailSkeleton />
     );
   }
 
