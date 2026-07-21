@@ -201,7 +201,7 @@ useEffect(() => {
     reviewTasks.length === 0 &&
     completedTasks.length === 0
   ) {
-    return <NoTasksAdmin />;
+    return <NoTasksAdmin pendingRequestCount={pendingRequestCount} />;
   }
 
   return (
