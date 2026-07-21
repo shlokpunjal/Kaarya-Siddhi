@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -79,6 +79,7 @@ export default function EmployeeProfile() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -141,6 +142,13 @@ export default function EmployeeProfile() {
     setAvatarUri(data.profile_pic_url ?? null);
     setLoading(false);
   };
+
+  // ── Pull-to-refresh handler ────────────────────────────────────────────────
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchCurrentUser();
+    setRefreshing(false);
+  }, []);
 
   const handleSave = async () => {
     if (!currentUser) {
