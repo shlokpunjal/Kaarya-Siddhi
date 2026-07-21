@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -80,6 +81,9 @@ export default function EmployeeProfile() {
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // ── Pull-to-refresh ──────────────────────────────────────────────────────
+  const [refreshing, setRefreshing] = useState(false);
+
   useEffect(() => {
     fetchCurrentUser();
   }, []);
@@ -141,6 +145,13 @@ export default function EmployeeProfile() {
     setAvatarUri(data.profile_pic_url ?? null);
     setLoading(false);
   };
+
+  // ── Pull-to-refresh handler ────────────────────────────────────────────────
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchCurrentUser();
+    setRefreshing(false);
+  }, []);
 
   const handleSave = async () => {
     if (!currentUser) {
@@ -317,7 +328,17 @@ export default function EmployeeProfile() {
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.base.background }]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.brand.accent}
+            colors={[colors.brand.accent]}
+          />
+        }
+      >
         <View style={styles.headerRow}>
           <Text style={[typography.heading, { color: colors.text.primary }]}>
             Profile

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -76,6 +77,9 @@ export default function AdminProfile() {
     [],
   );
   const [loadingTeam, setLoadingTeam] = useState(true);
+
+  // ── Pull-to-refresh ──────────────────────────────────────────────────────
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -164,6 +168,13 @@ export default function AdminProfile() {
     );
     setLoadingTeam(false);
   };
+
+  // ── Pull-to-refresh handler: re-run both fetches together ─────────────────
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchCurrentUser(), fetchTeam()]);
+    setRefreshing(false);
+  }, []);
 
   // ── Save edited fields back to Supabase ───────────────────────────────────
   const handleSave = async () => {
@@ -268,7 +279,17 @@ export default function AdminProfile() {
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.base.background }]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.brand.accent}
+            colors={[colors.brand.accent]}
+          />
+        }
+      >
         <View style={styles.headerRow}>
           <Text style={[typography.heading, { color: colors.text.primary }]}>
             Profile
@@ -575,15 +596,33 @@ export default function AdminProfile() {
             </Text>
           )}
           {managedEmployees.map((emp) => (
-            <Text
+            <Pressable
               key={emp.email}
-              style={[
-                typography.body,
-                { color: colors.text.primary, marginTop: 8 },
+              onPress={() =>
+                router.push({
+                  pathname: "/(task)/employeeTasks",
+                  params: { employeeEmail: emp.email, employeeName: emp.name },
+                })
+              }
+              style={({ pressed }) => [
+                styles.teamMemberRow,
+                { opacity: pressed ? 0.6 : 1 },
               ]}
             >
-              · {emp.name}
-            </Text>
+              <Text
+                style={[
+                  typography.body,
+                  { color: colors.text.primary, flex: 1 },
+                ]}
+              >
+                · {emp.name}
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={colors.text.secondary}
+              />
+            </Pressable>
           ))}
         </View>
 
@@ -799,6 +838,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  teamMemberRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
   },
   countChip: {
     paddingHorizontal: 10,
