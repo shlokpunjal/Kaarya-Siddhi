@@ -79,6 +79,7 @@ export default function EmployeeProfile() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
