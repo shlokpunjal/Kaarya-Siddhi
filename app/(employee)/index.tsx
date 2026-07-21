@@ -169,7 +169,7 @@ export default function Dashboard() {
     reviewTasks.length === 0 &&
     completedTasks.length === 0
   ) {
-    return <NoTaskEmp />;
+    return <NoTaskEmp decidedRequestCount={decidedRequestCount} />;
   }
 
   return (
