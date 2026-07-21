@@ -44,10 +44,10 @@ const THEME_OPTIONS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-    { value: "light", label: "Light", icon: "sunny-outline" },
-    { value: "dark", label: "Dark", icon: "moon-outline" },
-    { value: "system", label: "System", icon: "phone-portrait-outline" },
-  ];
+  { value: "light", label: "Light", icon: "sunny-outline" },
+  { value: "dark", label: "Dark", icon: "moon-outline" },
+  { value: "system", label: "System", icon: "phone-portrait-outline" },
+];
 
 const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
@@ -81,13 +81,16 @@ export default function EmployeeProfile() {
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // ── Pull-to-refresh ──────────────────────────────────────────────────────
   const [refreshing, setRefreshing] = useState(false);
-
   useEffect(() => {
     fetchCurrentUser();
   }, []);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchCurrentUser(); // Re-runs your profile fetching logic
+    setRefreshing(false);
+  };
   const fetchCurrentUser = async () => {
     setLoading(true);
 
@@ -247,7 +250,10 @@ export default function EmployeeProfile() {
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      showToast("Please allow photo library access to set a profile picture.", "warning");
+      showToast(
+        "Please allow photo library access to set a profile picture.",
+        "warning",
+      );
       return;
     }
 
@@ -334,8 +340,8 @@ export default function EmployeeProfile() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.brand.accent}
-            colors={[colors.brand.accent]}
+            tintColor={colors.brand.accent} // Custom loader color for iOS
+            colors={[colors.brand.accent]} // Custom loader color for Android
           />
         }
       >

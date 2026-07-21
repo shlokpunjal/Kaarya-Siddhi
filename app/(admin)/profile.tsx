@@ -24,7 +24,7 @@ import ConfirmModal from "../../components/confirmModal";
 import AdminProfileSkeleton from "../../components/AdminProfileSkeleton";
 import { router } from "expo-router";
 import { authFetch } from "../../utils/authFetch";
-import { wp, moderateScale } from '../../utils/responsive';
+import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 
 type UserRow = {
@@ -77,15 +77,17 @@ export default function AdminProfile() {
     [],
   );
   const [loadingTeam, setLoadingTeam] = useState(true);
-
-  // ── Pull-to-refresh ──────────────────────────────────────────────────────
   const [refreshing, setRefreshing] = useState(false);
-
   useEffect(() => {
     fetchCurrentUser();
     fetchTeam();
   }, []);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchCurrentUser(); // Re-runs your profile fetching logic
+    setRefreshing(false);
+  };
   // ── Fetch the logged-in admin's own row from Supabase ────────────────────
   const fetchCurrentUser = async () => {
     setLoading(true);
@@ -226,7 +228,10 @@ export default function AdminProfile() {
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      showToast("Please allow photo library access to set a profile picture.", "warning");
+      showToast(
+        "Please allow photo library access to set a profile picture.",
+        "warning",
+      );
       return;
     }
 
@@ -285,8 +290,8 @@ export default function AdminProfile() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.brand.accent}
-            colors={[colors.brand.accent]}
+            tintColor={colors.brand.accent} // Custom loader color for iOS
+            colors={[colors.brand.accent]} // Custom loader color for Android
           />
         }
       >
@@ -787,7 +792,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   scrollContent: { padding: wp(5.3), paddingBottom: 40 },
-  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  roleBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
   card: { borderRadius: 18, borderWidth: 2, padding: 18, marginBottom: 16 },
   cardTopRow: { flexDirection: "row", justifyContent: "flex-end" },
   editPill: {

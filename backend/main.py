@@ -45,6 +45,10 @@ async def unhandled_exception_handler(request, exc):
     logger.exception(f"UNHANDLED ERROR on {request.url.path}")
     return JSONResponse(status_code=500, content={"detail": "Something went wrong on our end. Please try again."})
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 @app.post("/cron/send-deadline-reminders")
 async def cron_deadline_reminders(x_cron_secret: str = Header(None)):
     # Called by an external scheduler (cron-job.org) since Render's free
