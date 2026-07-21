@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -43,10 +44,10 @@ const THEME_OPTIONS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-    { value: "light", label: "Light", icon: "sunny-outline" },
-    { value: "dark", label: "Dark", icon: "moon-outline" },
-    { value: "system", label: "System", icon: "phone-portrait-outline" },
-  ];
+  { value: "light", label: "Light", icon: "sunny-outline" },
+  { value: "dark", label: "Dark", icon: "moon-outline" },
+  { value: "system", label: "System", icon: "phone-portrait-outline" },
+];
 
 const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
@@ -66,6 +67,7 @@ export default function EmployeeProfile() {
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [email, setEmail] = useState("");
+  const [department, setDepartment] = useState("");
   const [connectionStatus, setConnectionStatus] = useState<
     "none" | "pending" | "accepted"
   >("none");
@@ -139,6 +141,7 @@ export default function EmployeeProfile() {
     setName(data.name ?? "");
     setContact(data.mobile_number ?? "");
     setEmail(data.email ?? "");
+    setDepartment(data.department ?? "");
     setAvatarUri(data.profile_pic_url ?? null);
     setLoading(false);
   };
@@ -164,16 +167,14 @@ export default function EmployeeProfile() {
         .update({
           name: name.trim(),
           mobile_number: contact.trim(),
-          email: email.trim(),
+          department: department.trim(),
         })
         .eq("id", currentUser.id);
 
       if (error) throw error;
 
-      await AsyncStorage.setItem("userEmail", email.trim());
-
       setCurrentUser((prev) =>
-        prev ? { ...prev, name, mobile_number: contact, email } : prev,
+        prev ? { ...prev, name, mobile_number: contact, department } : prev,
       );
       setEditing(false);
       showToast("Profile updated", "success");
@@ -244,7 +245,10 @@ export default function EmployeeProfile() {
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      showToast("Please allow photo library access to set a profile picture.", "warning");
+      showToast(
+        "Please allow photo library access to set a profile picture.",
+        "warning",
+      );
       return;
     }
 
@@ -325,7 +329,18 @@ export default function EmployeeProfile() {
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.base.background }]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={editing ? undefined : onRefresh}
+            enabled={!editing}
+            tintColor={colors.brand.accent}
+            colors={[colors.brand.accent]}
+          />
+        }
+      >
         <View style={styles.headerRow}>
           <Text style={[typography.heading, { color: colors.text.primary }]}>
             Profile
@@ -553,29 +568,14 @@ export default function EmployeeProfile() {
               >
                 Email id
               </Text>
-              {editing ? (
-                <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  style={[
-                    styles.input,
-                    typography.body,
-                    {
-                      borderColor: colors.base.border,
-                      color: colors.text.primary,
-                    },
-                  ]}
-                />
-              ) : (
-                <Text
-                  style={[
-                    typography.body,
-                    { color: colors.text.primary, marginTop: 4 },
-                  ]}
-                >
-                  {email}
-                </Text>
-              )}
+              <Text
+                style={[
+                  typography.body,
+                  { color: colors.text.primary, marginTop: 4 },
+                ]}
+              >
+                {email}
+              </Text>
             </View>
 
             <View
@@ -625,14 +625,29 @@ export default function EmployeeProfile() {
               >
                 Department
               </Text>
-              <Text
-                style={[
-                  typography.body,
-                  { color: colors.text.primary, marginTop: 4 },
-                ]}
-              >
-                {currentUser.department ?? "—"}
-              </Text>
+              {editing ? (
+                <TextInput
+                  value={department}
+                  onChangeText={setDepartment}
+                  style={[
+                    styles.input,
+                    typography.body,
+                    {
+                      borderColor: colors.base.border,
+                      color: colors.text.primary,
+                    },
+                  ]}
+                />
+              ) : (
+                <Text
+                  style={[
+                    typography.body,
+                    { color: colors.text.primary, marginTop: 4 },
+                  ]}
+                >
+                  {department || "—"}
+                </Text>
+              )}
             </View>
 
             <View style={[styles.fieldRow, { borderBottomWidth: 0 }]}>
