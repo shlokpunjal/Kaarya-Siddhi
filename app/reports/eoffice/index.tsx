@@ -17,11 +17,13 @@ export default function EofficeList() {
   const [employeeMap, setEmployeeMap] = useState<Record<string, string>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
       const user = await getCurrentUser();
       if (!user) throw new Error('Not logged in');
+      setUserRole(user.role as 'admin' | 'employee');
 
       const [filesData, employeesData] = await Promise.all([
         fetchEofficeFiles(),
@@ -57,9 +59,9 @@ export default function EofficeList() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.base.background }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 12 }}>
-        <Pressable onPress={() => router.back()} style={{ marginBottom: 4 }}>
+        {userRole === 'admin' && (<Pressable onPress={() => router.back()} style={{ marginBottom: 4 }}>
           <Ionicons name="chevron-back" size={26} color={colors.text.primary} />
-        </Pressable>
+        </Pressable>)}
         <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 6 }]}>
           eOffice Files
         </Text>
