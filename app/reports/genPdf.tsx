@@ -233,7 +233,7 @@ export default function GenPdf() {
               onPress={() => setSelectedValue(value === selectedValue ? '' : value)}
               style={[
                 styles.chip,
-                { backgroundColor: selectedValue === value ? colors.brand.accent : colors.base.surfaceL2 },
+                { backgroundColor: selectedValue === value ? colors.brand.primary : colors.base.surfaceL2 },
               ]}
             >
               <Text
