@@ -16,6 +16,7 @@ from config import ALLOWED_ORIGINS, CRON_SECRET
 from rate_limit import limiter
 from sheets_sync import sync_tasks_from_sheet
 from deadline_reminders import send_deadline_reminders
+from overdue_reminders import send_overdue_reminders
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("kaarya_siddhi")
@@ -45,6 +46,10 @@ async def unhandled_exception_handler(request, exc):
     logger.exception(f"UNHANDLED ERROR on {request.url.path}")
     return JSONResponse(status_code=500, content={"detail": "Something went wrong on our end. Please try again."})
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 @app.post("/cron/send-deadline-reminders")
 async def cron_deadline_reminders(x_cron_secret: str = Header(None)):
     # Called by an external scheduler (cron-job.org) since Render's free
@@ -56,6 +61,15 @@ async def cron_deadline_reminders(x_cron_secret: str = Header(None)):
     result = send_deadline_reminders()
     return result
 
+@app.post("/cron/send-overdue-reminders")
+async def cron_overdue_reminders(x_cron_secret: str = Header(None)):
+    # Same external-scheduler fallback as /cron/send-deadline-reminders,
+    # for the daily overdue check.
+    if not CRON_SECRET or x_cron_secret != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid cron secret.")
+    result = send_overdue_reminders()
+    return result
+
 # ---- Background jobs ----
 scheduler = BackgroundScheduler()
 scheduler.add_job(sync_tasks_from_sheet, "interval", minutes=5)
@@ -64,6 +78,11 @@ scheduler.add_job(sync_tasks_from_sheet, "interval", minutes=5)
 # notice. Timezone is pinned explicitly since the server host's local
 # time may not be IST.
 scheduler.add_job(send_deadline_reminders, "cron", hour=9, minute=0, timezone="Asia/Kolkata")
+# Runs once a day at 9:30 AM IST — after the "due tomorrow" job, so admins
+# see both notifications together rather than at scattered times. Repeats
+# every day a task stays overdue (see overdue_reminders.py for how that's
+# tracked without spamming multiple times in the same day).
+scheduler.add_job(send_overdue_reminders, "cron", hour=9, minute=30, timezone="Asia/Kolkata")
 scheduler.start()
 
 # ---- Routers ----

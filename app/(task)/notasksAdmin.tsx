@@ -6,18 +6,34 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { wp, moderateScale } from "../../utils/responsive";
 
-export default function NoTasksAdmin() {
+type NoTasksAdminProps = {
+  pendingRequestCount?: number;
+};
+
+export default function NoTasksAdmin({ pendingRequestCount = 0 }: NoTasksAdminProps) {
   const router = useRouter();
   const { colors } = useTheme();
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.base.background}}> 
+    <View style={{ flex: 1, backgroundColor: colors.base.background }}>
       {/* ── Header ── */}
-      <SafeAreaView style={{ backgroundColor: colors.brand.primary,marginTop:25 }} edges={["top"]}>
+      <SafeAreaView style={{ backgroundColor: colors.brand.primary }} edges={["top"]}>
         <View style={styles.header}>
-          <Text style={[typography.subheading, { color: colors.brand.onPrimary, fontSize: 22,marginTop:-20 }]}>
+          <Text style={[typography.subheading, { color: colors.brand.onPrimary, fontSize: 22 }]}>
             Kaarya Siddhi
           </Text>
+
+          {/* Bell icon — surfaceL2 + shadow instead of a fixed white overlay, so it reads
+              correctly against brand.primary in both light and dark theme */}
+          <TouchableOpacity
+            onPress={() => router.push("/notifications/admin")}
+            style={[styles.bellButton, { backgroundColor: colors.base.surfaceL2 }]}
+          >
+            <Ionicons name="notifications-outline" size={22} color={colors.brand.accent} />
+            {pendingRequestCount > 0 && (
+              <View style={[styles.badge, { backgroundColor: colors.status.pending }]} />
+            )}
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
 
@@ -46,18 +62,34 @@ export default function NoTasksAdmin() {
           </Text>
         </TouchableOpacity>
       </View>
-
-
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    height: moderateScale(50),
+    height: moderateScale(56),
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: wp(6.4),
+  },
+  bellButton: {
+    position: "relative",
+    height: moderateScale(40),
+    width: moderateScale(40),
+    borderRadius: moderateScale(20),
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "flex-start",
-    paddingLeft: wp(6.4),
+    boxShadow: "0px 0px 5px gray",
+  },
+  badge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    height: moderateScale(9),
+    width: moderateScale(9),
+    borderRadius: moderateScale(4.5),
   },
   content: {
     flex: 1,

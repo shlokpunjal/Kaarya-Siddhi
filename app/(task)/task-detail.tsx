@@ -62,6 +62,9 @@ useEffect(() => {
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
+  // ── "Ask to Review" (moves task into the review queue for both roles) ───────
+  const [askingReview, setAskingReview] = useState(false);
+
 
   // "Own task" governs both edit/delete icons AND the Review-or-Complete button —
   // an employee should only be able to act on tasks they created themselves,
@@ -153,6 +156,66 @@ useEffect(() => {
       checkPendingExtension();
     }, [checkPendingExtension])
   );
+
+  // ── Notify both the assignee and the creator that a task moved to review ────
+  // NOTE: adjust column names ("message", "task_id") if your `notifications`
+  // table uses different ones.
+  const notifyBothParties = async (title: string) => {
+    const recipients = new Set<string>();
+    if (task?.assigned_to) recipients.add(task.assigned_to);
+    if (task?.created_by) recipients.add(task.created_by);
+
+    const rows = Array.from(recipients).map((user_id) => ({
+      user_id,
+      type: "task_in_review",
+      message: `"${title}" has been submitted for review.`,
+      task_id: task.id,
+    }));
+
+    if (rows.length === 0) return;
+
+    const { error } = await supabase.from("notifications").insert(rows);
+    if (error) console.error("Notification insert error:", error);
+  };
+
+  // ── Ask to Review — moves the task into the in_review queue directly ────────
+  // Distinct from "Review or Complete" (which only shows for tasks the
+  // employee created themselves and routes to a separate completion flow).
+  // This button is available on ANY task assigned to the employee, so it's
+  // placed under Extend Deadline rather than gated by isOwnTask.
+  const handleAskToReview = async () => {
+    if (!task) return;
+
+    try {
+      setAskingReview(true);
+
+      const { error: submitError } = await supabase
+        .from("task_submissions")
+        .insert({
+          task_id: task.id,
+          submitted_by: currentUserId ?? task.assigned_to,
+          note: "Requested review via app",
+        });
+
+      if (submitError) throw submitError;
+
+      const { error: updateError } = await supabase
+        .from("tasks")
+        .update({ status: "in_review" })
+        .eq("id", task.id);
+
+      if (updateError) throw updateError;
+
+      await notifyBothParties(task.title);
+
+      setTask((prev: any) => ({ ...prev, status: "in_review" }));
+      showToast("Task sent for review!", "success");
+    } catch (error: any) {
+      showToast(error?.message || "Failed to request review", "error");
+    } finally {
+      setAskingReview(false);
+    }
+  };
 
   // ── Delete task ───────────────────────────────────────────────────────────────
   const handleDeleteTask = () => {
@@ -577,6 +640,44 @@ useEffect(() => {
               {hasPendingExtension ? "Extension Requested" : "Extend Deadline"}
             </Text>
           </TouchableOpacity>
+
+          {/* Ask to Review Button — new: moves task into the review queue and
+              notifies both the assignee and the creator */}
+         {!isSelfAssigned && (
+  <TouchableOpacity
+    disabled={askingReview || task.status === "completed" || task.status === "in_review"}
+    onPress={handleAskToReview}
+    style={{
+      height: 50,
+      borderRadius: 12,
+      backgroundColor:
+        task.status === "completed" || task.status === "in_review"
+          ? colors.base.border
+          : colors.brand.accent,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 12,
+      paddingHorizontal: 12,
+      opacity: askingReview ? 0.7 : 1,
+    }}
+  >
+    {askingReview ? (
+      <ActivityIndicator color={colors.base.surfaceL1} />
+    ) : (
+      <Text
+        numberOfLines={1}
+        allowFontScaling={false}
+        style={{ ...typography.subheading, color: colors.brand.onPrimary }}
+      >
+        {task.status === "completed"
+          ? "Already Completed"
+          : task.status === "in_review"
+          ? "Under Review"
+          : "Ask to Review"}
+      </Text>
+    )}
+  </TouchableOpacity>
+)}
         </View>
       </ScrollView>
 
