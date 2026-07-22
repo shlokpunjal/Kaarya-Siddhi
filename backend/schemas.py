@@ -1,3 +1,4 @@
+# this file has the structure of the data that is returned or processed in json format
 from typing import Literal
 
 from pydantic import BaseModel, Field

@@ -1,3 +1,4 @@
+# this file has all essentials of authentication like token generation etc
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -34,7 +35,7 @@ def create_access_token(email: str, role: str, workspace_id: str | None) -> str:
         "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_MINUTES),
         "iat": datetime.now(timezone.utc),
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM) # the encode function uses the values of payload to encode a token
 
 
 def decode_access_token(token: str):

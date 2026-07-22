@@ -5,13 +5,13 @@
 # global exception handling.
 import logging
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware # enables data sharing by the backend to frontend on various domains
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.exceptions import HTTPException as StarletteHTTPException # used to show errors when they occur (shown by code like 404 not found)
 from apscheduler.schedulers.background import BackgroundScheduler
-from slowapi.errors import RateLimitExceeded
-from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded # sets limits to use of api 
+from slowapi import _rate_limit_exceeded_handler # avoids spams and too many requests
 from config import ALLOWED_ORIGINS, CRON_SECRET
 from rate_limit import limiter
 from sheets_sync import sync_tasks_from_sheet
