@@ -76,7 +76,6 @@ export default function AdminProfile() {
     [],
   );
   const [loadingTeam, setLoadingTeam] = useState(true);
-  
 
   useEffect(() => {
     fetchCurrentUser();

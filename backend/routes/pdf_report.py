@@ -8,7 +8,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.platypus.flowables import HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.graphics.shapes import Drawing, Wedge, String, Rect
+from reportlab.graphics.shapes import Drawing, Wedge, String, Rect, Circle
 from reportlab.graphics import renderPDF
 
 from auth_utils import get_current_user
@@ -26,8 +26,20 @@ STATUS_COLORS = {
     "overdue": colors.HexColor("#C53030"),
     "pending": colors.HexColor("#DD6B20"),
     "inReview": colors.HexColor("#2B6CB0"),
+    "in_review": colors.HexColor("#2B6CB0"),
     "completed": colors.HexColor("#2D6A4F"),
 }
+
+
+def format_deadline(raw: str) -> str:
+    """Turn '2026-07-17T00:00:00' into '17 Jul 2026'."""
+    if not raw:
+        return "-"
+    try:
+        dt = datetime.fromisoformat(raw)
+        return dt.strftime("%d %b %Y")
+    except ValueError:
+        return raw
 
 
 @router.get("/reports/tasks/pdf")
@@ -73,6 +85,15 @@ def generate_pdf_report(
             detail="No tasks found for the given filters and date range.",
         )
 
+    # --- Resolve assigned_to UUIDs to names ---
+    users_result = (
+        supabase.table("users")
+        .select("id, name")
+        .eq("workspace_id", workspace_id)
+        .execute()
+    )
+    user_name_map = {u["id"]: u["name"] for u in (users_result.data or [])}
+
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -109,24 +130,25 @@ def generate_pdf_report(
     elements.append(Spacer(1, 4 * mm))
     elements.append(Paragraph("Central Railway, Solapur Division", subtitle_style))
     elements.append(Paragraph(
-        f"Period: {start_date} to {end_date} &nbsp;&nbsp;|&nbsp;&nbsp; Total Tasks: {len(tasks)}",
+        f"Period: {format_deadline(start_date)} to {format_deadline(end_date)} "
+        f"&nbsp;&nbsp;|&nbsp;&nbsp; Total Tasks: {len(tasks)}",
         date_style
     ))
     elements.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=12))
 
-    # --- PAGE 1: Table ---
-    headers = ["Task ID", "Title", "Assigned To", "Status", "Priority", "Deadline"]
-    col_widths = [18 * mm, 58 * mm, 40 * mm, 24 * mm, 22 * mm, 28 * mm]
+    # --- PAGE 1: Table (no raw IDs — Title + Assigned To's name) ---
+    headers = ["Title", "Assigned To", "Status", "Priority", "Deadline"]
+    col_widths = [65 * mm, 42 * mm, 24 * mm, 22 * mm, 30 * mm]
 
     table_data = [headers]
     for task in tasks:
+        assigned_name = user_name_map.get(task.get("assigned_to"), "Unassigned")
         table_data.append([
-            str(task.get("id", "")),
             task.get("title", ""),
-            task.get("assigned_to", ""),
+            assigned_name,
             task.get("status", ""),
             task.get("priority", ""),
-            str(task.get("deadline", "")),
+            format_deadline(task.get("deadline")),
         ])
 
     table = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -149,8 +171,8 @@ def generate_pdf_report(
 
     for i, task in enumerate(tasks, start=1):
         status_color = STATUS_COLORS.get(task.get("status"), colors.black)
-        table_style.append(("TEXTCOLOR", (3, i), (3, i), status_color))
-        table_style.append(("FONTNAME", (3, i), (3, i), "Helvetica-Bold"))
+        table_style.append(("TEXTCOLOR", (2, i), (2, i), status_color))
+        table_style.append(("FONTNAME", (2, i), (2, i), "Helvetica-Bold"))
 
     table.setStyle(TableStyle(table_style))
     elements.append(table)
@@ -174,21 +196,33 @@ def generate_pdf_report(
         "overdue": colors.HexColor("#C53030"),
         "pending": colors.HexColor("#DD6B20"),
         "inReview": colors.HexColor("#2B6CB0"),
+        "in_review": colors.HexColor("#2B6CB0"),
         "completed": colors.HexColor("#2D6A4F"),
     }
 
     drawing = Drawing(400, 250)
     cx, cy, radius = 130, 125, 100
-    start_angle = 90
 
-    for status_val, count in status_counts.items():
-        angle = (count / total) * 360
-        wedge = Wedge(cx, cy, radius, start_angle, start_angle - angle)
-        wedge.fillColor = pie_colors.get(status_val, colors.grey)
-        wedge.strokeColor = WHITE
-        wedge.strokeWidth = 1
-        drawing.add(wedge)
-        start_angle -= angle
+    if len(status_counts) == 1:
+        # A single status = a full circle. Wedge() can't render a 360°
+        # slice (ZeroDivisionError inside reportlab's bezier arc math),
+        # so draw a plain circle instead.
+        only_status = next(iter(status_counts))
+        circle = Circle(cx, cy, radius)
+        circle.fillColor = pie_colors.get(only_status, colors.grey)
+        circle.strokeColor = WHITE
+        circle.strokeWidth = 1
+        drawing.add(circle)
+    else:
+        start_angle = 90
+        for status_val, count in status_counts.items():
+            angle = (count / total) * 360
+            wedge = Wedge(cx, cy, radius, start_angle, start_angle - angle)
+            wedge.fillColor = pie_colors.get(status_val, colors.grey)
+            wedge.strokeColor = WHITE
+            wedge.strokeWidth = 1
+            drawing.add(wedge)
+            start_angle -= angle
 
     legend_x = 280
     legend_y = 200
