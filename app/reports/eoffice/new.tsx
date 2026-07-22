@@ -1,14 +1,13 @@
-import { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, FlatList, Alert, Platform } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../../../context/ThemeContext';
 import { typography } from '../../../theme/theme';
-import { createEofficeFile, fetchEmployees, type Employee } from '../../../lib/eoffice';
-import { getCurrentUser } from '../../../lib/currentUser';
+import { createEofficeFile } from '../../../lib/eoffice';
 import { Ionicons } from '@expo/vector-icons';
-import SkeletonBox from '../../../components/SkeletonBox';
+import { getCurrentUser } from '../../../lib/currentUser';
 
 export default function NewEofficeFile() {
     const { colors } = useTheme();
@@ -16,56 +15,39 @@ export default function NewEofficeFile() {
 
     const [fileNo, setFileNo] = useState('');
     const [pendingOffice, setPendingOffice] = useState('');
+    const [pendingWith, setPendingWith] = useState('');
     const [remark, setRemark] = useState('');
     const [pendingSince, setPendingSince] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
 
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-    const [pickerVisible, setPickerVisible] = useState(false);
-
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
-
-    const [loadingEmployees, setLoadingEmployees] = useState(true);
-
-    useEffect(() => {
-        getCurrentUser()
-            .then((user) => {
-                if (user) return fetchEmployees(user.workspace_id);
-                return [];
-            })
-            .then(setEmployees)
-            .catch((err) => console.error('Failed to load employees', err))
-            .finally(() => setLoadingEmployees(false));
-    }, []);
-
-    useEffect(() => {
-        getCurrentUser()
-            .then((user) => {
-                if (user) return fetchEmployees(user.workspace_id);
-                return [];
-            })
-            .then(setEmployees)
-            .catch((err) => console.error('Failed to load employees', err));
-    }, []);
 
     const handleSubmit = async () => {
         setErrorMessage('');
 
-        if (!fileNo.trim() || !pendingOffice.trim() || !selectedEmployee) {
-            setErrorMessage('File no., pending office, and pending with are required.');
+        if (!fileNo.trim() || !pendingOffice.trim() || !pendingSince) {
+            setErrorMessage('File no., pending office, and pending since are required.');
             return;
         }
 
         try {
             setSubmitting(true);
+
+            const user = await getCurrentUser();
+            if (!user) {
+                setErrorMessage('You must be logged in to create a file.');
+                setSubmitting(false);
+                return;
+            }
+
             await createEofficeFile({
                 file_no: fileNo.trim(),
                 pending_office: pendingOffice.trim(),
-                pending_with: selectedEmployee.id,
+                pending_with: pendingWith.trim() || null,
                 pending_since: pendingSince.toISOString(),
-                remark: remark.trim(),
+                remark: remark.trim() || null,
+                created_by: user.id,
             });
             router.back();
         } catch (err) {
@@ -84,7 +66,7 @@ export default function NewEofficeFile() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.base.background }]}>
-            <ScrollView contentContainerStyle={{ padding: 20 }}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 12 }}>
                     <Pressable onPress={() => router.back()} style={{ marginBottom: 18 }}>
                         <Ionicons name="chevron-back" size={26} color={colors.text.primary} />
@@ -125,19 +107,19 @@ export default function NewEofficeFile() {
                 />
 
                 <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 18, marginBottom: 8 }]}>
-                    Pending With
+                    Pending With (optional)
                 </Text>
-                <Pressable
-                    onPress={() => setPickerVisible(true)}
+                <TextInput
+                    placeholder="e.g. Rajesh Kumar"
+                    placeholderTextColor={colors.text.secondary}
+                    value={pendingWith}
+                    onChangeText={setPendingWith}
                     style={[
                         styles.input,
-                        { borderColor: colors.base.border, backgroundColor: colors.base.surfaceL1, justifyContent: 'center' },
+                        typography.body,
+                        { borderColor: colors.base.border, color: colors.text.primary, backgroundColor: colors.base.surfaceL1 },
                     ]}
-                >
-                    <Text style={[typography.body, { color: selectedEmployee ? colors.text.primary : colors.text.secondary }]}>
-                        {selectedEmployee ? selectedEmployee.name : 'Select employee'}
-                    </Text>
-                </Pressable>
+                />
 
                 <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 18, marginBottom: 8 }]}>
                     Pending Since
@@ -197,44 +179,6 @@ export default function NewEofficeFile() {
                     </Text>
                 </Pressable>
             </ScrollView>
-
-            <Modal visible={pickerVisible} animationType="slide" transparent onRequestClose={() => setPickerVisible(false)}>
-                <Pressable style={styles.modalBackdrop} onPress={() => setPickerVisible(false)}>
-                    <View style={[styles.modalSheet, { backgroundColor: colors.base.surfaceL1 }]}>
-                        <Text style={[typography.subheading, { color: colors.text.primary, padding: 16 }]}>
-                            Select Employee
-                        </Text>
-                        <FlatList
-                            data={employees}
-                            keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => (
-                                <Pressable
-                                    style={[styles.employeeRow, { borderBottomColor: colors.base.border }]}
-                                    onPress={() => {
-                                        setSelectedEmployee(item);
-                                        setPickerVisible(false);
-                                    }}
-                                >
-                                    <Text style={[typography.body, { color: colors.text.primary }]}>{item.name}</Text>
-                                </Pressable>
-                            )}
-                            ListEmptyComponent={
-                                loadingEmployees ? (
-                                    <View style={{ padding: 16, gap: 12 }}>
-                                        {[0, 1, 2].map((i) => (
-                                            <SkeletonBox key={i} width="70%" height={16} borderRadius={4} />
-                                        ))}
-                                    </View>
-                                ) : (
-                                    <Text style={[typography.body, { color: colors.text.secondary, padding: 16 }]}>
-                                        No employees found
-                                    </Text>
-                                )
-                            }
-                        />
-                    </View>
-                </Pressable>
-            </Modal>
         </SafeAreaView>
     );
 }
@@ -243,7 +187,4 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     input: { borderWidth: 1, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 13 },
     submitButton: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 28 },
-    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-    modalSheet: { maxHeight: '60%', borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-    employeeRow: { paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1 },
 });

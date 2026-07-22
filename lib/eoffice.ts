@@ -1,11 +1,6 @@
 import { supabase } from './supabase';
 import type { EofficeFile } from '../types/eoffice';
 
-export type Employee = {
-  id: string;
-  name: string;
-};
-
 export async function fetchEofficeFiles(): Promise<EofficeFile[]> {
   const { data, error } = await supabase
     .from('e-office')
@@ -27,24 +22,13 @@ export async function fetchEofficeFileById(id: string): Promise<EofficeFile> {
   return data as EofficeFile;
 }
 
-export async function fetchEmployees(workspaceId: string): Promise<Employee[]> {
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, name')
-    .in('role', ['employee', 'admin'])
-    .eq('workspace_id', workspaceId)
-    .order('name', { ascending: true });
-
-  if (error) throw error;
-  return (data ?? []) as Employee[];
-}
-
 export async function createEofficeFile(input: {
   file_no: string;
   pending_office: string;
-  pending_with: string;
+  pending_with: string | null;
   pending_since: string;
-  remark: string;
+  remark: string | null;
+  created_by: string;
 }): Promise<EofficeFile> {
   const { data: existing, error: srError } = await supabase
     .from('e-office')
@@ -66,6 +50,7 @@ export async function createEofficeFile(input: {
       pending_since: input.pending_since,
       remark: input.remark || null,
       completed: false,
+      created_by: input.created_by,
     })
     .select()
     .single();
@@ -78,7 +63,7 @@ export async function updateEofficeFile(
   id: string,
   updates: {
     pending_office?: string;
-    pending_with?: string;
+    pending_with?: string | null;
     remark?: string | null;
     completed?: boolean;
   }
