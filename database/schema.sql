@@ -71,7 +71,14 @@ CREATE TABLE tasks (
     -- reminders.py) against re-notifying the same task for the same
     -- deadline. Reset to false whenever the deadline actually changes
     -- (see app/notifications/admin-request-review.tsx).
-    deadline_reminder_sent BOOLEAN NOT NULL DEFAULT false
+    deadline_reminder_sent BOOLEAN NOT NULL DEFAULT false,
+
+    -- Guards the daily overdue-reminder job (backend/overdue_reminders.py).
+    -- Unlike deadline_reminder_sent this isn't a one-way flag: it's the
+    -- last date (IST) the admin was notified this task was overdue, so
+    -- the job can tell "already notified today" apart from "a new day,
+    -- notify again" without any reset step.
+    last_overdue_notified_date DATE
 );
 
 --------------------------------------------------
@@ -136,8 +143,15 @@ CREATE TABLE notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     task_id UUID REFERENCES tasks(id),
+    -- Full real set in use — see lib/notify.ts, backend/routes/connections.py,
+    -- backend/deadline_reminders.py, backend/overdue_reminders.py.
     type VARCHAR(20)
-        CHECK (type IN ('deadline', 'assigned', 'reviewed', 'completed')),
+        CHECK (type IN (
+            'deadline', 'overdue', 'task_assigned',
+            'extension_accepted', 'extension_rejected',
+            'connection_request', 'connection_pending',
+            'connection_rejected', 'connection_accepted'
+        )),
     message TEXT,
     is_read BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT NOW(),
