@@ -72,7 +72,6 @@ export default function AdminProfile() {
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
   const [managedEmployees, setManagedEmployees] = useState<ManagedEmployee[]>(
     [],
   );
@@ -91,6 +90,7 @@ export default function AdminProfile() {
 
     if (!savedEmail) {
       setLoading(false);
+
       return;
     }
 
