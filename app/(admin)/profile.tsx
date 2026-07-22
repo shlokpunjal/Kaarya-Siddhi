@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,7 +24,7 @@ import ConfirmModal from "../../components/confirmModal";
 import AdminProfileSkeleton from "../../components/AdminProfileSkeleton";
 import { router } from "expo-router";
 import { authFetch } from "../../utils/authFetch";
-import { wp, moderateScale } from '../../utils/responsive';
+import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 
 type UserRow = {
@@ -223,7 +224,10 @@ export default function AdminProfile() {
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      showToast("Please allow photo library access to set a profile picture.", "warning");
+      showToast(
+        "Please allow photo library access to set a profile picture.",
+        "warning",
+      );
       return;
     }
 
@@ -276,7 +280,17 @@ export default function AdminProfile() {
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.base.background }]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.brand.accent}
+            colors={[colors.brand.accent]}
+          />
+        }
+      >
         <View style={styles.headerRow}>
           <Text style={[typography.heading, { color: colors.text.primary }]}>
             Profile
@@ -774,7 +788,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   scrollContent: { padding: wp(5.3), paddingBottom: 40 },
-  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  roleBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
   card: { borderRadius: 18, borderWidth: 2, padding: 18, marginBottom: 16 },
   cardTopRow: { flexDirection: "row", justifyContent: "flex-end" },
   editPill: {
