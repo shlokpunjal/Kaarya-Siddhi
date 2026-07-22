@@ -15,18 +15,19 @@ export default function NoTasksAdmin({ pendingRequestCount = 0 }: NoTasksAdminPr
   const { colors } = useTheme();
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.base.background}}> 
+    <View style={{ flex: 1, backgroundColor: colors.base.background }}>
       {/* ── Header ── */}
-      <SafeAreaView style={{ backgroundColor: colors.brand.primary,marginTop:25 }} edges={["top"]}>
+      <SafeAreaView style={{ backgroundColor: colors.brand.primary }} edges={["top"]}>
         <View style={styles.header}>
           <Text style={[typography.subheading, { color: colors.brand.onPrimary, fontSize: 22 }]}>
             Kaarya Siddhi
           </Text>
 
-          {/* Bell icon — same style, destination, and badge logic as the main dashboard */}
+          {/* Bell icon — surfaceL2 + shadow instead of a fixed white overlay, so it reads
+              correctly against brand.primary in both light and dark theme */}
           <TouchableOpacity
             onPress={() => router.push("/notifications/admin")}
-            style={styles.bellButton}
+            style={[styles.bellButton, { backgroundColor: colors.base.surfaceL2 }]}
           >
             <Ionicons name="notifications-outline" size={22} color={colors.brand.accent} />
             {pendingRequestCount > 0 && (
@@ -61,15 +62,13 @@ export default function NoTasksAdmin({ pendingRequestCount = 0 }: NoTasksAdminPr
           </Text>
         </TouchableOpacity>
       </View>
-
-
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    height: moderateScale(64),
+    height: moderateScale(56),
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -80,9 +79,9 @@ const styles = StyleSheet.create({
     height: moderateScale(40),
     width: moderateScale(40),
     borderRadius: moderateScale(20),
-    backgroundColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
+    boxShadow: "0px 0px 5px gray",
   },
   badge: {
     position: "absolute",

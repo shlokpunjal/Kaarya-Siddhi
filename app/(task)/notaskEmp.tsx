@@ -17,16 +17,17 @@ export default function NoTaskEmp({ decidedRequestCount = 0 }: NoTaskEmpProps) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.base.background }}>
       {/* ── Header ── */}
-      <SafeAreaView style={{ backgroundColor: colors.brand.primary,marginTop:25 }} edges={["top"]}>
-       <View style={styles.header}>
+      <SafeAreaView style={{ backgroundColor: colors.brand.primary }} edges={["top"]}>
+        <View style={styles.header}>
           <Text style={[typography.subheading, { color: colors.brand.onPrimary, fontSize: 22 }]}>
             Kaarya Siddhi
           </Text>
 
-          {/* Bell icon — same style, destination, and badge logic as the main dashboard */}
+          {/* Bell icon — surfaceL2 + shadow instead of a fixed white overlay, so it reads
+              correctly against brand.primary in both light and dark theme */}
           <TouchableOpacity
             onPress={() => router.push("/notifications/employee")}
-            style={styles.bellButton}
+            style={[styles.bellButton, { backgroundColor: colors.base.surfaceL2 }]}
           >
             <Ionicons name="notifications-outline" size={22} color={colors.brand.accent} />
             {decidedRequestCount > 0 && (
@@ -66,8 +67,8 @@ export default function NoTaskEmp({ decidedRequestCount = 0 }: NoTaskEmpProps) {
 }
 
 const styles = StyleSheet.create({
- header: {
-    height: moderateScale(64),
+  header: {
+    height: moderateScale(56),
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -78,9 +79,9 @@ const styles = StyleSheet.create({
     height: moderateScale(40),
     width: moderateScale(40),
     borderRadius: moderateScale(20),
-    backgroundColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
+    boxShadow: "0px 0px 5px gray",
   },
   badge: {
     position: "absolute",
