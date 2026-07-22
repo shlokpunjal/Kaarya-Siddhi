@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../../context/ThemeContext';
 import { typography } from '../../../theme/theme';
-import { fetchEofficeFiles, fetchEmployees } from '../../../lib/eoffice';
+import { fetchEofficeFiles } from '../../../lib/eoffice';
 import type { EofficeFile } from '../../../types/eoffice';
 import { getCurrentUser } from '../../../lib/currentUser';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +14,6 @@ export default function EofficeList() {
   const { colors } = useTheme();
   const router = useRouter();
   const [files, setFiles] = useState<EofficeFile[]>([]);
-  const [employeeMap, setEmployeeMap] = useState<Record<string, string>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -25,14 +24,14 @@ export default function EofficeList() {
       if (!user) throw new Error('Not logged in');
       setUserRole(user.role as 'admin' | 'employee');
 
-      const [filesData, employeesData] = await Promise.all([
-        fetchEofficeFiles(),
-        fetchEmployees(user.workspace_id),
-      ]);
-      setFiles(filesData);
-      setEmployeeMap(
-        Object.fromEntries(employeesData.map((e) => [e.id, e.name]))
-      );
+      const filesData = await fetchEofficeFiles();
+      const sorted = [...filesData].sort((a, b) => {
+        if (a.completed !== b.completed) {
+          return a.completed ? 1 : -1;
+        }
+        return new Date(a.pending_since).getTime() - new Date(b.pending_since).getTime();
+      });
+      setFiles(sorted);
     } catch (err) {
       console.error('Failed to load eOffice files', err);
     } finally {
@@ -40,7 +39,6 @@ export default function EofficeList() {
       setRefreshing(false);
     }
   }, []);
-
 
   useEffect(() => {
     loadData();
@@ -77,6 +75,7 @@ export default function EofficeList() {
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             !loading ? (
               <Text style={[typography.body, { color: colors.text.secondary, textAlign: 'center', marginTop: 40 }]}>
@@ -94,7 +93,7 @@ export default function EofficeList() {
                   File #{item.file_no}
                 </Text>
                 <Text style={[typography.label, { color: colors.text.secondary, marginTop: 2 }]}>
-                  Sr. No. {item.sr_no} · Pending with {employeeMap[item.pending_with] ?? 'Unknown'}
+                  Sr. No. {item.sr_no} · Pending with {item.pending_with || 'Unassigned'}
                 </Text>
               </View>
               <View
