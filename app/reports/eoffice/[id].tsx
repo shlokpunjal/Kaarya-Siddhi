@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, FlatList, Alert, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../../context/ThemeContext';
 import { typography } from '../../../theme/theme';
-import { fetchEofficeFileById, updateEofficeFile, fetchEmployees, type Employee } from '../../../lib/eoffice';
+import { fetchEofficeFileById, updateEofficeFile } from '../../../lib/eoffice';
 import { getCurrentUser, type CurrentUser } from '../../../lib/currentUser';
 import type { EofficeFile } from '../../../types/eoffice';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,14 +16,12 @@ export default function EofficeDetail() {
     const { id } = useLocalSearchParams<{ id: string }>();
 
     const [file, setFile] = useState<EofficeFile | null>(null);
-    const [employees, setEmployees] = useState<Employee[]>([]);
     const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
     const [loading, setLoading] = useState(true);
 
     const [pendingOffice, setPendingOffice] = useState('');
-    const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+    const [pendingWith, setPendingWith] = useState('');
     const [remark, setRemark] = useState('');
-    const [pickerVisible, setPickerVisible] = useState(false);
 
     const [saving, setSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
@@ -34,16 +32,12 @@ export default function EofficeDetail() {
             const user = await getCurrentUser();
             if (!user) throw new Error('Not logged in');
 
-            const [fileData, employeesData] = await Promise.all([
-                fetchEofficeFileById(id),
-                fetchEmployees(user.workspace_id),
-            ]);
+            const fileData = await fetchEofficeFileById(id);
             setFile(fileData);
-            setEmployees(employeesData);
             setCurrentUser(user);
             setPendingOffice(fileData.pending_office);
+            setPendingWith(fileData.pending_with ?? '');
             setRemark(fileData.remark ?? '');
-            setSelectedEmployee(employeesData.find((e) => e.id === fileData.pending_with) ?? null);
         } catch (err) {
             console.error('Failed to load file', err);
             setErrorMessage('Could not load this file.');
@@ -56,8 +50,10 @@ export default function EofficeDetail() {
         loadData();
     }, [loadData]);
 
+    // Only the person who created the file, or an admin, may edit or complete it.
+    // Who the file is currently "pending with" has no bearing on edit rights.
     const canEdit =
-        !!currentUser && !!file && (currentUser.role === 'admin' || currentUser.id === file.pending_with);
+        !!currentUser && !!file && (currentUser.role === 'admin' || currentUser.id === file.created_by);
 
     const daysPending = (pendingSince: string) => {
         const diff = Date.now() - new Date(pendingSince).getTime();
@@ -68,8 +64,8 @@ export default function EofficeDetail() {
         if (!file) return;
         setErrorMessage('');
 
-        if (!pendingOffice.trim() || !selectedEmployee) {
-            setErrorMessage('Pending office and pending with are required.');
+        if (!pendingOffice.trim()) {
+            setErrorMessage('Pending office is required.');
             return;
         }
 
@@ -77,7 +73,7 @@ export default function EofficeDetail() {
             setSaving(true);
             const updated = await updateEofficeFile(file.id, {
                 pending_office: pendingOffice.trim(),
-                pending_with: selectedEmployee.id,
+                pending_with: pendingWith.trim() || null,
                 remark: remark.trim() || null,
             });
             setFile(updated);
@@ -136,13 +132,13 @@ export default function EofficeDetail() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.base.background }]}>
-            <ScrollView contentContainerStyle={{ padding: 20 }}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <Pressable onPress={() => router.back()} style={{ marginBottom: 18 }}>
                         <Ionicons name="chevron-back" size={26} color={colors.text.primary} />
                     </Pressable>
                     <Text style={[typography.heading, { color: colors.text.primary, marginBottom: 20 }]}>
-                        New eOffice File
+                        File #{file.file_no}
                     </Text>
                 </View>
                 <Text style={[typography.label, { color: colors.text.secondary, marginBottom: 20 }]}>
@@ -152,7 +148,7 @@ export default function EofficeDetail() {
                 {!canEdit && (
                     <View style={[styles.noticeBox, { backgroundColor: colors.base.surfaceL2 }]}>
                         <Text style={[typography.label, { color: colors.text.secondary }]}>
-                            Only the admin or the employee this file is assigned to can edit it.
+                            Only the file's creator or an admin can edit it.
                         </Text>
                     </View>
                 )}
@@ -172,28 +168,23 @@ export default function EofficeDetail() {
                 />
 
                 <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 18, marginBottom: 8 }]}>
-                    Pending With
+                    Pending With (optional)
                 </Text>
-                <Pressable
-                    disabled={!canEdit}
-                    onPress={() => setPickerVisible(true)}
+                <TextInput
+                    value={pendingWith}
+                    onChangeText={setPendingWith}
+                    editable={canEdit}
+                    placeholder="Unassigned"
+                    placeholderTextColor={colors.text.secondary}
                     style={[
                         styles.input,
-                        { borderColor: colors.base.border, backgroundColor: colors.base.surfaceL1, justifyContent: 'center', opacity: canEdit ? 1 : 0.6 },
+                        typography.body,
+                        { borderColor: colors.base.border, color: colors.text.primary, backgroundColor: colors.base.surfaceL1, opacity: canEdit ? 1 : 0.6 },
                     ]}
-                >
-                    <Text style={[typography.body, { color: colors.text.primary }]}>
-                        {selectedEmployee ? selectedEmployee.name : 'Unassigned'}
-                    </Text>
-                </Pressable>
-                {canEdit && selectedEmployee?.id !== file.pending_with && (
-                    <Text style={[typography.label, { color: colors.status.pending, marginTop: 6 }]}>
-                        Reassigning will transfer edit rights to the selected employee.
-                    </Text>
-                )}
+                />
 
                 <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 18, marginBottom: 8 }]}>
-                    Remark
+                    Remark (optional)
                 </Text>
                 <TextInput
                     value={remark}
@@ -232,39 +223,15 @@ export default function EofficeDetail() {
                         </Text>
                     </Pressable>
                 )}
-            </ScrollView>
 
-            <Modal visible={pickerVisible} animationType="slide" transparent onRequestClose={() => setPickerVisible(false)}>
-                <Pressable style={styles.modalBackdrop} onPress={() => setPickerVisible(false)}>
-                    <View style={[styles.modalSheet, { backgroundColor: colors.base.surfaceL1 }]}>
-                        <Text style={[typography.subheading, { color: colors.text.primary, padding: 16 }]}>
-                            Reassign To
+                {file.completed && (
+                    <View style={[styles.noticeBox, { backgroundColor: colors.status.completed + '22', marginTop: 16 }]}>
+                        <Text style={[typography.label, { color: colors.status.overdue }]}>
+                            This file is marked completed and will be automatically deleted after 15 days.
                         </Text>
-                        <FlatList
-                            data={employees}
-                            keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => (
-                                <Pressable
-                                    style={[styles.employeeRow, { borderBottomColor: colors.base.border }]}
-                                    onPress={() => {
-                                        setSelectedEmployee(item);
-                                        setPickerVisible(false);
-                                    }}
-                                >
-                                    <Text style={[typography.body, { color: colors.text.primary }]}>{item.name}</Text>
-                                </Pressable>
-                            )}
-                        />
                     </View>
-                </Pressable>
-            </Modal>
-            {file.completed && (
-                <View style={[styles.noticeBox, { backgroundColor: colors.status.completed + '22', marginTop: 16 }]}>
-                    <Text style={[typography.label, { color: colors.status.overdue }]}>
-                        This file is marked completed and will be automatically deleted after 15 days.
-                    </Text>
-                </View>
-            )}
+                )}
+            </ScrollView>
         </SafeAreaView>
     );
 }
@@ -283,7 +250,4 @@ const styles = StyleSheet.create({
         padding: 14,
         marginTop: 24,
     },
-    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-    modalSheet: { maxHeight: '60%', borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-    employeeRow: { paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1 },
 });
