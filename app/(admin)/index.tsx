@@ -97,6 +97,24 @@ export default function Dashboard() {
     return () => { mounted = false; };
   }, [checkUserAndFetchTasks]);
 
+
+  // ── Refetch tasks whenever the dashboard regains focus (e.g. coming back
+  // from a task detail screen, or reopening the tab after an employee asks
+  // for review) so Overdue/Pending/In Review/Completed reflect the latest
+  // DB status without requiring a manual pull-to-refresh. Skips the very
+  // first mount since the effect above already handles that fetch + loading. ──
+  const isFirstFocus = React.useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      let mounted = true;
+      checkUserAndFetchTasks(() => mounted);
+      return () => { mounted = false; };
+    }, [checkUserAndFetchTasks])
+  );
   // ── Pull-to-refresh ──────────────────────────────────────────────────────────
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -372,7 +390,7 @@ useEffect(() => {
           {showPending && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
               {pendingTasks.map((task) => (
-                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
+                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/taskDetailAdmin', params: { taskId: task.id } })}
                   style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
                   <View style={{ height: moderateScale(24), width: moderateScale(24), borderRadius: moderateScale(12), borderWidth: 2, borderColor: colors.status.pending, alignItems: "center", justifyContent: "center" }}>
                     <View style={{ height: moderateScale(12), width: moderateScale(12), borderRadius: moderateScale(6), backgroundColor: colors.status.pending }} />
@@ -395,7 +413,7 @@ useEffect(() => {
           {showReview && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
               {reviewTasks.map((task) => (
-                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
+                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/taskDetailAdmin', params: { taskId: task.id } })}
                   style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
                   <View style={{ height: moderateScale(24), width: moderateScale(24), borderRadius: moderateScale(12), borderWidth: 2, borderColor: colors.status.inReview, alignItems: "center", justifyContent: "center" }}>
                     <View style={{ height: moderateScale(12), width: moderateScale(12), borderRadius: moderateScale(6), backgroundColor: colors.status.inReview }} />
@@ -418,7 +436,7 @@ useEffect(() => {
           {showCompleted && (
             <View style={{ borderRadius: 15, marginTop: 5 }}>
               {completedTasks.map((task) => (
-                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/task-detail', params: { taskId: task.id } })}
+                <TouchableOpacity key={task.id} onPress={() => router.push({ pathname: '/(task)/taskDetailAdmin', params: { taskId: task.id } })}
                   style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.base.surfaceL2, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderColor: colors.base.border, borderWidth: 1, margin: 10 }}>
                   <View style={{ height: moderateScale(24), width: moderateScale(24), borderRadius: moderateScale(12), borderWidth: 2, borderColor: colors.status.completed, alignItems: "center", justifyContent: "center" }}>
                     <View style={{ height: moderateScale(12), width: moderateScale(12), borderRadius: moderateScale(6), backgroundColor: colors.status.completed }} />
