@@ -100,6 +100,25 @@ export default function Dashboard() {
     return () => { mounted = false; };
   }, [checkUserAndFetchTasks]);
 
+
+   // ── Refetch tasks whenever the dashboard regains focus (e.g. coming back
+  // from task-detail after "Ask to Review" or "Review or Complete") so the
+  // Overdue/Pending/In Review/Completed buckets reflect the latest status
+  // without requiring a manual pull-to-refresh. Skips the very first mount
+  // since the effect above already handles that fetch + the loading state. ──
+  const isFirstFocus = React.useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      let mounted = true;
+      checkUserAndFetchTasks(() => mounted);
+      return () => { mounted = false; };
+    }, [checkUserAndFetchTasks])
+  );
+  
   // ── Pull-to-refresh ──────────────────────────────────────────────────────────
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -125,6 +144,7 @@ export default function Dashboard() {
         'extension_accepted',
         'extension_rejected',
         'task_assigned',
+        'task_in_review', // ── new: fired by "Ask to Review" on the task detail page
       ]);
 
     setDecidedRequestCount(count ?? 0);
