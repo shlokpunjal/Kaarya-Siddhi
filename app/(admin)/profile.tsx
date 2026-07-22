@@ -71,7 +71,6 @@ export default function AdminProfile() {
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
   const [managedEmployees, setManagedEmployees] = useState<ManagedEmployee[]>(
     [],
