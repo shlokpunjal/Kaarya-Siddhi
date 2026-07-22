@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,7 +24,7 @@ import ConfirmModal from "../../components/confirmModal";
 import AdminProfileSkeleton from "../../components/AdminProfileSkeleton";
 import { router } from "expo-router";
 import { authFetch } from "../../utils/authFetch";
-import { wp, moderateScale } from '../../utils/responsive';
+import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 
 type UserRow = {
@@ -71,7 +72,7 @@ export default function AdminProfile() {
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
+  const [refreshing, setRefreshing] = useState(false);
   const [managedEmployees, setManagedEmployees] = useState<ManagedEmployee[]>(
     [],
   );
@@ -90,6 +91,7 @@ export default function AdminProfile() {
 
     if (!savedEmail) {
       setLoading(false);
+
       return;
     }
 
@@ -165,6 +167,13 @@ export default function AdminProfile() {
     setLoadingTeam(false);
   };
 
+  // ── Pull-to-refresh handler: re-run both fetches together ─────────────────
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchCurrentUser(), fetchTeam()]);
+    setRefreshing(false);
+  }, []);
+
   // ── Save edited fields back to Supabase ───────────────────────────────────
   const handleSave = async () => {
     if (!currentUser) {
@@ -215,7 +224,10 @@ export default function AdminProfile() {
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      showToast("Please allow photo library access to set a profile picture.", "warning");
+      showToast(
+        "Please allow photo library access to set a profile picture.",
+        "warning",
+      );
       return;
     }
 
@@ -268,7 +280,17 @@ export default function AdminProfile() {
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.base.background }]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.brand.accent}
+            colors={[colors.brand.accent]}
+          />
+        }
+      >
         <View style={styles.headerRow}>
           <Text style={[typography.heading, { color: colors.text.primary }]}>
             Profile
@@ -575,15 +597,33 @@ export default function AdminProfile() {
             </Text>
           )}
           {managedEmployees.map((emp) => (
-            <Text
+            <Pressable
               key={emp.email}
-              style={[
-                typography.body,
-                { color: colors.text.primary, marginTop: 8 },
+              onPress={() =>
+                router.push({
+                  pathname: "/(task)/employeeTasks",
+                  params: { employeeEmail: emp.email, employeeName: emp.name },
+                })
+              }
+              style={({ pressed }) => [
+                styles.teamMemberRow,
+                { opacity: pressed ? 0.6 : 1 },
               ]}
             >
-              · {emp.name}
-            </Text>
+              <Text
+                style={[
+                  typography.body,
+                  { color: colors.text.primary, flex: 1 },
+                ]}
+              >
+                · {emp.name}
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={colors.text.secondary}
+              />
+            </Pressable>
           ))}
         </View>
 
@@ -748,7 +788,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   scrollContent: { padding: wp(5.3), paddingBottom: 40 },
-  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  roleBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
   card: { borderRadius: 18, borderWidth: 2, padding: 18, marginBottom: 16 },
   cardTopRow: { flexDirection: "row", justifyContent: "flex-end" },
   editPill: {
@@ -799,6 +844,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  teamMemberRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
   },
   countChip: {
     paddingHorizontal: 10,

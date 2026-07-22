@@ -24,6 +24,13 @@ type TaskRow = {
   deadline: string;
 };
 
+const STATUS_RANK: Record<TaskStatus, number> = {
+  overdue: 0,
+  pending: 1,
+  inReview: 2,
+  completed: 3,
+};
+
 const STATUS_LABELS: Record<TaskStatus, string> = {
   overdue: 'Overdue',
   pending: 'Pending',
@@ -133,7 +140,9 @@ export default function EmployeeTasks() {
   };
 
   const getVisibleTasks = () => {
-    let list = [...tasks];
+    let list = [...tasks].sort(
+      (a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status]
+    );
 
     if (appliedType === 'status' && appliedValue) {
       list = list.filter((t) => t.status === appliedValue);
