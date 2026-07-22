@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import * as DocumentPicker from "expo-document-picker";
@@ -22,6 +22,7 @@ import { createNotification } from "../../lib/notify";
 import { sendLocalNotification } from "../../utils/notifications";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
+import { AlertModal } from "../../components/AlertModal";
 import { toLocalDateString } from "../../utils/dateFormat";
 
 type Priority = "low" | "medium" | "high";
@@ -40,6 +41,8 @@ const PRIORITIES: { label: string; value: Priority; color: string; bg: string }[
 export default function Newtask() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { taskId } = useLocalSearchParams<{ taskId?: string }>();
+  const isEditMode = !!taskId;
   const { showToast } = useToast();
 
   const [taskName, setTaskName] = useState("");
@@ -52,7 +55,8 @@ export default function Newtask() {
   const [filteredEmployees, setFilteredEmployees] = useState<EmployeeProfile[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // Deadline — calendar picker (replaces text input)
+  // Deadline — calendar picker. Always editable here (admin-only screen),
+  // in both create and edit mode.
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -60,6 +64,13 @@ export default function Newtask() {
   const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
   const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+
+  // ── If editing, wait for both the employee directory AND the existing
+  // task to load, since we need employeesList populated to resolve and
+  // display the assigned employee's name in the autocomplete field. ──
+  const [fetchingTask, setFetchingTask] = useState(isEditMode);
 
   useEffect(() => {
     initAdminAndEmployees();
@@ -82,9 +93,17 @@ export default function Newtask() {
       }
 
       setWorkspaceId(currentUser.workspace_id);
-      await fetchEmployeeProfiles(currentUser.workspace_id);
+      const employees = await fetchEmployeeProfiles(currentUser.workspace_id);
+
+      // ── Edit mode: load the existing task now that we have the employee
+      // directory to resolve the assignee's display name from. ──
+      if (isEditMode && taskId) {
+        await fetchTaskForEdit(taskId, employees);
+      }
     } catch (err: any) {
       console.error("Error initializing admin/employee data:", err.message);
+    } finally {
+      if (isEditMode) setFetchingTask(false);
     }
   };
 
@@ -97,11 +116,43 @@ export default function Newtask() {
         .eq("workspace_id", wsId)   // ← only employees in the admin's own workspace
         .order("name", { ascending: true });
       if (error) throw error;
-      if (data) setEmployeesList(data);
+      if (data) {
+        setEmployeesList(data);
+        return data;
+      }
+      return [];
     } catch (err: any) {
       console.error("Error loading employee directory:", err.message);
+      return [];
     }
   };
+
+  // ── Load an existing task's fields for editing ──────────────────────────────
+  const fetchTaskForEdit = async (id: string, employees: EmployeeProfile[]) => {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      console.error("Failed to load task for editing:", error?.message);
+      showToast("Could not load this task.", "error");
+      return;
+    }
+
+    setTaskName(data.title ?? "");
+    setDescription(data.description ?? "");
+    setDeadlineDate(data.deadline ? new Date(data.deadline) : null);
+    setSelectedPriority((data.priority as Priority) ?? null);
+
+    if (data.assigned_to) {
+      setSelectedEmployeeId(data.assigned_to);
+      const matched = employees.find((e) => e.id === data.assigned_to);
+      setAssignToName(matched?.name ?? "");
+    }
+  };
+
   const handleSearchEmployee = (text: string) => {
     setAssignToName(text);
     setSelectedEmployeeId(null);
@@ -164,6 +215,7 @@ export default function Newtask() {
     };
   };
 
+  // ── Create OR update depending on mode ──────────────────────────────────────
   const handleAddTask = async () => {
     if (!taskName.trim()) {
       showToast("Please enter a task name", "warning");
@@ -185,7 +237,7 @@ export default function Newtask() {
 
       const { data: currentUser, error: userLookupError } = await supabase
         .from("users")
-        .select("id, workspace_id")   // ← pull workspace_id here too
+        .select("id, workspace_id")
         .eq("email", email)
         .single();
 
@@ -199,54 +251,116 @@ export default function Newtask() {
       );
       const mainFileUrl = uploadedResults.length > 0 ? uploadedResults[0].file_url : null;
 
-      const { data: task, error: taskError } = await supabase
-        .from("tasks")
-        .insert({
-          title: taskName,
-          assigned_to: selectedEmployeeId,
-          deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
-          description: description || null,
-          attachment_url: mainFileUrl,
-          status: "pending",
-          priority: selectedPriority ?? "medium",
-          created_by: currentUser.id,
-          workspace_id: currentUser.workspace_id,
-        })
-        .select()
-        .single();
+      if (isEditMode) {
+        // ── Update existing task ──
+        const { error: updateError } = await supabase
+          .from("tasks")
+          .update({
+            title: taskName,
+            assigned_to: selectedEmployeeId,
+            deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
+            description: description || null,
+            ...(mainFileUrl ? { attachment_url: mainFileUrl } : {}),
+            priority: selectedPriority ?? "medium",
+          })
+          .eq("id", taskId);
 
-      if (taskError) throw taskError;
+        if (updateError) throw updateError;
 
-      if (uploadedResults.length > 0 && task) {
-        const filesPayload = uploadedResults.map((res) => ({
-          task_id: task.id,
-          file_url: res.file_url,
-          file_name: res.file_name,
-          file_type: res.file_type,
-          storage_service: "cloudinary",
-        }));
-        const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
-        if (fileError) throw fileError;
+        if (uploadedResults.length > 0) {
+          const filesPayload = uploadedResults.map((res) => ({
+            task_id: taskId,
+            file_url: res.file_url,
+            file_name: res.file_name,
+            file_type: res.file_type,
+            storage_service: "cloudinary",
+          }));
+          const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
+          if (fileError) throw fileError;
+        }
+
+        showToast("Task updated successfully", "success");
+        setTimeout(() => router.back(), 900);
+      } else {
+        // ── Create new task ──
+        const { data: task, error: taskError } = await supabase
+          .from("tasks")
+          .insert({
+            title: taskName,
+            assigned_to: selectedEmployeeId,
+            deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
+            description: description || null,
+            attachment_url: mainFileUrl,
+            status: "pending",
+            priority: selectedPriority ?? "medium",
+            created_by: currentUser.id,
+            workspace_id: currentUser.workspace_id,
+          })
+          .select()
+          .single();
+
+        if (taskError) throw taskError;
+
+        if (uploadedResults.length > 0 && task) {
+          const filesPayload = uploadedResults.map((res) => ({
+            task_id: task.id,
+            file_url: res.file_url,
+            file_name: res.file_name,
+            file_type: res.file_type,
+            storage_service: "cloudinary",
+          }));
+          const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
+          if (fileError) throw fileError;
+        }
+
+        await createNotification({
+          userId: selectedEmployeeId,
+          type: "task_assigned",
+          message: `You've been assigned a new task: "${taskName}".`,
+          taskId: task.id,
+        });
+
+        sendLocalNotification("Task Created", `"${taskName}" has been assigned.`).catch((err) =>
+          console.log("Local notification failed:", err)
+        );
+
+        showToast("Task created successfully", "success");
+        setTimeout(() => router.back(), 900);
       }
-
-      await createNotification({
-        userId: selectedEmployeeId,
-        type: "task_assigned",
-        message: `You've been assigned a new task: "${taskName}".`,
-        taskId: task.id,
-      });
-
-      sendLocalNotification("Task Created", `"${taskName}" has been assigned.`).catch((err) =>
-        console.log("Local notification failed:", err)
-      );
-
-      showToast("Task created successfully", "success");
-      setTimeout(() => router.back(), 900);
     } catch (error: any) {
       console.error("Full error:", error);
-      showToast(error?.message || "Something went wrong while creating the task", "error");
+      showToast(error?.message || "Something went wrong", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Delete task (edit mode only) ────────────────────────────────────────────
+  const handleDeleteTask = () => {
+    setDeleteConfirmVisible(true);
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!taskId) return;
+
+    try {
+      setDeleting(true);
+
+      await supabase.from("task_files").delete().eq("task_id", taskId);
+      await supabase.from("task_submissions").delete().eq("task_id", taskId);
+      await supabase.from("extension_requests").delete().eq("task_id", taskId);
+
+      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+      if (error) throw error;
+
+      setDeleteConfirmVisible(false);
+      showToast("Task has been deleted.", "success");
+      setTimeout(() => router.back(), 900);
+    } catch (error: any) {
+      setDeleteConfirmVisible(false);
+      showToast(error?.message || "Delete failed", "error");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -262,6 +376,15 @@ export default function Newtask() {
     ...typography.body,
   };
 
+  if (fetchingTask) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={colors.brand.accent} />
+        <Text style={[typography.body, { marginTop: 10, color: colors.text.secondary }]}>Loading task...</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
       {/* Header */}
@@ -273,9 +396,22 @@ export default function Newtask() {
         paddingHorizontal: 18,
       }}>
         <Ionicons onPress={() => router.back()} name="arrow-back" size={moderateScale(28)} color={colors.brand.onPrimary} />
-        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, flex: 1, textAlign: "center", marginRight: moderateScale(28) }}>
-          Task Assignment
+        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, flex: 1, textAlign: "center" }}>
+          {isEditMode ? "Edit Task" : "Task Assignment"}
         </Text>
+
+        {/* Delete icon — only shown when editing an existing task */}
+        {isEditMode ? (
+          <TouchableOpacity onPress={handleDeleteTask} disabled={deleting || loading}>
+            {deleting ? (
+              <ActivityIndicator size="small" color={colors.brand.onPrimary} />
+            ) : (
+              <Ionicons name="trash-outline" size={moderateScale(22)} color={colors.brand.onPrimary} />
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: moderateScale(22) }} />
+        )}
       </View>
 
       <ScrollView
@@ -350,13 +486,12 @@ export default function Newtask() {
             )}
           </View>
 
-          {/* ── Deadline — calendar picker ── */}
+          {/* ── Deadline — calendar picker, always editable (admin screen) ── */}
           <View style={{ marginTop: 14 }}>
             <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 6, paddingLeft: 4 }}>
               Deadline
             </Text>
 
-            {/* Trigger button — same look as the text inputs above */}
             <TouchableOpacity
               onPress={() => setShowDatePicker(true)}
               style={{
@@ -386,7 +521,6 @@ export default function Newtask() {
               />
             </TouchableOpacity>
 
-            {/* Clear button — only shown when a date is picked */}
             {deadlineDate && (
               <TouchableOpacity
                 onPress={() => setDeadlineDate(null)}
@@ -397,7 +531,6 @@ export default function Newtask() {
               </TouchableOpacity>
             )}
 
-            {/* The actual picker — shown inline on iOS, modal on Android */}
             {showDatePicker && (
               <DateTimePicker
                 value={deadlineDate ?? new Date()}
@@ -491,7 +624,7 @@ export default function Newtask() {
           {/* Submit */}
           <TouchableOpacity
             onPress={handleAddTask}
-            disabled={loading}
+            disabled={loading || deleting}
             style={{
               backgroundColor: loading ? colors.base.border : colors.brand.accent,
               height: moderateScale(54), borderRadius: 14, marginTop: 24,
@@ -500,11 +633,24 @@ export default function Newtask() {
           >
             {loading
               ? <ActivityIndicator color={colors.base.surfaceL1} />
-              : <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, fontSize: moderateScale(18) }}>Add task</Text>
+              : <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, fontSize: moderateScale(18) }}>
+                {isEditMode ? "Save Changes" : "Add task"}
+              </Text>
             }
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <AlertModal
+        visible={deleteConfirmVisible}
+        type="warning"
+        title="Delete Task"
+        message="Are you sure you want to delete this task? This action cannot be undone."
+        confirmText={deleting ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        onConfirm={confirmDeleteTask}
+        onCancel={() => setDeleteConfirmVisible(false)}
+      />
     </SafeAreaView>
   );
 }
