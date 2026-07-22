@@ -9,16 +9,18 @@ import * as Device from "expo-device";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { API_BASE_URL } from "../constants/api";
+import Constants from "expo-constants";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+
+// Notifications.setNotificationHandler({
+//   handleNotification: async () => ({
+//     shouldShowAlert: true,
+//     shouldPlaySound: true,
+//     shouldSetBadge: true,
+//     shouldShowBanner: true,
+//     shouldShowList: true,
+//   }),
+// });
 
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (!Device.isDevice) {
@@ -47,7 +49,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   }
 
   const tokenResponse = await Notifications.getExpoPushTokenAsync({
-    projectId: "698b2917-0b6e-4675-bdab-d6956e7f9847",
+    projectId: Constants.expoConfig?.extra?.eas?.projectId,
   });
   return tokenResponse.data;
 }
