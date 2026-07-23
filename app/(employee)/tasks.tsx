@@ -10,6 +10,7 @@ import { typography } from '../../theme/theme';
 import { wp, hp } from '../../utils/responsive';
 import { useTheme } from '../../context/ThemeContext';
 import AdminTasksSkeleton from '../../components/AdminTasksSkeleton';
+import { authFetch } from '../../utils/authFetch';
 
 type FilterType = 'all' | 'status' | 'priority' | 'label' | 'deadlineAsc' | 'deadlineDesc' | 'priorityHighLow' | 'priorityLowHigh';
 
@@ -88,27 +89,11 @@ export default function EmployeeTasks() {
       return;
     }
 
-    const { data: currentUser, error: userLookupError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .single();
-
-    if (userLookupError || !currentUser) {
-      console.error('Could not resolve user id for email:', email);
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('assigned_to', currentUser.id)
-      .order('deadline', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching tasks list:', error.message);
+    const res = await authFetch('/tasks');
+    if (!res.ok) {
+      console.error('Error fetching tasks list:', res.status);
     } else {
+      const data = await res.json();
       setTasks((data ?? []).map(mapRowToTask));
     }
     setLoading(false);

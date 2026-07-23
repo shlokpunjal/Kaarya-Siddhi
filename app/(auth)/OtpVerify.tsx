@@ -118,6 +118,8 @@ const OtpVerify = () => {
 
       const data = await response.json();
 
+      console.log("VERIFY OTP RESPONSE:", data);
+      console.log("ACCESS TOKEN:", data.token);
       if (!response.ok) {
         const elapsed = Date.now() - startTime;
         if (elapsed < MIN_VISIBLE_MS) {
@@ -150,10 +152,10 @@ const OtpVerify = () => {
         data.email,
         data.role,
         data.workspace_id,
-        data.refresh_token
+        data.refresh_token,
       );
       registerPushToken().catch((err) =>
-        console.log("Push token registration failed:", err)
+        console.log("Push token registration failed:", err),
       );
 
       const elapsed = Date.now() - startTime;
@@ -180,7 +182,7 @@ const OtpVerify = () => {
       }
 
       sendLoginNotification(data.email).catch((err) =>
-        console.log("Login notification failed:", err)
+        console.log("Login notification failed:", err),
       );
 
       if (data.role === "admin") {
@@ -272,7 +274,8 @@ const OtpVerify = () => {
             <Animated.View
               style={[
                 styles.divi,
-                (isOnCooldown || otpError || resendMessage) && styles.diviExpanded,
+                (isOnCooldown || otpError || resendMessage) &&
+                  styles.diviExpanded,
               ]}
             >
               <Text style={[styles.divtext]}>Login to your workspace</Text>
@@ -347,13 +350,17 @@ const OtpVerify = () => {
                 <TouchableOpacity
                   style={[
                     styles.LoginStyle,
-                    (otp.join("").length < 6 || isVerifying) && { opacity: 0.5 },
+                    (otp.join("").length < 6 || isVerifying) && {
+                      opacity: 0.5,
+                    },
                   ]}
                   disabled={otp.join("").length < 6 || isVerifying}
                   onPress={() => verifyOTP(otp.join(""))}
                 >
                   {isVerifying ? (
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <View
+                      style={{ flexDirection: "row", alignItems: "center" }}
+                    >
                       <Text style={styles.LoginText}>Verifying</Text>
                       <View style={{ width: 18, height: 18, marginLeft: 8 }}>
                         <ActivityIndicator size="small" color="#FFFFFF" />
