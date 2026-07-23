@@ -16,6 +16,8 @@ from sheets_sync import sync_tasks_from_sheet
 from deadline_reminders import send_deadline_reminders
 from overdue_reminders import send_overdue_reminders
 from routes.tasks import router as tasks_router
+from eoffice_reminders import send_eoffice_reminders   # ← add this here
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("kaarya_siddhi")
