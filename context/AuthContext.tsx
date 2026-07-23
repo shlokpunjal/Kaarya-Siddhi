@@ -1,9 +1,16 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
 import { authFetch } from "../utils/authFetch";
 import { API_BASE_URL } from "../constants/api";
+import { supabase } from "../lib/supabase";
 
 type AuthContextType = {
   token: string | null;
@@ -13,7 +20,14 @@ type AuthContextType = {
   workspaceId: string | null;
   isLoading: boolean;
   isLoggedIn: boolean;
-  saveSession: (token: string, phone: string, email: string, role?: string, workspaceId?: string | null, refreshToken?: string) => Promise<void>;
+  saveSession: (
+    token: string,
+    phone: string,
+    email: string,
+    role?: string,
+    workspaceId?: string | null,
+    refreshToken?: string,
+  ) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -65,8 +79,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await AsyncStorage.setItem("userEmail", user.email);
       await AsyncStorage.setItem("userRole", user.role);
-      if (user.workspace_id) await AsyncStorage.setItem("workspaceId", user.workspace_id);
-      if (user.mobile_number) await AsyncStorage.setItem("userPhone", user.mobile_number);
+      if (user.workspace_id)
+        await AsyncStorage.setItem("workspaceId", user.workspace_id);
+      if (user.mobile_number)
+        await AsyncStorage.setItem("userPhone", user.mobile_number);
+
+      const rtRes = await authFetch("/realtime-token");
+      if (rtRes.ok) {
+        const { token } = await rtRes.json();
+        supabase.realtime.setAuth(token);
+      }
     } catch (error) {
       console.log("Session load error:", error);
     } finally {
@@ -80,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     role?: string,
     workspaceId?: string | null,
-    refreshToken?: string
+    refreshToken?: string,
   ) => {
     try {
       // New session id first — any refresh from a previous session that's
@@ -89,7 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await SecureStore.setItemAsync("sessionId", sessionId);
 
       await SecureStore.setItemAsync("token", token);
-      if (refreshToken) await SecureStore.setItemAsync("refreshToken", refreshToken);
+      if (refreshToken)
+        await SecureStore.setItemAsync("refreshToken", refreshToken);
 
       await AsyncStorage.setItem("userPhone", phone);
       await AsyncStorage.setItem("userEmail", email);
@@ -101,6 +124,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserEmail(email);
       if (role) setUserRole(role);
       setWorkspaceId(workspaceId ?? null);
+
+      const rtRes = await authFetch("/realtime-token");
+      if (rtRes.ok) {
+        const { token } = await rtRes.json();
+        supabase.realtime.setAuth(token);
+      }
     } catch (error) {
       console.log("Session save error:", error);
     }
@@ -125,8 +154,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await SecureStore.deleteItemAsync("token");
       await SecureStore.deleteItemAsync("refreshToken");
-      await SecureStore.deleteItemAsync("sessionId");
-      await AsyncStorage.multiRemove(["userPhone", "userEmail", "userRole", "workspaceId"]);
+      await AsyncStorage.multiRemove([
+        "userPhone",
+        "userEmail",
+        "userRole",
+        "workspaceId",
+      ]);
 
       setToken(null);
       setUserPhone(null);
@@ -134,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserRole(null);
       setWorkspaceId(null);
 
+      supabase.realtime.setAuth(null);
       router.replace("/(auth)/LoginChoice");
     } catch (error) {
       console.log("Logout error:", error);
@@ -143,8 +177,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        token, userPhone, userEmail, userRole, workspaceId,
-        isLoading, isLoggedIn: !!token, saveSession, logout,
+        token,
+        userPhone,
+        userEmail,
+        userRole,
+        workspaceId,
+        isLoading,
+        isLoggedIn: !!token,
+        saveSession,
+        logout,
       }}
     >
       {children}

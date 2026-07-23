@@ -111,6 +111,23 @@ export default function AdminProfile() {
     } finally {
       setLoading(false);
     }
+
+    const res = await authFetch("/me");
+    const data = res.ok ? await res.json() : null;
+    const error = res.ok ? null : { message: "Could not load profile." };
+
+    if (error) {
+      console.error("Profile fetch error:", error.message);
+      setLoading(false);
+      return;
+    }
+
+    setCurrentUser(data);
+    setName(data.name ?? "");
+    setContact(data.mobile_number ?? "");
+    setemail(data.email ?? "");
+    setAvatarUri(data.profile_pic_url ?? null);
+    setLoading(false);
   };
 
   // ── Fetch this admin's connected employees from the connections table ────
@@ -118,54 +135,15 @@ export default function AdminProfile() {
   const fetchTeam = async () => {
     setLoadingTeam(true);
 
-    try {
-      const meRes = await authFetch("/me");
-      if (!meRes.ok) {
-        setLoadingTeam(false);
-        return;
-      }
-      const me: UserRow = await meRes.json();
-
-      const { data: connections, error: connError } = await supabase
-        .from("connections")
-        .select("employee_email")
-        .eq("admin_email", me.email)
-        .eq("status", "accepted");
-
-      if (connError) {
-        console.error("Team fetch error:", connError.message);
-        setLoadingTeam(false);
-        return;
-      }
-
-      const employeeEmails = (connections ?? []).map((c) => c.employee_email);
-
-      if (employeeEmails.length === 0) {
-        setManagedEmployees([]);
-        setLoadingTeam(false);
-        return;
-      }
-
-      const { data: users, error: usersError } = await supabase
-        .from("users")
-        .select("email, name")
-        .in("email", employeeEmails);
-
-      if (usersError) {
-        console.error("Team users fetch error:", usersError.message);
-        setLoadingTeam(false);
-        return;
-      }
-
-      setManagedEmployees(
-        employeeEmails.map((empEmail) => ({
-          email: empEmail,
-          name: users?.find((u) => u.email === empEmail)?.name ?? empEmail,
-        })),
-      );
-    } finally {
+    const res = await authFetch("/team");
+    if (!res.ok) {
+      console.error("Team fetch error:", res.status);
       setLoadingTeam(false);
     }
+
+    const team = await res.json();
+    setManagedEmployees(team);
+    setLoadingTeam(false);
   };
 
   // ── Pull-to-refresh handler: re-run both fetches together ─────────────────
@@ -190,19 +168,15 @@ export default function AdminProfile() {
     try {
       setSaving(true);
 
-      const res = await authFetch("/me", {
-        method: "PATCH",
+      const res = await authFetch('/profile', {
+        method: 'PATCH',
         body: JSON.stringify({
           name: name.trim(),
           mobile_number: contact.trim(),
           email: email.trim(),
         }),
       });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || "Could not save changes");
-      }
+      if (!res.ok) throw new Error('Could not save changes');
 
       const updated: UserRow = await res.json();
 
