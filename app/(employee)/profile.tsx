@@ -28,6 +28,7 @@ import { API_BASE_URL } from "../../constants/api";
 import { authFetch } from "../../utils/authFetch"; // adjust path if needed
 import EmployeeProfileSkeleton from "../../components/EmployeeProfileSkeleton";
 import { useToast } from "../../context/ToastContext";
+import { clearSession } from "../../lib/secureSession"; // add this import
 
 type UserRow = {
   id: string;
@@ -44,10 +45,10 @@ const THEME_OPTIONS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { value: "light", label: "Light", icon: "sunny-outline" },
-  { value: "dark", label: "Dark", icon: "moon-outline" },
-  { value: "system", label: "System", icon: "phone-portrait-outline" },
-];
+    { value: "light", label: "Light", icon: "sunny-outline" },
+    { value: "dark", label: "Dark", icon: "moon-outline" },
+    { value: "system", label: "System", icon: "phone-portrait-outline" },
+  ];
 
 const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
@@ -871,8 +872,9 @@ export default function EmployeeProfile() {
           setDeleting(true);
           try {
             await deleteAccount();
+            await clearSession();
             setDeleteVisible(false);
-            router.replace("/LoginChoice");
+            router.replace("/(auth)/LoginChoice");
           } catch (err: any) {
             showToast(err?.message || "Could not delete account", "error");
           } finally {

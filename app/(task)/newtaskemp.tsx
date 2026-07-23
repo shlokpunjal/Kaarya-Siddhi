@@ -306,12 +306,12 @@ export default function Newtask() {
           <View style={{ width: moderateScale(22) }} />
         )}
       </View>
-
-      <ScrollView
-        contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+          >
         <View style={{
           backgroundColor: colors.base.surfaceL1,
           borderRadius: 16,

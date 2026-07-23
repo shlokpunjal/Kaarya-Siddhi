@@ -1,4 +1,5 @@
 # routes/admin.py
+# this file has all admin related endpoints here
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth_utils import get_current_user
