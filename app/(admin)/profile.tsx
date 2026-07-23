@@ -83,16 +83,33 @@ export default function AdminProfile() {
     fetchTeam();
   }, []);
 
-  // ── Fetch the logged-in admin's own row from Supabase ────────────────────
+  // ── Fetch the logged-in admin's own row via the verified /me endpoint ────
+  // Deliberately NOT reading AsyncStorage("userEmail") and querying Supabase
+  // directly with it: that trusted whatever email happened to be cached on
+  // the device rather than the token's own identity, so two people sharing
+  // a device (or a stale cache) could pull up the wrong profile. /me derives
+  // the user strictly from the Bearer token via authFetch.
   const fetchCurrentUser = async () => {
     setLoading(true);
 
-    const savedEmail = await AsyncStorage.getItem("userEmail");
+    try {
+      const res = await authFetch("/me");
+      if (!res.ok) {
+        setLoading(false);
+        return;
+      }
 
-    if (!savedEmail) {
+      const data: UserRow = await res.json();
+
+      setCurrentUser(data);
+      setName(data.name ?? "");
+      setContact(data.mobile_number ?? "");
+      setemail(data.email ?? "");
+      setAvatarUri(data.profile_pic_url ?? null);
+    } catch (error: any) {
+      console.error("Profile fetch error:", error?.message ?? error);
+    } finally {
       setLoading(false);
-
-      return;
     }
 
     const res = await authFetch("/me");
@@ -114,6 +131,7 @@ export default function AdminProfile() {
   };
 
   // ── Fetch this admin's connected employees from the connections table ────
+  // Still keyed off the verified user's email (from /me), not the cached one.
   const fetchTeam = async () => {
     setLoadingTeam(true);
 
@@ -121,7 +139,6 @@ export default function AdminProfile() {
     if (!res.ok) {
       console.error("Team fetch error:", res.status);
       setLoadingTeam(false);
-      return;
     }
 
     const team = await res.json();
@@ -136,7 +153,12 @@ export default function AdminProfile() {
     setRefreshing(false);
   }, []);
 
-  // ── Save edited fields back to Supabase ───────────────────────────────────
+  // ── Save edited fields via the backend, not a direct client-side update ──
+  // A direct `supabase.from("users").update(...).eq("id", currentUser.id)`
+  // call from the client depends entirely on RLS to stop someone from
+  // editing a row that isn't theirs. Routing through authFetch means the
+  // backend derives *which* row to update from the verified token, same as
+  // the read path.
   const handleSave = async () => {
     if (!currentUser) {
       setEditing(false);
@@ -156,11 +178,14 @@ export default function AdminProfile() {
       });
       if (!res.ok) throw new Error('Could not save changes');
 
-      await AsyncStorage.setItem("userEmail", email.trim());
+      const updated: UserRow = await res.json();
 
-      setCurrentUser((prev) =>
-        prev ? { ...prev, name, mobile_number: contact, email } : prev,
-      );
+      await AsyncStorage.setItem("userEmail", updated.email);
+
+      setCurrentUser(updated);
+      setName(updated.name);
+      setContact(updated.mobile_number ?? "");
+      setemail(updated.email);
       setEditing(false);
       showToast("Profile updated", "success");
     } catch (error: any) {

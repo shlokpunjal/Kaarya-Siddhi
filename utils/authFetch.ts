@@ -3,9 +3,17 @@ import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../constants/api";
 
-async function wipeAndRedirect() {
+async function wipeAndRedirect(sessionAtStart: string | null) {
+  // A newer login may have started (and finished) while this request's
+  // refresh was still in flight. If the session has already moved on,
+  // this failure belongs to a dead session — don't wipe the live one
+  // out from under whoever is now logged in.
+  const sessionNow = await SecureStore.getItemAsync("sessionId");
+  if (sessionNow !== sessionAtStart) return;
+
   await SecureStore.deleteItemAsync("token");
   await SecureStore.deleteItemAsync("refreshToken");
+  await SecureStore.deleteItemAsync("sessionId");
   await AsyncStorage.multiRemove(["userPhone", "userEmail", "userRole", "workspaceId"]);
   router.replace("/(auth)/LoginChoice");
 }
@@ -24,6 +32,10 @@ let refreshPromise: Promise<{ token: string; refresh_token: string } | null> | n
 async function refreshAccessToken(): Promise<{ token: string; refresh_token: string } | null> {
   if (refreshPromise) return refreshPromise;
 
+  // Captured before the network call so we can tell, once it resolves,
+  // whether a newer login has since replaced this session.
+  const sessionAtStart = await SecureStore.getItemAsync("sessionId");
+
   refreshPromise = (async () => {
     const refreshToken = await SecureStore.getItemAsync("refreshToken");
     if (!refreshToken) return null;
@@ -38,6 +50,13 @@ async function refreshAccessToken(): Promise<{ token: string; refresh_token: str
       if (!refreshRes.ok) return null;
 
       const data = await refreshRes.json();
+
+      // A newer login happened while this refresh was in flight — the
+      // token we just got belongs to the old session. Discard it rather
+      // than overwriting whatever the new session already stored.
+      const sessionNow = await SecureStore.getItemAsync("sessionId");
+      if (sessionNow !== sessionAtStart) return null;
+
       await SecureStore.setItemAsync("token", data.token);
       await SecureStore.setItemAsync("refreshToken", data.refresh_token);
       return data;
@@ -58,6 +77,7 @@ async function refreshAccessToken(): Promise<{ token: string; refresh_token: str
 }
 
 export async function authFetch(path: string, options: RequestInit = {}) {
+  const sessionAtStart = await SecureStore.getItemAsync("sessionId");
   const token = await SecureStore.getItemAsync("token");
 
   const buildHeaders = (t: string | null) => ({
@@ -84,8 +104,9 @@ export async function authFetch(path: string, options: RequestInit = {}) {
       if (response.status !== 401) return response;
     }
 
-    // Refresh failed, returned no session, or the retry still 401'd — force logout
-    await wipeAndRedirect();
+    // Refresh failed, returned no session, or the retry still 401'd — force
+    // logout, but only if this is still the session that started the call.
+    await wipeAndRedirect(sessionAtStart);
   }
 
   return response;
