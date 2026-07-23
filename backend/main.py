@@ -70,6 +70,13 @@ async def cron_overdue_reminders(x_cron_secret: str = Header(None)):
     result = send_overdue_reminders()
     return result
 
+@app.post("/cron/send-eoffice-reminders")
+async def cron_eoffice_reminders(x_cron_secret: str = Header(None)):
+    if not CRON_SECRET or x_cron_secret != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid cron secret.")
+    result = send_eoffice_reminders()
+    return result
+
 # ---- Background jobs ----
 scheduler = BackgroundScheduler()
 scheduler.add_job(sync_tasks_from_sheet, "interval", minutes=5)
@@ -83,6 +90,9 @@ scheduler.add_job(send_deadline_reminders, "cron", hour=9, minute=0, timezone="A
 # every day a task stays overdue (see overdue_reminders.py for how that's
 # tracked without spamming multiple times in the same day).
 scheduler.add_job(send_overdue_reminders, "cron", hour=9, minute=30, timezone="Asia/Kolkata")
+# Runs daily at 5:00 PM IST — mirrors the office's own file-circulation
+# rhythm, reminding whoever created each still-open file to close it out.
+scheduler.add_job(send_eoffice_reminders, "cron", hour=17, minute=0, timezone="Asia/Kolkata")
 scheduler.start()
 
 # ---- Routers ----
@@ -93,6 +103,7 @@ from routes.users import router as users_router
 from routes.excel_report import router as excel_report_router
 from routes.pdf_report import router as pdf_report_router
 from routes.cloudinary_signature import router as cloudinary_signature_router
+from eoffice_reminders import send_eoffice_reminders
 
 app.include_router(auth_router)
 app.include_router(connections_router)

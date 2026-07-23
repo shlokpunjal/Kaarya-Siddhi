@@ -49,13 +49,12 @@ function notifTitle(type: string): string {
     case "extension_accepted": return "Extension Accepted";
     case "extension_rejected": return "Extension Rejected";
     case "task_assigned": return "New Task Assigned";
+    case "task_in_review": return "Task Submitted for Review";
+    case "eoffice_pending": return "Track your eOffice files";
     default: return "Notification";
   }
 }
 
-// Rendered INSIDE <AuthProvider>, so useAuth() is valid here. Owns both the
-// realtime "show a local notification when a row lands" watcher and the
-// tap-to-navigate listener for actual pushes (once those work on a dev build).
 function navigateFromNotificationData(data: Record<string, any>, router: ReturnType<typeof useRouter>) {
   if (!data?.type) return;
 
@@ -84,14 +83,17 @@ function navigateFromNotificationData(data: Record<string, any>, router: ReturnT
       });
       break;
     case "task_assigned":
+    case "task_in_review":
       router.push({
         pathname: "/(task)/task-detail",
         params: { taskId: data.taskId },
       });
       break;
+    case "eoffice_pending":
+      router.push("/reports/eoffice");
+      break;
   }
 }
-
 function NotificationBridge() {
   const router = useRouter();
   const { userEmail } = useAuth();

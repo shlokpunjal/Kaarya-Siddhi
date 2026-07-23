@@ -142,43 +142,6 @@ export default function TaskDetailAdmin() {
     try {
       setDeleting(true);
 
-      // Delete every row that references this task FIRST
-      const { error: filesError } = await supabase
-        .from("task_files")
-        .delete()
-        .eq("task_id", task.id);
-
-      if (filesError) throw filesError;
-
-      const { error: submissionsError } = await supabase
-        .from("task_submissions")
-        .delete()
-        .eq("task_id", task.id);
-
-      if (submissionsError) throw submissionsError;
-
-      const { error: extensionError } = await supabase
-        .from("extension_requests")
-        .delete()
-        .eq("task_id", task.id);
-
-      if (extensionError) throw extensionError;
-
-      // IMPORTANT: notifications also reference tasks
-      const { error: notificationsError } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("task_id", task.id);
-
-      if (notificationsError) throw notificationsError;
-
-      // Now the task can safely be deleted
-      const { error: taskDeleteError } = await supabase
-        .from("tasks")
-        .delete()
-        .eq("id", task.id);
-
-      if (taskDeleteError) throw taskDeleteError;
       const { error } = await supabase.from("tasks").delete().eq("id", task.id);
       if (error) throw error;
 
@@ -205,7 +168,13 @@ export default function TaskDetailAdmin() {
         }}
       >
         <ActivityIndicator size="large" color={colors.brand.accent} />
-        <Text style={{ ...typography.body, color: colors.text.secondary, marginTop: 12 }}>
+        <Text
+          style={{
+            ...typography.body,
+            color: colors.text.secondary,
+            marginTop: 12,
+          }}
+        >
           Loading task...
         </Text>
       </SafeAreaView>
@@ -223,12 +192,27 @@ export default function TaskDetailAdmin() {
           alignItems: "center",
         }}
       >
-        <Ionicons name="alert-circle-outline" size={48} color={colors.status.overdue} />
-        <Text style={{ ...typography.body, color: colors.text.primary, marginTop: 12 }}>
+        <Ionicons
+          name="alert-circle-outline"
+          size={48}
+          color={colors.status.overdue}
+        />
+        <Text
+          style={{
+            ...typography.body,
+            color: colors.text.primary,
+            marginTop: 12,
+          }}
+        >
           Task not found.
         </Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <Text style={{ color: colors.brand.accent, ...typography.body }}>Go Back</Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginTop: 20 }}
+        >
+          <Text style={{ color: colors.brand.accent, ...typography.body }}>
+            Go Back
+          </Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -311,7 +295,14 @@ export default function TaskDetailAdmin() {
             </Text>
 
             {canEditOrDelete && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 2 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  paddingTop: 2,
+                }}
+              >
                 <TouchableOpacity
                   onPress={() =>
                     router.push({
@@ -321,25 +312,60 @@ export default function TaskDetailAdmin() {
                   }
                   disabled={deleting}
                 >
-                  <Ionicons name="create-outline" size={22} color={colors.brand.accent} />
+                  <Ionicons
+                    name="create-outline"
+                    size={22}
+                    color={colors.brand.accent}
+                  />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={handleDeleteTask} disabled={deleting}>
+                <TouchableOpacity
+                  onPress={handleDeleteTask}
+                  disabled={deleting}
+                >
                   {deleting ? (
-                    <ActivityIndicator size="small" color={colors.status.overdue} />
+                    <ActivityIndicator
+                      size="small"
+                      color={colors.status.overdue}
+                    />
                   ) : (
-                    <Ionicons name="trash-outline" size={20} color={colors.status.overdue} />
+                    <Ionicons
+                      name="trash-outline"
+                      size={20}
+                      color={colors.status.overdue}
+                    />
                   )}
                 </TouchableOpacity>
               </View>
             )}
           </View>
 
-          <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
+          <View
+            style={{
+              height: 1,
+              backgroundColor: colors.base.border,
+              marginBottom: 16,
+            }}
+          />
 
           {/* Status */}
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
-            <Ionicons name="ellipse" size={12} color={statusColor} style={{ marginRight: 8 }} />
-            <Text style={{ ...typography.heading3, color: colors.text.primary }}>Status: </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <Ionicons
+              name="ellipse"
+              size={12}
+              color={statusColor}
+              style={{ marginRight: 8 }}
+            />
+            <Text
+              style={{ ...typography.heading3, color: colors.text.primary }}
+            >
+              Status:{" "}
+            </Text>
             <Text
               style={{
                 ...typography.heading3,
@@ -372,68 +398,118 @@ export default function TaskDetailAdmin() {
                 color={colors.status.overdue}
                 style={{ marginTop: 1 }}
               />
-              <Text style={{ ...typography.label, color: colors.status.overdue, flex: 1 }}>
+              <Text
+                style={{
+                  ...typography.label,
+                  color: colors.status.overdue,
+                  flex: 1,
+                }}
+              >
                 This will be deleted after 15 days.
               </Text>
             </View>
           )}
 
           {/* Divider */}
-          <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
+          <View
+            style={{
+              height: 1,
+              backgroundColor: colors.base.border,
+              marginBottom: 16,
+            }}
+          />
 
           {/* Description */}
-          <Text style={{ ...typography.heading3, color: colors.text.primary, marginBottom: 6 }}>
+          <Text
+            style={{
+              ...typography.heading3,
+              color: colors.text.primary,
+              marginBottom: 6,
+            }}
+          >
             Description
           </Text>
-          <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 20 }}>
+          <Text
+            style={{
+              ...typography.body,
+              color: colors.text.secondary,
+              marginBottom: 20,
+            }}
+          >
             {task.description ?? "No description provided."}
           </Text>
 
           {/* Deadline — no longer has a separate "Extend Deadline" flow here;
               admin edits the deadline directly via the edit icon above,
               which routes to /newtask in edit mode. */}
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 20,
+            }}
+          >
             <Ionicons
               name="calendar-outline"
               size={18}
               color={colors.text.secondary}
               style={{ marginRight: 8 }}
             />
-            <Text style={{ ...typography.heading3, color: colors.text.primary }}>
+            <Text
+              style={{ ...typography.heading3, color: colors.text.primary }}
+            >
               Deadline:{" "}
             </Text>
             <Text style={{ ...typography.body, color: statusColor }}>
               {task.deadline
                 ? new Date(task.deadline).toLocaleDateString("en-IN", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })
                 : "No deadline set"}
             </Text>
           </View>
 
           {/* Assigned To */}
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 20,
+            }}
+          >
             <Ionicons
               name="person-outline"
               size={18}
               color={colors.text.secondary}
               style={{ marginRight: 8 }}
             />
-            <Text style={{ ...typography.heading3, color: colors.text.primary }}>
+            <Text
+              style={{ ...typography.heading3, color: colors.text.primary }}
+            >
               Assigned To:{" "}
             </Text>
             <Text
               numberOfLines={1}
-              style={{ ...typography.body, color: colors.text.secondary, flex: 1 }}
+              style={{
+                ...typography.body,
+                color: colors.text.secondary,
+                flex: 1,
+              }}
             >
               {assignedName}
             </Text>
           </View>
 
           {/* Divider */}
-          <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
+          <View
+            style={{
+              height: 1,
+              backgroundColor: colors.base.border,
+              marginBottom: 16,
+            }}
+          />
 
           {/* Files Attached — fetched from task_files table (Cloudinary URLs) */}
           <Text
@@ -473,14 +549,26 @@ export default function TaskDetailAdmin() {
                   gap: 10,
                 }}
               >
-                <Ionicons name="document" size={22} color={colors.brand.accent} />
+                <Ionicons
+                  name="document"
+                  size={22}
+                  color={colors.brand.accent}
+                />
                 <Text
                   numberOfLines={1}
-                  style={{ flex: 1, ...typography.body, color: colors.text.primary }}
+                  style={{
+                    flex: 1,
+                    ...typography.body,
+                    color: colors.text.primary,
+                  }}
                 >
                   {file.file_name ?? "Unnamed file"}
                 </Text>
-                <Ionicons name="open-outline" size={18} color={colors.text.secondary} />
+                <Ionicons
+                  name="open-outline"
+                  size={18}
+                  color={colors.text.secondary}
+                />
               </TouchableOpacity>
             ))
           )}
@@ -500,7 +588,9 @@ export default function TaskDetailAdmin() {
             disabled={task.status === "completed"}
             style={{
               backgroundColor:
-                task.status === "completed" ? colors.base.border : colors.brand.accent,
+                task.status === "completed"
+                  ? colors.base.border
+                  : colors.brand.accent,
               height: moderateScale(50),
               borderRadius: 12,
               justifyContent: "center",
@@ -514,7 +604,9 @@ export default function TaskDetailAdmin() {
                 ...typography.subheading,
               }}
             >
-              {task.status === "completed" ? "Already Completed" : "Review or Complete"}
+              {task.status === "completed"
+                ? "Already Completed"
+                : "Review or Complete"}
             </Text>
           </TouchableOpacity>
         </View>
