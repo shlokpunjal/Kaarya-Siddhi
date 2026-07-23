@@ -18,6 +18,7 @@ import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from '../../utils/responsive';
 import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/AlertModal";
+import { sendPushOnly } from "../../lib/notify";
 
 export default function TaskDetail() {
   const { colors } = useTheme();
@@ -160,24 +161,35 @@ useEffect(() => {
   // ── Notify both the assignee and the creator that a task moved to review ────
   // NOTE: adjust column names ("message", "task_id") if your `notifications`
   // table uses different ones.
-  const notifyBothParties = async (title: string) => {
-    const recipients = new Set<string>();
-    if (task?.assigned_to) recipients.add(task.assigned_to);
-    if (task?.created_by) recipients.add(task.created_by);
+ const notifyBothParties = async (title: string) => {
+  const recipients = new Set<string>();
+  if (task?.assigned_to) recipients.add(task.assigned_to);
+  if (task?.created_by) recipients.add(task.created_by);
 
-    const rows = Array.from(recipients).map((user_id) => ({
-      user_id,
-      type: "task_in_review",
-      message: `"${title}" has been submitted for review.`,
-      task_id: task.id,
-    }));
+  const rows = Array.from(recipients).map((user_id) => ({
+    user_id,
+    type: "task_in_review",
+    message: `"${title}" has been submitted for review.`,
+    task_id: task.id,
+  }));
 
-    if (rows.length === 0) return;
+  if (rows.length === 0) return;
 
-    const { error } = await supabase.from("notifications").insert(rows);
-    if (error) console.error("Notification insert error:", error);
-  };
+  const { error } = await supabase.from("notifications").insert(rows);
+  if (error) console.error("Notification insert error:", error);
 
+  // Push to whoever isn't the one asking for review — no need to buzz
+  // your own phone for your own action.
+  const pushTargets = Array.from(recipients).filter((id) => id !== currentUserId);
+  await Promise.all(
+    pushTargets.map((id) =>
+      sendPushOnly(id, "Task submitted for review", `"${title}" has been submitted for review.`, {
+        type: "task_in_review",
+        taskId: task.id,
+      })
+    )
+  );
+};
   // ── Ask to Review — moves the task into the in_review queue directly ────────
   // Distinct from "Review or Complete" (which only shows for tasks the
   // employee created themselves and routes to a separate completion flow).
