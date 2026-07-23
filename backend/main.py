@@ -17,6 +17,7 @@ from rate_limit import limiter
 from sheets_sync import sync_tasks_from_sheet
 from deadline_reminders import send_deadline_reminders
 from overdue_reminders import send_overdue_reminders
+from eoffice_reminders import send_eoffice_reminders   # ← add this here
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("kaarya_siddhi")
@@ -103,7 +104,6 @@ from routes.users import router as users_router
 from routes.excel_report import router as excel_report_router
 from routes.pdf_report import router as pdf_report_router
 from routes.cloudinary_signature import router as cloudinary_signature_router
-from eoffice_reminders import send_eoffice_reminders
 
 app.include_router(auth_router)
 app.include_router(connections_router)
