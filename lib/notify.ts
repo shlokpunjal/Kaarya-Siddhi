@@ -1,7 +1,4 @@
-// lib/notify.ts
-//
 // Shared notification helper for client-only flows.
-//
 // - connection requests/decisions are handled entirely by main.py (backend),
 //   which writes to `notifications` and sends the push itself — this file is
 //   NOT used for those, to avoid duplicate notification rows.

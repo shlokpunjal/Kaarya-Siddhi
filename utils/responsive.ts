@@ -1,19 +1,18 @@
-// utils/responsive.ts
-//
+
 // Screen-width-aware scaling helpers. The app is locked to portrait
 // (see app.json), so we scale off width only — no rotation handling needed.
-//
+
 // Reference device: 375×812 (a common mid-size phone width — close to
 // what most screens in this app were visually tuned against). Every
 // scale() call below asks "how much bigger/smaller is this device than
 // the reference, and adjust by that ratio."
-//
+
 // USAGE:
 //   Replace `width: 320`           → `width: wp(85)`        (85% of screen width)
 //   Replace `height: 140`          → `height: moderateScale(140)`
 //   Replace `fontSize: 24`         → `fontSize: moderateScale(24)`
 //   Replace `marginLeft: 33`       → `marginLeft: wp(8.8)`   (33/375 ≈ 8.8%)
-//
+
 // Prefer wp()/hp() for anything that should track screen edges (card widths,
 // side margins, section spacing). Prefer moderateScale() for things that
 // should grow a little with screen size but not proportionally — font

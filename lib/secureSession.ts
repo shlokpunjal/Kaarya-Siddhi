@@ -1,5 +1,3 @@
-// lib/secureSession.ts
-//
 // Secrets (token, refreshToken) live in SecureStore — Keychain/Keystore
 // backed. Everything else (phone/email/role/workspaceId) is plain
 // profile data, not a secret, so it stays in AsyncStorage — no reason
