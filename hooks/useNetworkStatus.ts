@@ -1,5 +1,3 @@
-// hooks/useNetworkStatus.ts
-//
 // Requires: npx expo install @react-native-community/netinfo
 // (Most Expo apps already have this — check package.json first.)
  

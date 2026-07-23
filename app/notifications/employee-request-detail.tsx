@@ -1,6 +1,3 @@
-// Read-only view of a single extension request, including admin's decision + note.
-// Realtime-synced: updates live the moment the admin accepts/rejects.
-
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,

@@ -1,5 +1,3 @@
-// components/SkeletonScreen.tsx
-//
 // Generic shimmering placeholder shown briefly after the user taps
 // "Retry Now" on the offline screen — mimics the shape of a normal
 // app screen (header + content rows) while a fresh connectivity

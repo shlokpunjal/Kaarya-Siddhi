@@ -1,15 +1,3 @@
-// app/notifications/admin-requests-list.tsx
-//
-// Bottom sheet opened from the "Requests" box on app/notifications/admin.tsx.
-//
-// Connection requests: read from `notifications` (type connection_request).
-// Once a connection is decided, its notification row is deleted for the
-// admin (backend handles that), so only pending ones ever show here.
-//
-// Extension requests: read DIRECTLY from `extension_requests`, scoped to
-// this admin's workspace and status = 'pending'. No notifications row is
-// used for these at all — extend-deadline.tsx only sends a push.
-
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,

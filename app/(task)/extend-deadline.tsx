@@ -1,13 +1,12 @@
-// app/(task)/extend-deadline.tsx
-//
+
 // Requires: npx expo install @react-native-community/datetimepicker
 // Requires: extension_requests.sql run against your Supabase project
-//
+
 // On submit, the request row itself is the only thing written — no
 // `notifications` row is created for it. Admins are alerted via a push-only
 // send (sendPushOnly), and the admin's Requests screen reads pending
 // extension requests straight from extension_requests, scoped to workspace.
-//
+
 // UX note: success feedback fires immediately after the insert succeeds —
 // admin push notifications are sent in the background afterward and never
 // block or delay the person's own "request sent" confirmation.
