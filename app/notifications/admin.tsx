@@ -41,7 +41,7 @@ export default function AdminNotifications() {
       .from("notifications")
       .select("id, type, message, created_at")
       .eq("user_id", userRow.id)
-      .in("type", ["task_assigned_confirmation"])
+      .in("type", ["task_assigned_confirmation", "task_in_review"])
       .order("created_at", { ascending: false });
 
     if (error) console.error("Error fetching other notifications:", error.message);

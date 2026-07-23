@@ -18,6 +18,7 @@ import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/AlertModal";
+import { sendPushOnly } from "../../lib/notify";
 
 export default function TaskDetail() {
   const { colors } = useTheme();
@@ -68,7 +69,8 @@ export default function TaskDetail() {
   // an employee should only be able to act on tasks they created themselves,
   // not ones an admin assigned to them.
 
-  const [assignedName, setAssignedName] = useState<string>("—");
+  // ── Who assigned/created this task (task.created_by), shown as "Assigned By" ──
+  const [assignedByName, setAssignedByName] = useState<string>("—");
   const isOwnTask =
     !!task && !!currentUserId && task.created_by === currentUserId;
 
@@ -112,25 +114,25 @@ export default function TaskDetail() {
     fetchTask();
   }, [taskId]);
 
-  // ── Resolve assigned employee's name (task.assigned_to is a user id) ────────
+  // ── Resolve who assigned/created this task (task.created_by is a user id) ───
   useEffect(() => {
-    const resolveAssignee = async () => {
-      if (!task?.assigned_to) return;
+    const resolveAssigner = async () => {
+      if (!task?.created_by) return;
 
       const { data, error } = await supabase
         .from("users")
         .select("name, email")
-        .eq("id", task.assigned_to)
+        .eq("id", task.created_by)
         .single();
 
       if (!error && data) {
-        setAssignedName(data.name || data.email || task.assigned_to);
+        setAssignedByName(data.name || data.email || task.created_by);
       } else {
-        setAssignedName(task.assigned_to);
+        setAssignedByName(task.created_by);
       }
     };
 
-    resolveAssignee();
+    resolveAssigner();
   }, [task]);
 
   // ── Check for an existing pending extension request, refreshed on focus ─────
@@ -175,8 +177,19 @@ export default function TaskDetail() {
 
     const { error } = await supabase.from("notifications").insert(rows);
     if (error) console.error("Notification insert error:", error);
-  };
 
+    // Push to whoever isn't the one asking for review — no need to buzz
+    // your own phone for your own action.
+    const pushTargets = Array.from(recipients).filter((id) => id !== currentUserId);
+    await Promise.all(
+      pushTargets.map((id) =>
+        sendPushOnly(id, "Task submitted for review", `"${title}" has been submitted for review.`, {
+          type: "task_in_review",
+          taskId: task.id,
+        })
+      )
+    );
+  };
   // ── Ask to Review — moves the task into the in_review queue directly ────────
   // Distinct from "Review or Complete" (which only shows for tasks the
   // employee created themselves and routes to a separate completion flow).
@@ -591,7 +604,7 @@ export default function TaskDetail() {
             </Text>
           </View>
 
-          {/* Assigned To */}
+          {/* Assigned By */}
           <View
             style={{
               flexDirection: "row",
@@ -608,7 +621,7 @@ export default function TaskDetail() {
             <Text
               style={{ ...typography.heading3, color: colors.text.primary }}
             >
-              Assigned To:{" "}
+              Assigned By:{" "}
             </Text>
             <Text
               numberOfLines={1}
@@ -618,7 +631,7 @@ export default function TaskDetail() {
                 flex: 1,
               }}
             >
-              {assignedName}
+              {isSelfAssigned ? "You (self-created)" : assignedByName}
             </Text>
           </View>
 

@@ -14,11 +14,9 @@ import EmployeeNotificationsSkeleton from '../../components/EmployeeNotification
 type NotifRow = {
   id: string;
   type:
-  | "connection_accepted"
-  | "connection_rejected"
-  | "extension_accepted"
-  | "extension_rejected"
-  | "task_assigned";
+  | "connection_accepted" | "connection_rejected"
+  | "extension_accepted" | "extension_rejected"
+  | "task_assigned" | "task_in_review";
   message: string;
   created_at: string;
   metadata: any;
@@ -57,11 +55,9 @@ export default function EmployeeNotifications() {
       .select("id, type, message, created_at, metadata, task_id")
       .eq("user_id", id)
       .in("type", [
-        "connection_accepted",
-        "connection_rejected",
-        "extension_accepted",
-        "extension_rejected",
-        "task_assigned",
+        "connection_accepted", "connection_rejected",
+        "extension_accepted", "extension_rejected",
+        "task_assigned", "task_in_review",
       ])
       .order("created_at", { ascending: false });
 

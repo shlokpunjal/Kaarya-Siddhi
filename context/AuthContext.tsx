@@ -33,6 +33,14 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Generates a fresh marker for each login. authFetch checks this before
+// writing a refreshed token back to SecureStore, so a refresh that was
+// started under an old session can't silently overwrite a newer one that
+// logged in while the refresh was still in flight.
+function generateSessionId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [userPhone, setUserPhone] = useState<string | null>(null);
@@ -97,6 +105,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshToken?: string,
   ) => {
     try {
+      // New session id first — any refresh from a previous session that's
+      // still in flight will see this and bail instead of overwriting us.
+      const sessionId = generateSessionId();
+      await SecureStore.setItemAsync("sessionId", sessionId);
+
       await SecureStore.setItemAsync("token", token);
       if (refreshToken)
         await SecureStore.setItemAsync("refreshToken", refreshToken);
@@ -126,7 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const refreshToken = await SecureStore.getItemAsync("refreshToken");
       if (refreshToken) {
-        fetch(`${API_BASE_URL}/logout`, {
+        // Awaited on purpose — if this is left fire-and-forget, the app can
+        // navigate away before the revoke call actually lands, leaving the
+        // old refresh token valid on the server. A later refresh attempt
+        // (e.g. a queued request that 401'd right before logout) can then
+        // reissue a token for this "logged out" user and overwrite whatever
+        // the next person on this device just logged in as.
+        await fetch(`${API_BASE_URL}/logout`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refresh_token: refreshToken }),

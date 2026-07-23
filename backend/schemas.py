@@ -70,3 +70,8 @@ class LogoutRequest(BaseModel):
 class DeleteAccountResponse(BaseModel):
     success: bool
     message: str
+
+class UpdateProfileRequest(BaseModel):
+    name: str | None = None
+    mobile_number: str | None = None
+    email: str | None = None

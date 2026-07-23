@@ -16,7 +16,7 @@ export default function BackButton({ color = '#FFFFFF', onPress }: BackButtonPro
       style={styles.button}
       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
     >
-      <Ionicons name="arrow-back" size={22} color={color} />
+      <Ionicons name="chevron-back" size={22} color={color} />
     </TouchableOpacity>
   );
 }
