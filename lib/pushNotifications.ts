@@ -1,5 +1,3 @@
-// lib/pushNotifications.ts
-//
 // Registers this device for Expo push notifications and saves the token
 // to the backend (users.expo_push_token), reusing the existing
 // /save-push-token endpoint that main.py already exposes.

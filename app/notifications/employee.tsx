@@ -1,11 +1,3 @@
-// app/notifications/employee.tsx
-//
-// Reads DECIDED notifications only (connection_accepted/rejected,
-// extension_accepted/rejected, task_assigned) — pending items never appear
-// here since the employee already sees pending status on the task-detail
-// screen itself. Clear All performs a real delete from the notifications
-// table. Must stay in sync with the bell-badge query in (employee)/index.tsx.
-
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";

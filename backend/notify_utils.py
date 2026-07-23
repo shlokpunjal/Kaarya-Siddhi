@@ -1,5 +1,3 @@
-# backend/notify_utils.py
-#
 # Shared Expo push sender. Pulled out of main.py so background jobs
 # (deadline_reminders.py, sheets_sync.py, etc.) can send pushes without
 # importing main.py itself — importing main.py from a module main.py

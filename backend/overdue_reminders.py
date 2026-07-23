@@ -1,5 +1,3 @@
-# backend/overdue_reminders.py
-#
 # Daily job: for every task that's past its deadline (IST) and still not
 # completed, notify the ADMIN who created it that it's overdue. Unlike
 # deadline_reminders.py (one-shot "due tomorrow" heads-up to both employee
