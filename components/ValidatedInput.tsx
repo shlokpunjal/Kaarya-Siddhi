@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { moderateScale } from "../utils/responsive";
+import { useTheme } from "../context/ThemeContext";
 
 const SUCCESS = "#2E7D32";
 const ERROR = "#D32F2F";
@@ -41,6 +42,8 @@ const ValidatedInput: React.FC<ValidatedInputProps> = ({
 }) => {
   const [showError, setShowError] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const { colors } = useTheme();
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isValid = validator ? validator(value) : false;
@@ -83,6 +86,7 @@ const ValidatedInput: React.FC<ValidatedInputProps> = ({
           {...rest}
           value={value}
           onChangeText={onChangeText}
+          placeholderTextColor={colors.text.secondary}
           onFocus={(e) => {
             setIsFocused(true);
             onFocus?.(e);

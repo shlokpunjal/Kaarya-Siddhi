@@ -5,7 +5,7 @@
     "scheme": "kaaryasiddhi",
     "version": "1.0.0",
     "icon": "./assets/images/logo.png",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
@@ -44,7 +44,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "81041415-44f0-473d-8df5-6743d7054c77"
+        "projectId": "302108ef-f71d-42fe-9837-2b1b4a967552"
       }
     }
   }
