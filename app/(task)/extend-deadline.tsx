@@ -81,6 +81,17 @@ export default function ExtendDeadline() {
     );
   }
 
+  // New deadline must be after the task's *current* deadline, not just after
+  // today — so the picker only lets people move the date forward from where
+  // it already stands. Falls back to today if the task has no deadline set.
+  const minSelectableDate = (() => {
+    if (!task.deadline) return new Date();
+    const current = new Date(task.deadline);
+    const nextDay = new Date(current);
+    nextDay.setDate(current.getDate() + 1);
+    return nextDay;
+  })();
+
   const onChangeDate = (event: any, selected?: Date) => {
     setShowPicker(Platform.OS === "ios");
     if (selected) setNewDeadline(selected);
@@ -248,9 +259,9 @@ export default function ExtendDeadline() {
           </TouchableOpacity>
           {showPicker && (
             <DateTimePicker
-              value={newDeadline ?? new Date()}
+              value={newDeadline ?? minSelectableDate}
               mode="date"
-              minimumDate={new Date()}
+              minimumDate={minSelectableDate}
               display={Platform.OS === "ios" ? "inline" : "default"}
               onChange={onChangeDate}
             />
