@@ -142,11 +142,43 @@ export default function TaskDetailAdmin() {
     try {
       setDeleting(true);
 
-      // Remove dependent rows first in case the DB doesn't have ON DELETE CASCADE set up
-      await supabase.from("task_files").delete().eq("task_id", task.id);
-      await supabase.from("task_submissions").delete().eq("task_id", task.id);
-      await supabase.from("extension_requests").delete().eq("task_id", task.id);
+      // Delete every row that references this task FIRST
+      const { error: filesError } = await supabase
+        .from("task_files")
+        .delete()
+        .eq("task_id", task.id);
 
+      if (filesError) throw filesError;
+
+      const { error: submissionsError } = await supabase
+        .from("task_submissions")
+        .delete()
+        .eq("task_id", task.id);
+
+      if (submissionsError) throw submissionsError;
+
+      const { error: extensionError } = await supabase
+        .from("extension_requests")
+        .delete()
+        .eq("task_id", task.id);
+
+      if (extensionError) throw extensionError;
+
+      // IMPORTANT: notifications also reference tasks
+      const { error: notificationsError } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("task_id", task.id);
+
+      if (notificationsError) throw notificationsError;
+
+      // Now the task can safely be deleted
+      const { error: taskDeleteError } = await supabase
+        .from("tasks")
+        .delete()
+        .eq("id", task.id);
+
+      if (taskDeleteError) throw taskDeleteError;
       const { error } = await supabase.from("tasks").delete().eq("id", task.id);
       if (error) throw error;
 
@@ -280,15 +312,15 @@ export default function TaskDetailAdmin() {
 
             {canEditOrDelete && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 2 }}>
-               <TouchableOpacity
-                onPress={() =>
-                  router.push({
-                    pathname: "/(task)/newtask",
-                    params: { taskId: task.id },
-                  })
-                }
-                disabled={deleting}
-              >
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(task)/newtask",
+                      params: { taskId: task.id },
+                    })
+                  }
+                  disabled={deleting}
+                >
                   <Ionicons name="create-outline" size={22} color={colors.brand.accent} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleDeleteTask} disabled={deleting}>
@@ -373,10 +405,10 @@ export default function TaskDetailAdmin() {
             <Text style={{ ...typography.body, color: statusColor }}>
               {task.deadline
                 ? new Date(task.deadline).toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
                 : "No deadline set"}
             </Text>
           </View>
