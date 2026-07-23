@@ -95,13 +95,9 @@ export default function AdminProfile() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("users")
-      .select(
-        "id, name, email, mobile_number, department, designation, profile_pic_url",
-      )
-      .eq("email", savedEmail)
-      .single();
+    const res = await authFetch("/me");
+    const data = res.ok ? await res.json() : null;
+    const error = res.ok ? null : { message: "Could not load profile." };
 
     if (error) {
       console.error("Profile fetch error:", error.message);
@@ -121,49 +117,15 @@ export default function AdminProfile() {
   const fetchTeam = async () => {
     setLoadingTeam(true);
 
-    const savedEmail = await AsyncStorage.getItem("userEmail");
-    if (!savedEmail) {
+    const res = await authFetch("/team");
+    if (!res.ok) {
+      console.error("Team fetch error:", res.status);
       setLoadingTeam(false);
       return;
     }
 
-    const { data: connections, error: connError } = await supabase
-      .from("connections")
-      .select("employee_email")
-      .eq("admin_email", savedEmail)
-      .eq("status", "accepted");
-
-    if (connError) {
-      console.error("Team fetch error:", connError.message);
-      setLoadingTeam(false);
-      return;
-    }
-
-    const employeeEmails = (connections ?? []).map((c) => c.employee_email);
-
-    if (employeeEmails.length === 0) {
-      setManagedEmployees([]);
-      setLoadingTeam(false);
-      return;
-    }
-
-    const { data: users, error: usersError } = await supabase
-      .from("users")
-      .select("email, name")
-      .in("email", employeeEmails);
-
-    if (usersError) {
-      console.error("Team users fetch error:", usersError.message);
-      setLoadingTeam(false);
-      return;
-    }
-
-    setManagedEmployees(
-      employeeEmails.map((empEmail) => ({
-        email: empEmail,
-        name: users?.find((u) => u.email === empEmail)?.name ?? empEmail,
-      })),
-    );
+    const team = await res.json();
+    setManagedEmployees(team);
     setLoadingTeam(false);
   };
 
@@ -184,16 +146,15 @@ export default function AdminProfile() {
     try {
       setSaving(true);
 
-      const { error } = await supabase
-        .from("users")
-        .update({
+      const res = await authFetch('/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
           name: name.trim(),
           mobile_number: contact.trim(),
           email: email.trim(),
-        })
-        .eq("id", currentUser.id);
-
-      if (error) throw error;
+        }),
+      });
+      if (!res.ok) throw new Error('Could not save changes');
 
       await AsyncStorage.setItem("userEmail", email.trim());
 
