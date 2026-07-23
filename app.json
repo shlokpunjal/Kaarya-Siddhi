@@ -32,7 +32,14 @@
           "backgroundColor": "#1A2744"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#1A2744"
+        }
+      ]
     ],
     "extra": {
       "router": {},
