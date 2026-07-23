@@ -163,15 +163,6 @@ The app also expects `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_K
 
 ---
 
-## Known limitations
-
-- **`API_BASE_URL` is hardcoded** to a LAN IP in `constants/api.ts` rather than sourced from an env var — fine for local dev, not usable once the backend is actually deployed.
-- **No Row-Level Security policies** in `database/schema.sql`. The backend uses the Supabase service-role key (which bypasses RLS by design), so this only matters if any client-side code ever queries Supabase directly with the anon key.
-- **No CI or automated tests** yet.
-- `requirements.txt` versions are a starting pin, not a locked/tested set — re-freeze after a full local + staging run before deploying.
-
----
-
 ## Contributing
 
 Read [`CONTRIBUTING.md`](./CONTRIBUTING.md) before writing any code — it covers branching, PR conventions, shared file ownership, and the daily workflow.
