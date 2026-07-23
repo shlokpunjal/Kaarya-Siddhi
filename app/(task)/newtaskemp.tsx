@@ -5,6 +5,7 @@ import {
   TextInput,
   Platform,
   ScrollView,
+  KeyboardAvoidingView,
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -306,6 +307,12 @@ export default function Newtask() {
           <View style={{ width: moderateScale(22) }} />
         )}
       </View>
+
+         <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? moderateScale(70) : 0}
+        >
           <ScrollView
             style={{ flex: 1 }}
             contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
@@ -515,7 +522,7 @@ export default function Newtask() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-
+      </KeyboardAvoidingView>
       <AlertModal
         visible={deleteConfirmVisible}
         type="warning"
