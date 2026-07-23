@@ -1,3 +1,4 @@
+# this file has all values declaration used over full backend
 import os
 from dotenv import load_dotenv
 
