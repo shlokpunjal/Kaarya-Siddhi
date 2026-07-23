@@ -83,88 +83,89 @@ export default function AdminProfile() {
     fetchTeam();
   }, []);
 
-  // ── Fetch the logged-in admin's own row from Supabase ────────────────────
+  // ── Fetch the logged-in admin's own row via the verified /me endpoint ────
+  // Deliberately NOT reading AsyncStorage("userEmail") and querying Supabase
+  // directly with it: that trusted whatever email happened to be cached on
+  // the device rather than the token's own identity, so two people sharing
+  // a device (or a stale cache) could pull up the wrong profile. /me derives
+  // the user strictly from the Bearer token via authFetch.
   const fetchCurrentUser = async () => {
     setLoading(true);
 
-    const savedEmail = await AsyncStorage.getItem("userEmail");
+    try {
+      const res = await authFetch("/me");
+      if (!res.ok) {
+        setLoading(false);
+        return;
+      }
 
-    if (!savedEmail) {
+      const data: UserRow = await res.json();
+
+      setCurrentUser(data);
+      setName(data.name ?? "");
+      setContact(data.mobile_number ?? "");
+      setemail(data.email ?? "");
+      setAvatarUri(data.profile_pic_url ?? null);
+    } catch (error: any) {
+      console.error("Profile fetch error:", error?.message ?? error);
+    } finally {
       setLoading(false);
-
-      return;
     }
-
-    const { data, error } = await supabase
-      .from("users")
-      .select(
-        "id, name, email, mobile_number, department, designation, profile_pic_url",
-      )
-      .eq("email", savedEmail)
-      .single();
-
-    if (error) {
-      console.error("Profile fetch error:", error.message);
-      setLoading(false);
-      return;
-    }
-
-    setCurrentUser(data);
-    setName(data.name ?? "");
-    setContact(data.mobile_number ?? "");
-    setemail(data.email ?? "");
-    setAvatarUri(data.profile_pic_url ?? null);
-    setLoading(false);
   };
 
   // ── Fetch this admin's connected employees from the connections table ────
+  // Still keyed off the verified user's email (from /me), not the cached one.
   const fetchTeam = async () => {
     setLoadingTeam(true);
 
-    const savedEmail = await AsyncStorage.getItem("userEmail");
-    if (!savedEmail) {
+    try {
+      const meRes = await authFetch("/me");
+      if (!meRes.ok) {
+        setLoadingTeam(false);
+        return;
+      }
+      const me: UserRow = await meRes.json();
+
+      const { data: connections, error: connError } = await supabase
+        .from("connections")
+        .select("employee_email")
+        .eq("admin_email", me.email)
+        .eq("status", "accepted");
+
+      if (connError) {
+        console.error("Team fetch error:", connError.message);
+        setLoadingTeam(false);
+        return;
+      }
+
+      const employeeEmails = (connections ?? []).map((c) => c.employee_email);
+
+      if (employeeEmails.length === 0) {
+        setManagedEmployees([]);
+        setLoadingTeam(false);
+        return;
+      }
+
+      const { data: users, error: usersError } = await supabase
+        .from("users")
+        .select("email, name")
+        .in("email", employeeEmails);
+
+      if (usersError) {
+        console.error("Team users fetch error:", usersError.message);
+        setLoadingTeam(false);
+        return;
+      }
+
+      setManagedEmployees(
+        employeeEmails.map((empEmail) => ({
+          email: empEmail,
+          name: users?.find((u) => u.email === empEmail)?.name ?? empEmail,
+        })),
+      );
+    } finally {
       setLoadingTeam(false);
-      return;
     }
-
-    const { data: connections, error: connError } = await supabase
-      .from("connections")
-      .select("employee_email")
-      .eq("admin_email", savedEmail)
-      .eq("status", "accepted");
-
-    if (connError) {
-      console.error("Team fetch error:", connError.message);
-      setLoadingTeam(false);
-      return;
-    }
-
-    const employeeEmails = (connections ?? []).map((c) => c.employee_email);
-
-    if (employeeEmails.length === 0) {
-      setManagedEmployees([]);
-      setLoadingTeam(false);
-      return;
-    }
-
-    const { data: users, error: usersError } = await supabase
-      .from("users")
-      .select("email, name")
-      .in("email", employeeEmails);
-
-    if (usersError) {
-      console.error("Team users fetch error:", usersError.message);
-      setLoadingTeam(false);
-      return;
-    }
-
-    setManagedEmployees(
-      employeeEmails.map((empEmail) => ({
-        email: empEmail,
-        name: users?.find((u) => u.email === empEmail)?.name ?? empEmail,
-      })),
-    );
-    setLoadingTeam(false);
   };
 
   // ── Pull-to-refresh handler: re-run both fetches together ─────────────────
@@ -174,7 +175,12 @@ export default function AdminProfile() {
     setRefreshing(false);
   }, []);
 
-  // ── Save edited fields back to Supabase ───────────────────────────────────
+  // ── Save edited fields via the backend, not a direct client-side update ──
+  // A direct `supabase.from("users").update(...).eq("id", currentUser.id)`
+  // call from the client depends entirely on RLS to stop someone from
+  // editing a row that isn't theirs. Routing through authFetch means the
+  // backend derives *which* row to update from the verified token, same as
+  // the read path.
   const handleSave = async () => {
     if (!currentUser) {
       setEditing(false);
@@ -184,22 +190,28 @@ export default function AdminProfile() {
     try {
       setSaving(true);
 
-      const { error } = await supabase
-        .from("users")
-        .update({
+      const res = await authFetch("/me", {
+        method: "PATCH",
+        body: JSON.stringify({
           name: name.trim(),
           mobile_number: contact.trim(),
           email: email.trim(),
-        })
-        .eq("id", currentUser.id);
+        }),
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Could not save changes");
+      }
 
-      await AsyncStorage.setItem("userEmail", email.trim());
+      const updated: UserRow = await res.json();
 
-      setCurrentUser((prev) =>
-        prev ? { ...prev, name, mobile_number: contact, email } : prev,
-      );
+      await AsyncStorage.setItem("userEmail", updated.email);
+
+      setCurrentUser(updated);
+      setName(updated.name);
+      setContact(updated.mobile_number ?? "");
+      setemail(updated.email);
       setEditing(false);
       showToast("Profile updated", "success");
     } catch (error: any) {
