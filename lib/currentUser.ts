@@ -1,5 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from './supabase';
+import { authFetch } from '../utils/authFetch';
 
 export type CurrentUser = {
   id: string;
@@ -9,21 +8,13 @@ export type CurrentUser = {
 };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const email = await AsyncStorage.getItem('userEmail');
-  const role = await AsyncStorage.getItem('userRole');
+  const res = await authFetch('/me');
 
-  if (!email || !role) return null;
-
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, workspace_id')
-    .eq('email', email)
-    .single();
-
-  if (error || !data) {
-    console.error('Could not resolve current user id:', error?.message);
+  if (!res.ok) {
+    console.error('Could not resolve current user:', res.status);
     return null;
   }
 
-  return { id: data.id, role, email, workspace_id: data.workspace_id };
+  const data = await res.json();
+  return { id: data.id, role: data.role, email: data.email, workspace_id: data.workspace_id };
 }

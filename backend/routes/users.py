@@ -5,9 +5,48 @@ from supabase_client import supabase
 from auth_utils import get_current_user
 from services import delete_user_account
 from schemas import DeleteAccountResponse
-
+from fastapi import Body
 router = APIRouter()
 
+
+ALLOWED_PROFILE_FIELDS = {
+    "name",
+    "mobile_number",
+    "department",
+    "designation",
+    "profile_pic_url",
+    "notifications_enabled",
+    "is_profile_setup",
+    "email",
+    "language",
+    "theme",
+    "date_of_birth",
+}
+
+
+@router.patch("/profile")
+async def update_profile(
+    updates: dict = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    # Whitelist — never let the client set role, id, or workspace_id
+    # through this endpoint, no matter what the request body contains.
+    safe_updates = {k: v for k, v in updates.items() if k in ALLOWED_PROFILE_FIELDS}
+
+    if not safe_updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update.")
+
+    result = (
+        supabase.table("users")
+        .update(safe_updates)
+        .eq("email", current_user["sub"])
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Account not found.")
+
+    return result.data[0]
 
 @router.get("/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
@@ -45,3 +84,69 @@ async def delete_account(current_user: dict = Depends(get_current_user)):
         role=user_row.get("role"),
     )
     return DeleteAccountResponse(success=True, message="Account deleted successfully")
+
+
+@router.get("/connection-status")
+async def get_connection_status(current_user: dict = Depends(get_current_user)):
+    email = current_user["sub"]
+
+    conn = (
+        supabase.table("connections")
+        .select("admin_email, status")
+        .eq("employee_email", email)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+
+    if not conn.data:
+        return {"status": "none"}
+
+    latest = conn.data[0]
+
+    if latest["status"] == "accepted":
+        admin = (
+            supabase.table("users")
+            .select("name")
+            .eq("email", latest["admin_email"])
+            .execute()
+        )
+        admin_name = admin.data[0]["name"] if admin.data else latest["admin_email"]
+        return {"status": "accepted", "admin_name": admin_name}
+
+    if latest["status"] == "pending":
+        return {"status": "pending"}
+
+    return {"status": "none"}
+
+
+@router.get("/team")
+async def get_team(current_user: dict = Depends(get_current_user)):
+    email = current_user["sub"]
+
+    connections = (
+        supabase.table("connections")
+        .select("employee_email")
+        .eq("admin_email", email)
+        .eq("status", "accepted")
+        .execute()
+    )
+
+    employee_emails = [c["employee_email"] for c in connections.data or []]
+
+    if not employee_emails:
+        return []
+
+    users = (
+        supabase.table("users")
+        .select("email, name")
+        .in_("email", employee_emails)
+        .execute()
+    )
+
+    users_by_email = {u["email"]: u["name"] for u in users.data or []}
+
+    return [
+        {"email": e, "name": users_by_email.get(e, e)}
+        for e in employee_emails
+    ]

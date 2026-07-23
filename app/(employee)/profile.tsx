@@ -98,39 +98,16 @@ export default function EmployeeProfile() {
       return;
     }
 
-    const { data: connections, error: connError } = await supabase
-      .from("connections")
-      .select("admin_email, status")
-      .eq("employee_email", savedEmail)
-      .order("created_at", { ascending: false })
-      .limit(1);
+    const connRes = await authFetch("/connection-status");
+    const connData = connRes.ok ? await connRes.json() : { status: "none" };
 
-    if (connError) console.log("Connection query error:", connError);
-
-    const latestConnection = connections?.[0];
-
-    if (latestConnection?.status === "accepted") {
-      setConnectionStatus("accepted");
-
-      const { data: adminUser } = await supabase
-        .from("users")
-        .select("name")
-        .eq("email", latestConnection.admin_email)
-        .maybeSingle();
-
-      setAdminName(adminUser?.name ?? latestConnection.admin_email);
-    } else if (latestConnection?.status === "pending") {
-      setConnectionStatus("pending");
-    } else {
-      setConnectionStatus("none");
+    setConnectionStatus(connData.status);
+    if (connData.status === "accepted") {
+      setAdminName(connData.admin_name);
     }
-    const { data, error } = await supabase
-      .from("users")
-      .select(
-        "id, name, email, mobile_number, department, designation, profile_pic_url",
-      )
-      .eq("email", savedEmail)
-      .single();
+    const res = await authFetch("/me");
+    const data = res.ok ? await res.json() : null;
+    const error = res.ok ? null : { message: "Could not load profile." };
 
     if (error) {
       console.error("Profile fetch error:", error.message);
@@ -163,16 +140,15 @@ export default function EmployeeProfile() {
     try {
       setSaving(true);
 
-      const { error } = await supabase
-        .from("users")
-        .update({
+      const res = await authFetch('/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
           name: name.trim(),
           mobile_number: contact.trim(),
           department: department.trim(),
-        })
-        .eq("id", currentUser.id);
-
-      if (error) throw error;
+        }),
+      });
+      if (!res.ok) throw new Error('Could not save changes');
 
       setCurrentUser((prev) =>
         prev ? { ...prev, name, mobile_number: contact, department } : prev,
@@ -276,12 +252,11 @@ export default function EmployeeProfile() {
         { folder: "profile_pics", resourceType: "image" },
       );
 
-      const { error } = await supabase
-        .from("users")
-        .update({ profile_pic_url: secureUrl })
-        .eq("id", currentUser!.id);
-
-      if (error) throw error;
+      const res = await authFetch('/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ profile_pic_url: secureUrl }),
+      });
+      if (!res.ok) throw new Error('Could not update photo');
 
       setAvatarUri(secureUrl);
       setCurrentUser((prev) =>
