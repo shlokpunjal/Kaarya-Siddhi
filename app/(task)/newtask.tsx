@@ -6,6 +6,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -414,11 +415,18 @@ export default function Newtask() {
         )}
       </View>
 
-      <ScrollView
-        contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+       <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? moderateScale(70) : 0}
       >
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
+        >
         <View style={{
           backgroundColor: colors.base.surfaceL1,
           borderRadius: 16,
@@ -640,7 +648,7 @@ export default function Newtask() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-
+      </KeyboardAvoidingView>
       <AlertModal
         visible={deleteConfirmVisible}
         type="warning"
