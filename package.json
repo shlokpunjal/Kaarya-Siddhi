@@ -6,7 +6,12 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "check:doctor": "npx expo-doctor",
+    "check:deps": "npx expo install --check",
+    "check:types": "npx tsc --noEmit",
+    "check:bundle": "npx expo export --platform android --clear",
+    "prebuild-check": "npm run check:doctor && npm run check:deps && npm run check:types && npm run check:bundle"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.1",
