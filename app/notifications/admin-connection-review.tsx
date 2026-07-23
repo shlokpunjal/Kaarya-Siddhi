@@ -1,11 +1,3 @@
-// app/notifications/admin-connection-review.tsx
-//
-// Focused review screen for a single connection request — opened when the
-// admin taps a connection_request notification. Fetches current status on
-// mount so re-opening an already-decided request shows the right state, and
-// updates local state immediately after Accept/Reject so the UI reflects the
-// decision without waiting on navigation or realtime.
-
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";

@@ -1,7 +1,4 @@
-// utils/dateFormat.ts
-//
 // Formats a Date as "YYYY-MM-DD" using its LOCAL date parts.
-//
 // Do NOT use `date.toISOString().split("T")[0]` for this — toISOString()
 // converts to UTC first. For users in IST (UTC+5:30), a Date built from a
 // local midnight selection (e.g. the deadline date picker) shifts back to

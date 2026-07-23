@@ -1,5 +1,3 @@
-# backend/main.py
-#
 # App entrypoint only. Every route now lives in routes/ — this file just
 # wires up FastAPI, CORS, rate limiting, the background scheduler, and
 # global exception handling.

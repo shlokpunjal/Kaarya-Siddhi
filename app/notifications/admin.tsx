@@ -1,10 +1,3 @@
-// Admin's Notifications page.
-// - "Requests" box: tap to open app/notifications/admin-requests-list.tsx,
-//   presented as a bottom sheet, which contains two sections — Connection
-//   Requests (from `notifications`) and Extend Deadline Requests (read
-//   directly from `extension_requests`, scoped to this admin's workspace).
-// - "Other Notifications" section: placeholder for future notification types.
-
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";

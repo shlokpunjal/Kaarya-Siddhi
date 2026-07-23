@@ -1,5 +1,3 @@
-# backend/deadline_reminders.py
-#
 # Daily job: for every task whose deadline is tomorrow (IST) and isn't
 # completed yet, notify ONLY the user the task is assigned to
 # (tasks.assigned_to) — one `notifications` row + one push, same pattern

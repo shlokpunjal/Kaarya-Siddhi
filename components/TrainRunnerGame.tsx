@@ -1,5 +1,3 @@
-// components/TrainRunnerGame.tsx
-//
 // Tap-to-jump endless runner: the train stays on a fixed x position,
 // obstacles (signal poles / rocks) scroll in from the right, tapping
 // makes the train jump, score increases over time, collision ends the
