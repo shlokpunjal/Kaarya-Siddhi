@@ -137,6 +137,13 @@ export default function Dashboard() {
       fetchPendingRequestCount();
     }, [fetchPendingRequestCount]),
   );
+  function getFreshChannel(name: string) {
+    const existing = supabase
+      .getChannels()
+      .find((c) => c.topic === `realtime:${name}`);
+    if (existing) supabase.removeChannel(existing);
+    return supabase.channel(name);
+  }
 
   // New: realtime, so the dot updates instantly instead of waiting for focus.
   useEffect(() => {
@@ -153,8 +160,8 @@ export default function Dashboard() {
         .single();
       if (!userRow) return;
 
-      notifChannel = supabase
-        .channel(`dashboard_badge_notifs_${userRow.id}`)
+      notifChannel = supabase;
+      getFreshChannel(`dashboard_badge_notifs_${userRow.id}`)
         .on(
           "postgres_changes",
           {
@@ -168,8 +175,8 @@ export default function Dashboard() {
         .subscribe();
 
       if (userRow.workspace_id) {
-        extensionChannel = supabase
-          .channel(`dashboard_badge_ext_${userRow.workspace_id}`)
+        extensionChannel = supabase;
+        getFreshChannel(`dashboard_badge_ext_${userRow.workspace_id}`)
           .on(
             "postgres_changes",
             {
