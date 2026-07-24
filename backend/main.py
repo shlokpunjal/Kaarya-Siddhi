@@ -10,13 +10,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException # used 
 from apscheduler.schedulers.background import BackgroundScheduler
 from slowapi.errors import RateLimitExceeded # sets limits to use of api 
 from slowapi import _rate_limit_exceeded_handler # avoids spams and too many requests
+from backend import eoffice_reminders
 from config import ALLOWED_ORIGINS, CRON_SECRET
 from rate_limit import limiter
 from sheets_sync import sync_tasks_from_sheet
 from deadline_reminders import send_deadline_reminders
 from overdue_reminders import send_overdue_reminders
 from routes.tasks import router as tasks_router
-
+from eoffice_reminders import send_eoffice_reminders
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("kaarya_siddhi")
 
