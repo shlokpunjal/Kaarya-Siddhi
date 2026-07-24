@@ -20,8 +20,6 @@ import { registerAndSavePushToken } from "../lib/pushNotifications";
 import { ToastProvider } from "../context/ToastContext";
 import OfflineScreen from "../components/OfflineScreen";
 
-
-
 // enableScreens(false);
 SplashScreen.preventAutoHideAsync();
 

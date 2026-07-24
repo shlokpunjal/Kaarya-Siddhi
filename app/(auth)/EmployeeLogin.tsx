@@ -344,7 +344,9 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 20,
     fontFamily: "Poppins_400Regular",
-    alignSelf: "center",
+    // alignSelf: "center",
+     marginLeft:40,
+    marginBottom:1,
   },
   imagestyle: {
     justifyContent: "center",
