@@ -20,6 +20,7 @@ from eoffice_reminders import send_eoffice_reminders
 from routes.employee_tasks import router as employee_tasks_router
 from routes.eoffice import router as eoffice_router
 from routes.notify import router as notify_router
+from routes.extension import router as extensions_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("kaarya_siddhi")
 
@@ -30,6 +31,7 @@ app.include_router(eoffice_router)
 app.include_router(employee_tasks_router)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(tasks_router)
+app.include_router(extensions_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
