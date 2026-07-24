@@ -9,8 +9,16 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
-import AdminNotificationsSkeleton from '../../components/AdminNotificationSkeleton';
+import AdminNotificationsSkeleton from "../../components/AdminNotificationSkeleton";
+import { authFetch } from "../../utils/authFetch";
 
+function getFreshChannel(name: string) {
+  const existing = supabase
+    .getChannels()
+    .find((c) => c.topic === `realtime:${name}`);
+  if (existing) supabase.removeChannel(existing);
+  return supabase.channel(name);
+}
 
 export default function AdminNotifications() {
   const { colors } = useTheme();
@@ -28,36 +36,41 @@ export default function AdminNotifications() {
     created_at: string;
   };
 
-  const [otherNotifications, setOtherNotifications] = useState<OtherNotif[]>([]);
+  const [otherNotifications, setOtherNotifications] = useState<OtherNotif[]>(
+    [],
+  );
   const otherChannelRef = useRef<RealtimeChannel | null>(null);
 
   const fetchOtherNotifications = useCallback(async () => {
-    const email = await AsyncStorage.getItem("userEmail");
-    if (!email) return;
-    const { data: userRow } = await supabase.from("users").select("id").eq("email", email).single();
-    if (!userRow) return;
-
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("id, type, message, created_at")
-      .eq("user_id", userRow.id)
-      .in("type", ["task_assigned_confirmation", "task_in_review"])
-      .order("created_at", { ascending: false });
-
-    if (error) console.error("Error fetching other notifications:", error.message);
+    const res = await authFetch(
+      "/notifications?types=task_assigned_confirmation,task_in_review",
+    );
+    if (!res.ok) {
+      console.error("Error fetching other notifications:", res.status);
+      return;
+    }
+    const data = await res.json();
     setOtherNotifications((data as OtherNotif[]) ?? []);
   }, []);
 
-  useFocusEffect(useCallback(() => { fetchOtherNotifications(); }, [fetchOtherNotifications]));
+  useFocusEffect(
+    useCallback(() => {
+      fetchOtherNotifications();
+    }, [fetchOtherNotifications]),
+  );
 
   useEffect(() => {
     if (!adminUserId) return;
-    const channel = supabase
-      .channel(`admin_other_notifs_${adminUserId}`)
+   const channel = getFreshChannel(`admin_other_notifs_${adminUserId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${adminUserId}` },
-        () => fetchOtherNotifications()
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${adminUserId}`,
+        },
+        () => fetchOtherNotifications(),
       )
       .subscribe();
     otherChannelRef.current = channel;
@@ -71,69 +84,39 @@ export default function AdminNotifications() {
 
   const clearOtherNotifications = async () => {
     if (otherNotifications.length === 0) return;
-    const ids = otherNotifications.map((n) => n.id);
-    const { error } = await supabase.from("notifications").delete().in("id", ids);
-    if (error) {
-      console.error("Failed to clear notifications:", error.message);
+    const ids = otherNotifications.map((n) => n.id).join(",");
+    const res = await authFetch(`/notifications?ids=${ids}`, { method: "DELETE" });
+    if (!res.ok) {
+      console.error("Failed to clear notifications:", res.status);
       return;
     }
     setOtherNotifications([]);
   };
 
-  // Resolve the logged-in admin's id + workspace: email in AsyncStorage ->
-  // lookup against the `users` table.
   useEffect(() => {
     (async () => {
-      const email = await AsyncStorage.getItem("userEmail");
-      if (!email) return;
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, workspace_id")
-        .eq("email", email)
-        .single();
-
-      if (error || !data) {
-        console.error("Could not resolve admin user for email:", email);
+      const res = await authFetch("/me");
+      if (!res.ok) {
+        console.error("Could not resolve admin user.");
         return;
       }
+      const data = await res.json();
       setAdminUserId(data.id);
       setWorkspaceId(data.workspace_id);
     })();
   }, []);
 
-  const fetchPendingCount = useCallback(async () => {
-    const email = await AsyncStorage.getItem("userEmail");
-    if (!email) return;
-    const { data: userRow } = await supabase
-      .from("users")
-      .select("id, workspace_id")
-      .eq("email", email)
-      .single();
-    if (!userRow) return;
-
-    const { count: connCount, error: connError } = await supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userRow.id)
-      .eq("type", "connection_request");
-
-    if (connError) console.error("Error fetching connection count:", connError.message);
-
-    const { count: extCount, error: extError } = await supabase
-      .from("extension_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", userRow.workspace_id)
-      .eq("status", "pending");
-
-    if (extError) console.error("Error fetching extension count:", extError.message);
-
-    setPendingCount((connCount ?? 0) + (extCount ?? 0));
+ const fetchPendingCount = useCallback(async () => {
+    const res = await authFetch("/dashboard-counts");
+    if (!res.ok) return;
+    const data = await res.json();
+    setPendingCount(data.count ?? 0);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       fetchPendingCount();
-    }, [fetchPendingCount])
+    }, [fetchPendingCount]),
   );
 
   // Realtime: keep the badge accurate — connection requests via notifications,
@@ -141,8 +124,7 @@ export default function AdminNotifications() {
   useEffect(() => {
     if (!adminUserId) return;
 
-    const channel = supabase
-      .channel(`notifications_admin_badge_${adminUserId}`)
+    const channel = getFreshChannel(`notifications_admin_badge_${adminUserId}`)
       .on(
         "postgres_changes",
         {
@@ -153,7 +135,7 @@ export default function AdminNotifications() {
         },
         () => {
           fetchPendingCount();
-        }
+        },
       )
       .subscribe();
 
@@ -171,8 +153,7 @@ export default function AdminNotifications() {
   useEffect(() => {
     if (!workspaceId) return;
 
-    const channel = supabase
-      .channel(`extension_requests_admin_badge_${workspaceId}`)
+    const channel = getFreshChannel(`extension_requests_admin_badge_${workspaceId}`)
       .on(
         "postgres_changes",
         {
@@ -183,7 +164,7 @@ export default function AdminNotifications() {
         },
         () => {
           fetchPendingCount();
-        }
+        },
       )
       .subscribe();
 
@@ -225,7 +206,13 @@ export default function AdminNotifications() {
           size={moderateScale(26)}
           color={colors.brand.onPrimary}
         />
-        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: 15 }}>
+        <Text
+          style={{
+            ...typography.heading,
+            color: colors.brand.onPrimary,
+            marginLeft: 15,
+          }}
+        >
           Notifications
         </Text>
       </View>
@@ -265,8 +252,18 @@ export default function AdminNotifications() {
           </View>
 
           <View style={{ flex: 1 }}>
-            <Text style={{ ...typography.heading3, color: colors.text.primary }}>Requests</Text>
-            <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 2 }}>
+            <Text
+              style={{ ...typography.heading3, color: colors.text.primary }}
+            >
+              Requests
+            </Text>
+            <Text
+              style={{
+                ...typography.label,
+                color: colors.text.secondary,
+                marginTop: 2,
+              }}
+            >
               Connection & extend deadline requests
             </Text>
           </View>
@@ -281,24 +278,48 @@ export default function AdminNotifications() {
                 marginRight: 10,
               }}
             >
-              <Text style={{ ...typography.label, color: colors.status.pending }}>
+              <Text
+                style={{ ...typography.label, color: colors.status.pending }}
+              >
                 {pendingCount} pending
               </Text>
             </View>
           )}
 
-          <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={colors.text.secondary}
+          />
         </TouchableOpacity>
 
         {/* ---------- Other Notifications ---------- */}
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10, marginBottom: 12 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginTop: 10,
+            marginBottom: 12,
+          }}
+        >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Ionicons name="notifications-outline" size={18} color={colors.text.secondary} />
-            <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Other Notifications</Text>
+            <Ionicons
+              name="notifications-outline"
+              size={18}
+              color={colors.text.secondary}
+            />
+            <Text
+              style={{ ...typography.heading3, color: colors.text.secondary }}
+            >
+              Other Notifications
+            </Text>
           </View>
           {otherNotifications.length > 0 && (
             <TouchableOpacity onPress={clearOtherNotifications}>
-              <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
+              <Text style={{ ...typography.label, color: colors.brand.accent }}>
+                Clear All
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -318,13 +339,17 @@ export default function AdminNotifications() {
                 width: 72,
                 height: 72,
                 borderRadius: 36,
-                backgroundColor: 'rgba(0, 0, 0, 0.08)', // subtle circle behind icon
-                alignItems: 'center',
-                justifyContent: 'center',
+                backgroundColor: "rgba(0, 0, 0, 0.08)", // subtle circle behind icon
+                alignItems: "center",
+                justifyContent: "center",
                 marginBottom: 16,
               }}
             >
-              <Ionicons name="notifications-outline" size={32} color={colors.text.secondary} />
+              <Ionicons
+                name="notifications-outline"
+                size={32}
+                color={colors.text.secondary}
+              />
             </View>
 
             <Text
@@ -332,7 +357,7 @@ export default function AdminNotifications() {
                 ...typography.subheading, // or a bold/medium variant
                 color: colors.text.primary,
                 marginBottom: 10,
-                textAlign: 'center',
+                textAlign: "center",
               }}
             >
               You're all caught up
@@ -342,7 +367,7 @@ export default function AdminNotifications() {
               style={{
                 ...typography.body,
                 color: colors.text.secondary,
-                textAlign: 'center',
+                textAlign: "center",
               }}
             >
               New notifications will show up here.
@@ -364,11 +389,30 @@ export default function AdminNotifications() {
                 gap: 12,
               }}
             >
-              <Ionicons name="briefcase-outline" size={20} color={colors.brand.accent} style={{ marginTop: 2 }} />
+              <Ionicons
+                name="briefcase-outline"
+                size={20}
+                color={colors.brand.accent}
+                style={{ marginTop: 2 }}
+              />
               <View style={{ flex: 1 }}>
-                <Text style={{ ...typography.body, color: colors.text.primary }}>{n.message}</Text>
-                <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 4 }}>
-                  {new Date(n.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                <Text
+                  style={{ ...typography.body, color: colors.text.primary }}
+                >
+                  {n.message}
+                </Text>
+                <Text
+                  style={{
+                    ...typography.label,
+                    color: colors.text.secondary,
+                    marginTop: 4,
+                  }}
+                >
+                  {new Date(n.created_at).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
                 </Text>
               </View>
             </View>

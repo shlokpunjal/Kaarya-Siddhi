@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from supabase_client import supabase
 from auth_utils import get_current_user
+from routes.notify import _send_push
 
 router = APIRouter()
 
@@ -67,7 +68,6 @@ async def update_task(task_id: str, payload: dict, current_user: dict = Depends(
     result = supabase.table("tasks").update(updates).eq("id", task_id).select().execute()
     return result.data[0]
 
-
 @router.delete("/tasks/{task_id}")
 async def delete_task(task_id: str, current_user: dict = Depends(get_current_user)):
     own_id = _get_own_id(current_user["sub"])
@@ -76,6 +76,7 @@ async def delete_task(task_id: str, current_user: dict = Depends(get_current_use
     supabase.table("task_files").delete().eq("task_id", task_id).execute()
     supabase.table("task_submissions").delete().eq("task_id", task_id).execute()
     supabase.table("extension_requests").delete().eq("task_id", task_id).execute()
+    supabase.table("notifications").delete().eq("task_id", task_id).execute()
     supabase.table("tasks").delete().eq("id", task_id).execute()
 
     return {"deleted": True}
@@ -126,3 +127,67 @@ async def get_employees_directory(current_user: dict = Depends(get_current_user)
         .execute()
     )
     return result.data
+
+@router.get("/tasks/{task_id}/detail")
+async def get_task_detail(task_id: str, current_user: dict = Depends(get_current_user)):
+    own_id = _get_own_id(current_user["sub"])
+    _check_ownership(task_id, own_id)
+
+    task = supabase.table("tasks").select("*").eq("id", task_id).execute().data[0]
+    files = supabase.table("task_files").select("*").eq("task_id", task_id).execute().data or []
+
+    def _resolve_name(user_id):
+        if not user_id:
+            return None
+        u = supabase.table("users").select("name, email").eq("id", user_id).execute()
+        if not u.data:
+            return user_id
+        return u.data[0].get("name") or u.data[0].get("email") or user_id
+
+    return {
+        "task": task,
+        "files": files,
+        "assigned_by_name": _resolve_name(task.get("created_by")),
+        "assigned_to_name": _resolve_name(task.get("assigned_to")),
+    }
+
+@router.get("/tasks/{task_id}/pending-extension")
+async def get_pending_extension(task_id: str, current_user: dict = Depends(get_current_user)):
+    result = (
+        supabase.table("extension_requests")
+        .select("id")
+        .eq("task_id", task_id)
+        .eq("status", "pending")
+        .execute()
+    )
+    return {"pending": bool(result.data)}
+
+
+@router.post("/tasks/{task_id}/ask-review")
+async def ask_for_review(task_id: str, current_user: dict = Depends(get_current_user)):
+    own_id = _get_own_id(current_user["sub"])
+    _check_ownership(task_id, own_id)
+
+    task = supabase.table("tasks").select("*").eq("id", task_id).execute().data[0]
+
+    supabase.table("task_submissions").insert({
+        "task_id": task_id,
+        "submitted_by": own_id,
+        "note": "Requested review via app",
+    }).execute()
+
+    supabase.table("tasks").update({"status": "in_review"}).eq("id", task_id).execute()
+
+    recipients = {task.get("assigned_to"), task.get("created_by")} - {None}
+    if recipients:
+        rows = [
+            {"user_id": uid, "type": "task_in_review", "message": f'"{task["title"]}" has been submitted for review.', "task_id": task_id}
+            for uid in recipients
+        ]
+        supabase.table("notifications").insert(rows).execute()
+
+        for uid in recipients:
+            if uid != own_id:
+                await _send_push(uid, "Task submitted for review", f'"{task["title"]}" has been submitted for review.', {"type": "task_in_review", "taskId": task_id})
+
+    return {"status": "in_review"}

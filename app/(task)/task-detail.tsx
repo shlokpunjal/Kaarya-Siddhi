@@ -18,7 +18,7 @@ import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/AlertModal";
-import { sendPushOnly } from "../../lib/notify";
+import { authFetch } from "../../utils/authFetch";
 
 export default function TaskDetail() {
   const { colors } = useTheme();
@@ -38,16 +38,9 @@ export default function TaskDetail() {
   // ── Resolve logged-in user's id (to check task ownership) ──
   useEffect(() => {
     const resolveUser = async () => {
-      const email = await AsyncStorage.getItem("userEmail");
-      if (!email) return;
-
-      const { data, error } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .single();
-
-      if (!error && data) {
+      const res = await authFetch("/me");
+      if (res.ok) {
+        const data = await res.json();
         setCurrentUserId(data.id);
       }
     };
@@ -87,69 +80,31 @@ export default function TaskDetail() {
     const fetchTask = async () => {
       setLoading(true);
 
-      const { data: taskData, error: taskError } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("id", taskId)
-        .single();
-
-      if (taskError) {
-        console.error("Task fetch error:", taskError);
+      const res = await authFetch(`/tasks/${taskId}/detail`);
+      if (!res.ok) {
+        console.error("Task fetch error:", res.status);
         setLoading(false);
         return;
       }
 
-      const { data: files, error: filesError } = await supabase
-        .from("task_files")
-        .select("*")
-        .eq("task_id", taskId);
-
-      if (filesError) console.error("Files fetch error:", filesError);
-
+      const { task: taskData, files, assigned_by_name } = await res.json();
       setTask(taskData);
       setTaskFiles(files ?? []);
+      setAssignedByName(assigned_by_name || "—");
       setLoading(false);
     };
 
     fetchTask();
   }, [taskId]);
 
-  // ── Resolve who assigned/created this task (task.created_by is a user id) ───
-  useEffect(() => {
-    const resolveAssigner = async () => {
-      if (!task?.created_by) return;
-
-      const { data, error } = await supabase
-        .from("users")
-        .select("name, email")
-        .eq("id", task.created_by)
-        .single();
-
-      if (!error && data) {
-        setAssignedByName(data.name || data.email || task.created_by);
-      } else {
-        setAssignedByName(task.created_by);
-      }
-    };
-
-    resolveAssigner();
-  }, [task]);
-
+  
   // ── Check for an existing pending extension request, refreshed on focus ─────
-  const checkPendingExtension = useCallback(async () => {
+ const checkPendingExtension = useCallback(async () => {
     if (!taskId) return;
-    const { data, error } = await supabase
-      .from("extension_requests")
-      .select("id")
-      .eq("task_id", taskId)
-      .eq("status", "pending")
-      .maybeSingle();
-
-    if (error) {
-      console.error("Extension request check error:", error);
-      return;
-    }
-    setHasPendingExtension(!!data);
+    const res = await authFetch(`/tasks/${taskId}/pending-extension`);
+    if (!res.ok) return;
+    const { pending } = await res.json();
+    setHasPendingExtension(pending);
   }, [taskId]);
 
   useFocusEffect(
@@ -158,38 +113,6 @@ export default function TaskDetail() {
     }, [checkPendingExtension]),
   );
 
-  // ── Notify both the assignee and the creator that a task moved to review ────
-  // NOTE: adjust column names ("message", "task_id") if your `notifications`
-  // table uses different ones.
-  const notifyBothParties = async (title: string) => {
-    const recipients = new Set<string>();
-    if (task?.assigned_to) recipients.add(task.assigned_to);
-    if (task?.created_by) recipients.add(task.created_by);
-
-    const rows = Array.from(recipients).map((user_id) => ({
-      user_id,
-      type: "task_in_review",
-      message: `"${title}" has been submitted for review.`,
-      task_id: task.id,
-    }));
-
-    if (rows.length === 0) return;
-
-    const { error } = await supabase.from("notifications").insert(rows);
-    if (error) console.error("Notification insert error:", error);
-
-    // Push to whoever isn't the one asking for review — no need to buzz
-    // your own phone for your own action.
-    const pushTargets = Array.from(recipients).filter((id) => id !== currentUserId);
-    await Promise.all(
-      pushTargets.map((id) =>
-        sendPushOnly(id, "Task submitted for review", `"${title}" has been submitted for review.`, {
-          type: "task_in_review",
-          taskId: task.id,
-        })
-      )
-    );
-  };
   // ── Ask to Review — moves the task into the in_review queue directly ────────
   // Distinct from "Review or Complete" (which only shows for tasks the
   // employee created themselves and routes to a separate completion flow).
@@ -201,24 +124,8 @@ export default function TaskDetail() {
     try {
       setAskingReview(true);
 
-      const { error: submitError } = await supabase
-        .from("task_submissions")
-        .insert({
-          task_id: task.id,
-          submitted_by: currentUserId ?? task.assigned_to,
-          note: "Requested review via app",
-        });
-
-      if (submitError) throw submitError;
-
-      const { error: updateError } = await supabase
-        .from("tasks")
-        .update({ status: "in_review" })
-        .eq("id", task.id);
-
-      if (updateError) throw updateError;
-
-      await notifyBothParties(task.title);
+      const res = await authFetch(`/tasks/${task.id}/ask-review`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to request review");
 
       setTask((prev: any) => ({ ...prev, status: "in_review" }));
       showToast("Task sent for review!", "success");
@@ -247,33 +154,8 @@ export default function TaskDetail() {
 
     try {
       setDeleting(true);
-
-      const { error: filesError } = await supabase
-        .from("task_files")
-        .delete()
-        .eq("task_id", task.id);
-      if (filesError) throw filesError;
-
-      const { error: submissionsError } = await supabase
-        .from("task_submissions")
-        .delete()
-        .eq("task_id", task.id);
-      if (submissionsError) throw submissionsError;
-
-      const { error: extensionError } = await supabase
-        .from("extension_requests")
-        .delete()
-        .eq("task_id", task.id);
-      if (extensionError) throw extensionError;
-
-      const { error: notificationsError } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("task_id", task.id);
-      if (notificationsError) throw notificationsError;
-
-      const { error } = await supabase.from("tasks").delete().eq("id", task.id);
-      if (error) throw error;
+     const res = await authFetch(`/tasks/${task.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
 
       setDeleteConfirmVisible(false);
       showToast("Task has been deleted.", "success");
