@@ -101,3 +101,34 @@ async def get_dashboard_counts(current_user: dict = Depends(get_current_user)):
 
     else:
         raise HTTPException(status_code=403, detail="Unrecognized role.")
+    
+    
+    
+@router.get("/calendar-tasks")
+async def get_calendar_tasks(current_user: dict = Depends(get_current_user)):
+    email = current_user["sub"]
+    role = current_user["role"]
+
+    user = (
+        supabase.table("users")
+        .select("id, workspace_id")
+        .eq("email", email)
+        .execute()
+    )
+    if not user.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+
+    user_row = user.data[0]
+    query = supabase.table("tasks").select("*")
+
+    if role == "employee":
+        query = query.or_(f"assigned_to.eq.{user_row['id']},created_by.eq.{user_row['id']}")
+    elif role == "admin":
+        if not user_row.get("workspace_id"):
+            return []
+        query = query.eq("workspace_id", user_row["workspace_id"])
+    else:
+        raise HTTPException(status_code=403, detail="Unrecognized role.")
+
+    result = query.execute()
+    return result.data

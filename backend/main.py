@@ -10,7 +10,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException # used 
 from apscheduler.schedulers.background import BackgroundScheduler
 from slowapi.errors import RateLimitExceeded # sets limits to use of api 
 from slowapi import _rate_limit_exceeded_handler # avoids spams and too many requests
-from backend import eoffice_reminders
 from config import ALLOWED_ORIGINS, CRON_SECRET
 from rate_limit import limiter
 from sheets_sync import sync_tasks_from_sheet
@@ -18,11 +17,15 @@ from deadline_reminders import send_deadline_reminders
 from overdue_reminders import send_overdue_reminders
 from routes.tasks import router as tasks_router
 from eoffice_reminders import send_eoffice_reminders
+from routes.employee_tasks import router as employee_tasks_router
+from routes.eoffice import router as eoffice_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("kaarya_siddhi")
 
 app = FastAPI(title="Kaarya Siddhi API")
 app.state.limiter = limiter
+app.include_router(eoffice_router)
+app.include_router(employee_tasks_router)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(tasks_router)
 app.add_middleware(
