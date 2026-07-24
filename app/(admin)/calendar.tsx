@@ -16,12 +16,14 @@ import { useRouter } from "expo-router";
 import { wp, moderateScale } from "../../utils/responsive";
 import { supabase } from "../../lib/supabase";
 import CalendarScreenSkeleton from "../../components/CalendarScreenSkeleton";
-
+import { authFetch } from "../../utils/authFetch";
 // Removes any existing channel with this name before creating a new one —
 // prevents "cannot add postgres_changes callbacks... after subscribe()"
 // errors caused by Strict Mode / Fast Refresh double-invoking effects.
 function getFreshChannel(name: string) {
-  const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
+  const existing = supabase
+    .getChannels()
+    .find((c) => c.topic === `realtime:${name}`);
   if (existing) supabase.removeChannel(existing);
   return supabase.channel(name);
 }
@@ -131,46 +133,31 @@ export default function CalendarScreen() {
     let isMounted = true;
     let tasksChannel: ReturnType<typeof supabase.channel> | null = null;
     let extensionsChannel: ReturnType<typeof supabase.channel> | null = null;
-    const fetchTasks = async (workspaceId: string) => {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("workspace_id", workspaceId);
-
-      if (error) {
-        console.error("Error fetching calendar tasks:", error.message);
+    const fetchTasks = async () => {
+      const res = await authFetch("/calendar-tasks");
+      if (!res.ok) {
+        console.error("Error fetching calendar tasks:", res.status);
         return;
       }
+      const data = await res.json();
       if (isMounted) setTasksMap(groupTasksByDate((data ?? []) as TaskRow[]));
     };
 
     const init = async () => {
       setLoading(true);
-      const email = await AsyncStorage.getItem("userEmail");
-      if (!email) {
+      const meRes = await authFetch("/me");
+      if (!meRes.ok) {
         if (isMounted) setLoading(false);
         return;
       }
-
-      const { data: userRow, error: userError } = await supabase
-        .from("users")
-        .select("workspace_id")
-        .eq("email", email)
-        .single();
-
-      if (userError || !userRow) {
-        console.error("Error fetching admin workspace_id:", userError?.message);
-        if (isMounted) setLoading(false);
-        return;
-      }
-
-      const workspaceId = userRow.workspace_id as string;
+      const currentUser = await meRes.json();
+      const workspaceId = currentUser.workspace_id as string;
       if (isMounted) setWorkspaceId(workspaceId);
 
-      await fetchTasks(workspaceId);
+      await fetchTasks();
       if (isMounted) setLoading(false);
 
-     tasksChannel = getFreshChannel("admin-calendar-tasks")
+      tasksChannel = getFreshChannel("admin-calendar-tasks")
         .on(
           "postgres_changes",
           {
@@ -180,7 +167,7 @@ export default function CalendarScreen() {
             filter: `workspace_id=eq.${workspaceId}`,
           },
           () => {
-            fetchTasks(workspaceId);
+            fetchTasks();
           },
         )
         .subscribe();
@@ -195,7 +182,7 @@ export default function CalendarScreen() {
             filter: `workspace_id=eq.${workspaceId}`,
           },
           () => {
-            fetchTasks(workspaceId);
+            fetchTasks();
           },
         )
         .subscribe();
@@ -281,11 +268,13 @@ export default function CalendarScreen() {
         />
       }
     >
-       {/* ── Header ─────────────────────────────────────────────────────── */}
-            <View style={[s.header]}>
-              <Text style={[typography.heading, { color: text.primary }]}>Calendar</Text>
-            </View>
-      
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <View style={[s.header]}>
+        <Text style={[typography.heading, { color: text.primary }]}>
+          Calendar
+        </Text>
+      </View>
+
       {/* ── Calendar card ──────────────────────────────────────────────── */}
       <View style={s.calendarBlock}>
         <View
@@ -535,8 +524,8 @@ export default function CalendarScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-/* Header */
-    header: {
+  /* Header */
+  header: {
     height: moderateScale(60),
     justifyContent: "center",
     paddingLeft: 22,

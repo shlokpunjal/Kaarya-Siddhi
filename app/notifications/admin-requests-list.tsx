@@ -20,7 +20,8 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
-import AdminRequestsListSkeleton from '../../components/AdminRequestListSkeleton';
+import AdminRequestsListSkeleton from "../../components/AdminRequestListSkeleton";
+import { authFetch } from "../../utils/authFetch";
 
 type ConnectionNotif = {
   id: string;
@@ -38,6 +39,14 @@ type ExtensionRow = {
   tasks: { title: string; priority: "low" | "medium" | "high" } | null;
 };
 
+function getFreshChannel(name: string) {
+  const existing = supabase
+    .getChannels()
+    .find((c) => c.topic === `realtime:${name}`);
+  if (existing) supabase.removeChannel(existing);
+  return supabase.channel(name);
+}
+
 const priorityColor = (colors: any, priority?: string) => {
   if (priority === "high") return colors.status.overdue;
   if (priority === "medium") return colors.status.pending;
@@ -54,15 +63,31 @@ export default function AdminRequestsList() {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(translateY, { toValue: 0, duration: 280, useNativeDriver: true }),
-      Animated.timing(backdropOpacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 280,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 1,
+        duration: 280,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
   const closeSheet = () => {
     Animated.parallel([
-      Animated.timing(translateY, { toValue: screenHeight, duration: 240, useNativeDriver: true }),
-      Animated.timing(backdropOpacity, { toValue: 0, duration: 240, useNativeDriver: true }),
+      Animated.timing(translateY, {
+        toValue: screenHeight,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 240,
+        useNativeDriver: true,
+      }),
     ]).start(() => router.back());
   };
 
@@ -76,27 +101,20 @@ export default function AdminRequestsList() {
 
   const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
-  const [connectionNotifs, setConnectionNotifs] = useState<ConnectionNotif[]>([]);
+  const [connectionNotifs, setConnectionNotifs] = useState<ConnectionNotif[]>(
+    [],
+  );
   const [extensionRows, setExtensionRows] = useState<ExtensionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const notifChannelRef = useRef<RealtimeChannel | null>(null);
   const extensionChannelRef = useRef<RealtimeChannel | null>(null);
 
-  // Resolve this admin's own id + workspace once.
   useEffect(() => {
     (async () => {
-      const email = await AsyncStorage.getItem("userEmail");
-      if (!email) {
-        setLoading(false);
-        return;
-      }
-      const { data } = await supabase
-        .from("users")
-        .select("id, workspace_id")
-        .eq("email", email)
-        .single();
-      if (data) {
+      const res = await authFetch("/me");
+      if (res.ok) {
+        const data = await res.json();
         setAdminUserId(data.id);
         setWorkspaceId(data.workspace_id);
       } else {
@@ -107,38 +125,21 @@ export default function AdminRequestsList() {
 
   const fetchConnections = useCallback(async () => {
     if (!adminUserId) return;
-
-    const { data: connRows } = await supabase
-      .from("notifications")
-      .select("id, created_at, metadata")
-      .eq("user_id", adminUserId)
-      .eq("type", "connection_request")
-      .order("created_at", { ascending: false });
-
-    const rows = (connRows as any[]) ?? [];
-    const emails = rows.map((r) => r.metadata?.employee_email).filter(Boolean);
-    let namesByEmail: Record<string, string> = {};
-    if (emails.length > 0) {
-      const { data: userRows } = await supabase.from("users").select("email, name").in("email", emails);
-      namesByEmail = Object.fromEntries((userRows ?? []).map((u: any) => [u.email, u.name]));
-    }
-    setConnectionNotifs(
-      rows.map((r) => ({ ...r, employee_name: namesByEmail[r.metadata?.employee_email] }))
-    );
+    const res = await authFetch("/connection-requests");
+    if (!res.ok) return;
+    const data = await res.json();
+    setConnectionNotifs(data ?? []);
   }, [adminUserId]);
 
   const fetchExtensions = useCallback(async () => {
     if (!workspaceId) return;
-
-    const { data: extRows, error } = await supabase
-      .from("extension_requests")
-      .select("id, task_id, reason, requested_deadline, created_at, tasks(title, priority)")
-      .eq("workspace_id", workspaceId)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
-
-    if (error) console.error("Error fetching extension requests:", error.message);
-    setExtensionRows((extRows as any[]) ?? []);
+    const res = await authFetch("/extension-requests-list");
+    if (!res.ok) {
+      console.error("Error fetching extension requests:", res.status);
+      return;
+    }
+    const data = await res.json();
+    setExtensionRows(data ?? []);
   }, [workspaceId]);
 
   const fetchAll = useCallback(async () => {
@@ -147,17 +148,25 @@ export default function AdminRequestsList() {
     setLoading(false);
   }, [fetchConnections, fetchExtensions]);
 
-  useFocusEffect(useCallback(() => { fetchAll(); }, [fetchAll]));
+  useFocusEffect(
+    useCallback(() => {
+      fetchAll();
+    }, [fetchAll]),
+  );
 
   // Realtime — connection requests (via notifications, scoped to this admin).
   useEffect(() => {
     if (!adminUserId) return;
-    const channel = supabase
-      .channel(`admin_requests_notifs_${adminUserId}`)
+    const channel = getFreshChannel(`admin_requests_notifs_${adminUserId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${adminUserId}` },
-        () => fetchConnections()
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${adminUserId}`,
+        },
+        () => fetchConnections(),
       )
       .subscribe();
     notifChannelRef.current = channel;
@@ -172,12 +181,16 @@ export default function AdminRequestsList() {
   // Realtime — extension requests (direct table, scoped to workspace).
   useEffect(() => {
     if (!workspaceId) return;
-    const channel = supabase
-      .channel(`admin_extension_requests_${workspaceId}`)
+    const channel = getFreshChannel(`admin_extension_requests_${workspaceId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "extension_requests", filter: `workspace_id=eq.${workspaceId}` },
-        () => fetchExtensions()
+        {
+          event: "*",
+          schema: "public",
+          table: "extension_requests",
+          filter: `workspace_id=eq.${workspaceId}`,
+        },
+        () => fetchExtensions(),
       )
       .subscribe();
     extensionChannelRef.current = channel;
@@ -193,7 +206,11 @@ export default function AdminRequestsList() {
     <View style={{ flex: 1, justifyContent: "flex-end" }}>
       <Animated.View
         pointerEvents="none"
-        style={{ ...StyleSheet.absoluteFillObject, backgroundColor: "#000", opacity: backdropOpacity }}
+        style={{
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: "#000",
+          opacity: backdropOpacity,
+        }}
       />
       <Pressable style={StyleSheet.absoluteFillObject} onPress={closeSheet} />
 
@@ -207,8 +224,17 @@ export default function AdminRequestsList() {
             overflow: "hidden",
           }}
         >
-          <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 4 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.base.border }} />
+          <View
+            style={{ alignItems: "center", paddingTop: 10, paddingBottom: 4 }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: colors.base.border,
+              }}
+            />
           </View>
 
           <View
@@ -220,25 +246,66 @@ export default function AdminRequestsList() {
               paddingBottom: 12,
             }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Ionicons name="mail-outline" size={20} color={colors.text.secondary} />
-              <Text style={{ ...typography.heading, color: colors.text.primary }}>Requests</Text>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={colors.text.secondary}
+              />
+              <Text
+                style={{ ...typography.heading, color: colors.text.primary }}
+              >
+                Requests
+              </Text>
             </View>
-            <Ionicons onPress={closeSheet} name="close" size={24} color={colors.text.secondary} />
+            <Ionicons
+              onPress={closeSheet}
+              name="close"
+              size={24}
+              color={colors.text.secondary}
+            />
           </View>
 
           {loading ? (
             <AdminRequestsListSkeleton />
           ) : (
-            <ScrollView contentContainerStyle={{ padding: wp(5.3), paddingTop: 4 }}>
+            <ScrollView
+              contentContainerStyle={{ padding: wp(5.3), paddingTop: 4 }}
+            >
               {/* ---------- Connection Requests ---------- */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <Ionicons name="people-outline" size={16} color={colors.text.secondary} />
-                <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Connection Requests</Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 12,
+                }}
+              >
+                <Ionicons
+                  name="people-outline"
+                  size={16}
+                  color={colors.text.secondary}
+                />
+                <Text
+                  style={{
+                    ...typography.heading3,
+                    color: colors.text.secondary,
+                  }}
+                >
+                  Connection Requests
+                </Text>
               </View>
 
               {connectionNotifs.length === 0 && (
-                <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 24 }}>
+                <Text
+                  style={{
+                    ...typography.body,
+                    color: colors.text.secondary,
+                    marginBottom: 24,
+                  }}
+                >
                   No connection requests yet.
                 </Text>
               )}
@@ -277,30 +344,69 @@ export default function AdminRequestsList() {
                       justifyContent: "center",
                     }}
                   >
-                    <Ionicons name="person" size={20} color={colors.status.pending} />
+                    <Ionicons
+                      name="person"
+                      size={20}
+                      color={colors.status.pending}
+                    />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ ...typography.heading3, color: colors.text.primary }} numberOfLines={1}>
+                    <Text
+                      style={{
+                        ...typography.heading3,
+                        color: colors.text.primary,
+                      }}
+                      numberOfLines={1}
+                    >
                       {n.employee_name ?? n.metadata.employee_email}
                     </Text>
-                    <Text style={{ ...typography.label, color: colors.status.pending, marginTop: 2 }}>
+                    <Text
+                      style={{
+                        ...typography.label,
+                        color: colors.status.pending,
+                        marginTop: 2,
+                      }}
+                    >
                       Wants to connect · Tap to review
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={colors.text.secondary}
+                  />
                 </TouchableOpacity>
               ))}
 
               {/* ---------- Extend Deadline Requests ---------- */}
               <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, marginBottom: 12 }}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  marginTop: 10,
+                  marginBottom: 12,
+                }}
               >
-                <Ionicons name="document-text-outline" size={16} color={colors.text.secondary} />
-                <Text style={{ ...typography.heading3, color: colors.text.secondary }}>Extend Deadline Requests</Text>
+                <Ionicons
+                  name="document-text-outline"
+                  size={16}
+                  color={colors.text.secondary}
+                />
+                <Text
+                  style={{
+                    ...typography.heading3,
+                    color: colors.text.secondary,
+                  }}
+                >
+                  Extend Deadline Requests
+                </Text>
               </View>
 
               {extensionRows.length === 0 && (
-                <Text style={{ ...typography.body, color: colors.text.secondary }}>
+                <Text
+                  style={{ ...typography.body, color: colors.text.secondary }}
+                >
                   No extension requests yet.
                 </Text>
               )}
@@ -323,20 +429,43 @@ export default function AdminRequestsList() {
                     marginBottom: 14,
                   }}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
                     <View
                       style={{
                         height: 8,
                         width: 8,
                         borderRadius: 4,
-                        backgroundColor: priorityColor(colors, r.tasks?.priority),
+                        backgroundColor: priorityColor(
+                          colors,
+                          r.tasks?.priority,
+                        ),
                       }}
                     />
-                    <Text style={{ ...typography.heading3, color: colors.text.primary, flex: 1 }} numberOfLines={1}>
+                    <Text
+                      style={{
+                        ...typography.heading3,
+                        color: colors.text.primary,
+                        flex: 1,
+                      }}
+                      numberOfLines={1}
+                    >
                       {r.tasks?.title ?? "Untitled Task"}
                     </Text>
                   </View>
-                  <Text style={{ ...typography.label, color: colors.status.pending, marginTop: 6 }} numberOfLines={2}>
+                  <Text
+                    style={{
+                      ...typography.label,
+                      color: colors.status.pending,
+                      marginTop: 6,
+                    }}
+                    numberOfLines={2}
+                  >
                     {r.reason}
                   </Text>
                 </TouchableOpacity>
