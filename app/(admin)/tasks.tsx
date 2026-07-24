@@ -21,7 +21,7 @@ import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { wp } from "../../utils/responsive";
 import AdminTasksSkeleton from "../../components/AdminTasksSkeleton";
-
+import { authFetch } from "../../utils/authFetch";
 type FilterType =
   | "all"
   | "status"
@@ -107,100 +107,19 @@ export default function AdminTasks() {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
-    const adminEmail = await AsyncStorage.getItem("userEmail");
+    const res = await authFetch("/admin-tasks-and-team");
 
-    if (!adminEmail) {
-      router.replace("/(auth)/LoginChoice");
-      return;
-    }
-
-    const { data: currentAdmin, error: adminLookupError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", adminEmail)
-      .single();
-
-    if (adminLookupError || !currentAdmin) {
-      console.error("Could not resolve admin id for email:", adminEmail);
+    if (!res.ok) {
+      console.error("Could not load tasks and team:", res.status);
       setLoading(false);
+      setRefreshing(false);
       return;
     }
 
-    // ── Tasks this admin created ─────────────────────────────────────────
-    const { data: taskRows, error: taskError } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("created_by", currentAdmin.id)
-      .order("deadline", { ascending: true });
+    const { tasks: taskRows, employees } = await res.json();
 
-    let fetchedTasks: Task[] = [];
-    if (taskError) {
-      console.error("Error fetching tasks list:", taskError.message);
-    } else {
-      fetchedTasks = (taskRows ?? []).map(mapRowToTask);
-      setTasks(fetchedTasks);
-    }
-
-    // ── This admin's connected employees, for names + the filter list ────
-    const { data: connections, error: connError } = await supabase
-      .from("connections")
-      .select("employee_email")
-      .eq("admin_email", adminEmail)
-      .eq("status", "accepted");
-
-    let connectedEmployees: ManagedEmployee[] = [];
-    if (connError) {
-      console.error("Error fetching team:", connError.message);
-    } else {
-      const employeeEmails = (connections ?? []).map((c) => c.employee_email);
-
-      if (employeeEmails.length > 0) {
-        const { data: users, error: usersError } = await supabase
-          .from("users")
-          .select("id, name, email")
-          .in("email", employeeEmails);
-
-        if (usersError) {
-          console.error("Error fetching team emails:", usersError.message);
-        } else {
-          connectedEmployees = (users ?? []).map((u) => ({
-            id: u.id,
-            name: u.name,
-            email: u.email,
-          }));
-        }
-      }
-    }
-
-    setEmployees(connectedEmployees);
-
-    // ── Resolve names for every assignee on these tasks, even if no longer connected ──
-    const assignedIds = Array.from(
-      new Set(fetchedTasks.map((t) => t.assignedTo)),
-    );
-    const knownIds = new Set(connectedEmployees.map((e) => e.id));
-    const missingIds = assignedIds.filter((id) => id && !knownIds.has(id));
-
-    if (missingIds.length > 0) {
-      const { data: extraUsers, error: extraError } = await supabase
-        .from("users")
-        .select("id, name, email")
-        .in("id", missingIds);
-
-      if (extraError) {
-        console.error(
-          "Error resolving extra assignee names:",
-          extraError.message,
-        );
-      } else {
-        const extras = (extraUsers ?? []).map((u) => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-        }));
-        setEmployees((prev) => [...prev, ...extras]);
-      }
-    }
+    setTasks((taskRows ?? []).map(mapRowToTask));
+    setEmployees(employees ?? []);
 
     setLoading(false);
     setRefreshing(false);

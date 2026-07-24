@@ -85,3 +85,44 @@ async def delete_task(task_id: str, current_user: dict = Depends(get_current_use
 async def add_task_files(payload: list[dict], current_user: dict = Depends(get_current_user)):
     result = supabase.table("task_files").insert(payload).execute()
     return result.data
+
+@router.post("/tasks/assign")
+async def create_assigned_task(payload: dict, current_user: dict = Depends(get_current_user)):
+    admin = supabase.table("users").select("id, workspace_id").eq("email", current_user["sub"]).execute()
+    if not admin.data or not admin.data[0].get("workspace_id"):
+        raise HTTPException(status_code=400, detail="Could not find your workspace.")
+    row = admin.data[0]
+
+    result = (
+        supabase.table("tasks")
+        .insert({
+            "title": payload.get("title"),
+            "assigned_to": payload.get("assigned_to"),
+            "deadline": payload.get("deadline"),
+            "description": payload.get("description"),
+            "attachment_url": payload.get("attachment_url"),
+            "status": "pending",
+            "priority": payload.get("priority", "medium"),
+            "created_by": row["id"],
+            "workspace_id": row["workspace_id"],
+        })
+        .select()
+        .execute()
+    )
+    return result.data[0]
+
+
+@router.get("/employees-directory")
+async def get_employees_directory(current_user: dict = Depends(get_current_user)):
+    admin = supabase.table("users").select("workspace_id").eq("email", current_user["sub"]).execute()
+    if not admin.data or not admin.data[0].get("workspace_id"):
+        return []
+    result = (
+        supabase.table("users")
+        .select("id, name")
+        .eq("role", "employee")
+        .eq("workspace_id", admin.data[0]["workspace_id"])
+        .order("name", desc=False)
+        .execute()
+    )
+    return result.data
