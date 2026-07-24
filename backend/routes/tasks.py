@@ -1,4 +1,3 @@
-# routes/tasks.py
 from fastapi import APIRouter, Depends, HTTPException
 
 from supabase_client import supabase
@@ -6,15 +5,16 @@ from auth_utils import get_current_user
 
 router = APIRouter()
 
+from fastapi import Query
 
 @router.get("/tasks")
-async def get_tasks(current_user: dict = Depends(get_current_user)):
+async def get_tasks(
+    employee_email: str | None = Query(default=None),
+    current_user: dict = Depends(get_current_user),
+):
     email = current_user["sub"]
     role = current_user["role"]
-    workspace_id = current_user.get("workspace_id")
 
-    # Resolve the caller's internal user id — needed for the employee
-    # filter below, and confirms the account still exists.
     user = (
         supabase.table("users")
         .select("id, workspace_id")
@@ -25,18 +25,25 @@ async def get_tasks(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=401, detail="Account no longer exists.")
 
     user_row = user.data[0]
-
     query = supabase.table("tasks").select("*")
 
     if role == "employee":
-        # Employees see only tasks assigned to them.
-        query = query.eq("assigned_to", email)
+        query = query.eq("assigned_to", user_row["id"])
+
     elif role == "admin":
-        # Admins see every task in their workspace.
-        effective_workspace_id = workspace_id or user_row.get("workspace_id")
-        if not effective_workspace_id:
-            raise HTTPException(status_code=403, detail="No workspace associated with this account.")
-        query = query.eq("workspace_id", effective_workspace_id)
+        if employee_email:
+            employee = (
+                supabase.table("users")
+                .select("id, workspace_id")
+                .eq("email", employee_email)
+                .execute()
+            )
+            if not employee.data or employee.data[0]["workspace_id"] != user_row.get("workspace_id"):
+                raise HTTPException(status_code=404, detail="Employee not found in your workspace.")
+            query = query.eq("assigned_to", employee.data[0]["id"]).eq("workspace_id", user_row["workspace_id"])
+        else:
+            query = query.eq("created_by", user_row["id"]).eq("workspace_id", user_row["workspace_id"])
+
     else:
         raise HTTPException(status_code=403, detail="Unrecognized role.")
 
