@@ -182,3 +182,15 @@ async def get_team(current_user: dict = Depends(get_current_user)):
         {"email": e, "name": users_by_email.get(e, e)}
         for e in employee_emails
     ]
+    
+    
+@router.get("/find-admin")
+async def find_admin(email: str, current_user: dict = Depends(get_current_user)):
+    result = (
+        supabase.table("users")
+        .select("email, role")
+        .eq("email", email)
+        .eq("role", "admin")
+        .execute()
+    )
+    return {"found": bool(result.data)}

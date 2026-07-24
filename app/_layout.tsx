@@ -40,6 +40,12 @@ const TEXT_PRIMARY = "#F0EDE6";
 const TEXT_SECONDARY = "#8B95A1";
 const LOGO_SIZE = 114;
 
+function getFreshChannel(name: string) {
+  const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
+  if (existing) supabase.removeChannel(existing);
+  return supabase.channel(name);
+}
+
 function notifTitle(type: string): string {
   switch (type) {
     case "connection_request":
@@ -108,6 +114,7 @@ function navigateFromNotificationData(
       break;
   }
 }
+
 function NotificationBridge() {
   const router = useRouter();
   const { userEmail } = useAuth();
@@ -178,8 +185,7 @@ function NotificationBridge() {
         // Notification table realtime listener
         // ---------------------------------------------------
         try {
-          notifChannel = supabase
-            .channel(`global_notifs_${userRow.id}`)
+          notifChannel = getFreshChannel(`global_notifs_${userRow.id}`)
             .on(
               "postgres_changes",
               {
@@ -228,8 +234,7 @@ function NotificationBridge() {
         // ---------------------------------------------------
         if (userRow.role === "admin" && userRow.workspace_id) {
           try {
-            extensionChannel = supabase
-              .channel(`global_extensions_${userRow.workspace_id}`)
+           extensionChannel = getFreshChannel(`global_extensions_${userRow.workspace_id}`)
               .on(
                 "postgres_changes",
                 {
