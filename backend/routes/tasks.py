@@ -189,3 +189,19 @@ async def get_admin_tasks_and_team(current_user: dict = Depends(get_current_user
         "tasks": task_rows,
         "employees": list(employees_by_id.values()),
     }
+    
+@router.get("/extension-requests-list")
+async def get_extension_requests_list(current_user: dict = Depends(get_current_user)):
+    admin = supabase.table("users").select("workspace_id").eq("email", current_user["sub"]).execute()
+    if not admin.data or not admin.data[0].get("workspace_id"):
+        return []
+
+    result = (
+        supabase.table("extension_requests")
+        .select("id, task_id, reason, requested_deadline, created_at, tasks(title, priority)")
+        .eq("workspace_id", admin.data[0]["workspace_id"])
+        .eq("status", "pending")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data

@@ -18,6 +18,7 @@ import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/AlertModal";
+import { authFetch } from "../../utils/authFetch";
 
 export default function TaskDetailAdmin() {
   const { colors } = useTheme();
@@ -39,16 +40,9 @@ export default function TaskDetailAdmin() {
   // showing edit/delete) ──────────────────────────────────────────────────
   useEffect(() => {
     const resolveUser = async () => {
-      const email = await AsyncStorage.getItem("userEmail");
-      if (!email) return;
-
-      const { data, error } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .single();
-
-      if (!error && data) {
+      const res = await authFetch("/me");
+      if (res.ok) {
+        const data = await res.json();
         setCurrentUserId(data.id);
       }
     };
@@ -78,58 +72,26 @@ export default function TaskDetailAdmin() {
     const fetchTask = async () => {
       setLoading(true);
 
-      const { data: taskData, error: taskError } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("id", taskId)
-        .single();
-
-      if (taskError) {
-        console.error("Task fetch error:", taskError);
+      const res = await authFetch(`/tasks/${taskId}/detail`);
+      if (!res.ok) {
+        console.error("Task fetch error:", res.status);
         setLoading(false);
         return;
       }
 
-      const { data: files, error: filesError } = await supabase
-        .from("task_files")
-        .select("*")
-        .eq("task_id", taskId);
+      const { task: taskData, files, assigned_to_name } = await res.json();
 
-      if (filesError) console.error("Files fetch error:", filesError);
-
-      // Normalize DB's snake_case status to the camelCase convention used
-      // everywhere else in the app (see (admin)/index.tsx, (employee)/tasks.tsx, etc.)
       setTask({
         ...taskData,
         status: taskData.status === "in_review" ? "inReview" : taskData.status,
       });
       setTaskFiles(files ?? []);
+      setAssignedName(assigned_to_name || "—");
       setLoading(false);
     };
 
     fetchTask();
   }, [taskId]);
-
-  // ── Resolve assigned employee's name (task.assigned_to is a user id) ────────
-  useEffect(() => {
-    const resolveAssignee = async () => {
-      if (!task?.assigned_to) return;
-
-      const { data, error } = await supabase
-        .from("users")
-        .select("name, email")
-        .eq("id", task.assigned_to)
-        .single();
-
-      if (!error && data) {
-        setAssignedName(data.name || data.email || task.assigned_to);
-      } else {
-        setAssignedName(task.assigned_to);
-      }
-    };
-
-    resolveAssignee();
-  }, [task]);
 
   // ── Delete task ───────────────────────────────────────────────────────────────
   const handleDeleteTask = () => {
@@ -142,8 +104,8 @@ export default function TaskDetailAdmin() {
     try {
       setDeleting(true);
 
-      const { error } = await supabase.from("tasks").delete().eq("id", task.id);
-      if (error) throw error;
+      const res = await authFetch(`/tasks/${task.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
 
       setDeleteConfirmVisible(false);
       showToast("Task has been deleted.", "success");
