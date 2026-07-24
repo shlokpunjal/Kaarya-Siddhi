@@ -25,7 +25,7 @@ import { wp, hp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/AlertModal";
 import { toLocalDateString } from "../../utils/dateFormat";
-
+import { authFetch } from "../../utils/authFetch";
 type Priority = "low" | "medium" | "high";
 
 type EmployeeProfile = {
@@ -82,19 +82,7 @@ export default function Newtask() {
       const email = await AsyncStorage.getItem("userEmail");
       if (!email) return;
 
-      const { data: currentUser, error: userLookupError } = await supabase
-        .from("users")
-        .select("id, workspace_id")
-        .eq("email", email)
-        .single();
-
-      if (userLookupError || !currentUser?.workspace_id) {
-        console.error("Could not resolve admin's workspace:", userLookupError?.message);
-        return;
-      }
-
-      setWorkspaceId(currentUser.workspace_id);
-      const employees = await fetchEmployeeProfiles(currentUser.workspace_id);
+      const employees = await fetchEmployeeProfiles();
 
       // ── Edit mode: load the existing task now that we have the employee
       // directory to resolve the assignee's display name from. ──
@@ -108,33 +96,19 @@ export default function Newtask() {
     }
   };
 
-  const fetchEmployeeProfiles = async (wsId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, name")
-        .eq("role", "employee")
-        .eq("workspace_id", wsId)   // ← only employees in the admin's own workspace
-        .order("name", { ascending: true });
-      if (error) throw error;
-      if (data) {
-        setEmployeesList(data);
-        return data;
-      }
-      return [];
-    } catch (err: any) {
-      console.error("Error loading employee directory:", err.message);
-      return [];
-    }
+  const fetchEmployeeProfiles = async () => {
+    const res = await authFetch("/employees-directory");
+    if (!res.ok) return [];
+    const data = await res.json();
+    setEmployeesList(data);
+    return data;
   };
 
   // ── Load an existing task's fields for editing ──────────────────────────────
   const fetchTaskForEdit = async (id: string, employees: EmployeeProfile[]) => {
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("id", id)
-      .single();
+    const res = await authFetch(`/tasks/${id}`);
+    const data = res.ok ? await res.json() : null;
+    const error = res.ok ? null : { message: `HTTP ${res.status}` };
 
     if (error || !data) {
       console.error("Failed to load task for editing:", error?.message);
@@ -235,38 +209,24 @@ export default function Newtask() {
         showToast("Your session has expired. Please log back in.", "error");
         return;
       }
-
-      const { data: currentUser, error: userLookupError } = await supabase
-        .from("users")
-        .select("id, workspace_id")
-        .eq("email", email)
-        .single();
-
-      if (userLookupError || !currentUser || !currentUser.workspace_id) {
-        showToast("Could not find your workspace. Please log back in.", "error");
-        return;
-      }
-
       const uploadedResults = await Promise.all(
         attachedFiles.map((file) => uploadSingleFile(file))
       );
       const mainFileUrl = uploadedResults.length > 0 ? uploadedResults[0].file_url : null;
 
       if (isEditMode) {
-        // ── Update existing task ──
-        const { error: updateError } = await supabase
-          .from("tasks")
-          .update({
+        const updateRes = await authFetch(`/tasks/${taskId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
             title: taskName,
             assigned_to: selectedEmployeeId,
             deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
             description: description || null,
             ...(mainFileUrl ? { attachment_url: mainFileUrl } : {}),
             priority: selectedPriority ?? "medium",
-          })
-          .eq("id", taskId);
-
-        if (updateError) throw updateError;
+          }),
+        });
+        if (!updateRes.ok) throw new Error("Could not update task.");
 
         if (uploadedResults.length > 0) {
           const filesPayload = uploadedResults.map((res) => ({
@@ -276,31 +236,26 @@ export default function Newtask() {
             file_type: res.file_type,
             storage_service: "cloudinary",
           }));
-          const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
-          if (fileError) throw fileError;
+          const filesRes = await authFetch("/task-files", { method: "POST", body: JSON.stringify(filesPayload) });
+          if (!filesRes.ok) throw new Error("Could not attach files.");
         }
 
         showToast("Task updated successfully", "success");
         setTimeout(() => router.back(), 900);
       } else {
-        // ── Create new task ──
-        const { data: task, error: taskError } = await supabase
-          .from("tasks")
-          .insert({
+        const createRes = await authFetch("/tasks/assign", {
+          method: "POST",
+          body: JSON.stringify({
             title: taskName,
             assigned_to: selectedEmployeeId,
             deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
             description: description || null,
             attachment_url: mainFileUrl,
-            status: "pending",
             priority: selectedPriority ?? "medium",
-            created_by: currentUser.id,
-            workspace_id: currentUser.workspace_id,
-          })
-          .select()
-          .single();
-
-        if (taskError) throw taskError;
+          }),
+        });
+        if (!createRes.ok) throw new Error("Could not create task.");
+        const task = await createRes.json();
 
         if (uploadedResults.length > 0 && task) {
           const filesPayload = uploadedResults.map((res) => ({
@@ -310,8 +265,8 @@ export default function Newtask() {
             file_type: res.file_type,
             storage_service: "cloudinary",
           }));
-          const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
-          if (fileError) throw fileError;
+          const filesRes = await authFetch("/task-files", { method: "POST", body: JSON.stringify(filesPayload) });
+          if (!filesRes.ok) throw new Error("Could not attach files.");
         }
 
         await createNotification({
@@ -347,12 +302,8 @@ export default function Newtask() {
     try {
       setDeleting(true);
 
-      await supabase.from("task_files").delete().eq("task_id", taskId);
-      await supabase.from("task_submissions").delete().eq("task_id", taskId);
-      await supabase.from("extension_requests").delete().eq("task_id", taskId);
-
-      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-      if (error) throw error;
+      const res = await authFetch(`/tasks/${taskId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
 
       setDeleteConfirmVisible(false);
       showToast("Task has been deleted.", "success");

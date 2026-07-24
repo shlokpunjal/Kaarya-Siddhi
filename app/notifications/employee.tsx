@@ -10,6 +10,7 @@ import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
 import EmployeeNotificationsSkeleton from '../../components/EmployeeNotificationSkeleton';
+import { authFetch } from "../../utils/authFetch";
 
 type NotifRow = {
   id: string;
@@ -31,6 +32,12 @@ const notifMeta = (colors: any, type: NotifRow["type"]) => {
   return { color: colors.status.overdue, icon: "close-circle-outline" as const };
 };
 
+function getFreshChannel(name: string) {
+  const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
+  if (existing) supabase.removeChannel(existing);
+  return supabase.channel(name);
+}
+
 export default function EmployeeNotifications() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -41,31 +48,25 @@ export default function EmployeeNotifications() {
 
   useEffect(() => {
     (async () => {
-      const email = await AsyncStorage.getItem("userEmail");
-      if (!email) return;
-      const { data } = await supabase.from("users").select("id").eq("email", email).single();
-      if (data) setUserId(data.id);
+      const res = await authFetch("/me");
+      if (res.ok) {
+        const data = await res.json();
+        setUserId(data.id);
+      }
     })();
   }, []);
 
   const fetchNotifications = useCallback(async (id: string) => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("id, type, message, created_at, metadata, task_id")
-      .eq("user_id", id)
-      .in("type", [
-        "connection_accepted", "connection_rejected",
-        "extension_accepted", "extension_rejected",
-        "task_assigned", "task_in_review",
-      ])
-      .order("created_at", { ascending: false });
+    const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review";
+    const res = await authFetch(`/notifications?types=${types}`);
 
-    if (error) {
-      console.error("Error fetching notifications:", error.message);
+    if (!res.ok) {
+      console.error("Error fetching notifications:", res.status);
       setLoading(false);
       return;
     }
+    const data = await res.json();
     setNotifications((data as NotifRow[]) ?? []);
     setLoading(false);
   }, []);
@@ -78,8 +79,7 @@ export default function EmployeeNotifications() {
 
   useEffect(() => {
     if (!userId) return;
-    const channel = supabase
-      .channel(`employee_notifs_${userId}`)
+    const channel = getFreshChannel(`employee_notifs_${userId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
@@ -97,10 +97,10 @@ export default function EmployeeNotifications() {
 
   const clearAll = async () => {
     if (!userId || notifications.length === 0) return;
-    const ids = notifications.map((n) => n.id);
-    const { error } = await supabase.from("notifications").delete().in("id", ids);
-    if (error) {
-      console.error("Failed to clear notifications:", error.message);
+    const ids = notifications.map((n) => n.id).join(",");
+    const res = await authFetch(`/notifications?ids=${ids}`, { method: "DELETE" });
+    if (!res.ok) {
+      console.error("Failed to clear notifications:", res.status);
       return;
     }
     setNotifications([]);

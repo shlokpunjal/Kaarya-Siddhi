@@ -19,7 +19,7 @@ import { getGreeting } from "../../utils/greeting";
 import NoTaskEmp from "../(task)/notaskEmp";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import DashboardSkeleton from "../../components/DashboardSkeleton";
-import { authFetch } from '../../utils/authFetch';
+import { authFetch } from "../../utils/authFetch";
 // Matches the actual `tasks` table columns
 type TaskRow = {
   id: string;
@@ -108,6 +108,14 @@ export default function Dashboard() {
   // Overdue/Pending/In Review/Completed buckets reflect the latest status
   // without requiring a manual pull-to-refresh. Skips the very first mount
   // since the effect above already handles that fetch + the loading state. ──
+  function getFreshChannel(name: string) {
+    const existing = supabase
+      .getChannels()
+      .find((c) => c.topic === `realtime:${name}`);
+    if (existing) supabase.removeChannel(existing);
+    return supabase.channel(name);
+  }
+
   const isFirstFocus = React.useRef(true);
   useFocusEffect(
     useCallback(() => {
@@ -138,7 +146,7 @@ export default function Dashboard() {
   // Notifications page shows (and clears), so the badge and list stay in sync.
   const fetchDecidedRequestCount = useCallback(async () => {
     if (!userId) return;
-    const res = await authFetch('/dashboard-counts');
+    const res = await authFetch("/dashboard-counts");
     if (!res.ok) return;
     const data = await res.json();
     setDecidedRequestCount(data.count ?? 0);
@@ -152,8 +160,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!userId) return;
-    const channel = supabase
-      .channel(`employee_badge_notifs_${userId}`)
+    const channel = getFreshChannel(`employee_badge_notifs_${userId}`)
       .on(
         "postgres_changes",
         {

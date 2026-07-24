@@ -141,12 +141,6 @@ export default function AdminProfile() {
     setRefreshing(false);
   }, []);
 
-  // ── Save edited fields via the backend, not a direct client-side update ──
-  // A direct `supabase.from("users").update(...).eq("id", currentUser.id)`
-  // call from the client depends entirely on RLS to stop someone from
-  // editing a row that isn't theirs. Routing through authFetch means the
-  // backend derives *which* row to update from the verified token, same as
-  // the read path.
   const handleSave = async () => {
     if (!currentUser) {
       setEditing(false);

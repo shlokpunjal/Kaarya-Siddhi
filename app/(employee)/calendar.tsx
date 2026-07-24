@@ -16,7 +16,7 @@ import { useRouter } from "expo-router";
 import { wp, moderateScale } from "../../utils/responsive";
 import { supabase } from "../../lib/supabase";
 import CalendarScreenSkeleton from "../../components/CalendarScreenSkeleton";
-
+import { authFetch } from "../../utils/authFetch";
 
 
 // Removes any existing channel with this name before creating a new one —
@@ -128,50 +128,35 @@ export default function CalendarScreen() {
     let tasksChannel: ReturnType<typeof supabase.channel> | null = null;
     let createdTasksChannel: ReturnType<typeof supabase.channel> | null = null;
     let extensionsChannel: ReturnType<typeof supabase.channel> | null = null;
-    const fetchTasks = async (userId: string) => {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .or(`assigned_to.eq.${userId},created_by.eq.${userId}`);
-
-      if (error) {
-        console.error("Error fetching calendar tasks:", error.message);
+    const fetchTasks = async () => {
+      const res = await authFetch("/calendar-tasks");
+      if (!res.ok) {
+        console.error("Error fetching calendar tasks:", res.status);
         return;
       }
+      const data = await res.json();
       if (isMounted) setTasksMap(groupTasksByDate((data ?? []) as TaskRow[]));
     };
 
     const init = async () => {
       setLoading(true);
-      const email = await AsyncStorage.getItem("userEmail");
-      if (!email) {
+      const meRes = await authFetch("/me");
+      if (!meRes.ok) {
         if (isMounted) setLoading(false);
         return;
       }
-
-      const { data: userRow, error: userError } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .single();
-
-      if (userError || !userRow) {
-        console.error("Error resolving employee id:", userError?.message);
-        if (isMounted) setLoading(false);
-        return;
-      }
-
-      const userId = userRow.id as string;
+      const currentUser = await meRes.json();
+      const userId = currentUser.id as string;
       if (isMounted) setEmployeeId(userId);
 
-      await fetchTasks(userId);
+      await fetchTasks();
       if (isMounted) setLoading(false);
 
       tasksChannel = getFreshChannel("employee-calendar-tasks-assigned")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "tasks", filter: `assigned_to=eq.${userId}` },
-          () => { fetchTasks(userId); }
+          () => { fetchTasks(); }
         )
         .subscribe();
 
@@ -179,7 +164,7 @@ export default function CalendarScreen() {
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "tasks", filter: `created_by=eq.${userId}` },
-          () => { fetchTasks(userId); }
+          () => { fetchTasks(); }
         )
         .subscribe();
 
@@ -187,7 +172,7 @@ export default function CalendarScreen() {
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "extension_requests", filter: `requested_by=eq.${userId}` },
-          () => { fetchTasks(userId); }
+          () => { fetchTasks(); }
         )
         .subscribe();
          };
