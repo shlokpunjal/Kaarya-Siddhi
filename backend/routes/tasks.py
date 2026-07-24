@@ -132,3 +132,60 @@ async def get_calendar_tasks(current_user: dict = Depends(get_current_user)):
 
     result = query.execute()
     return result.data
+
+@router.get("/admin-tasks-and-team")
+async def get_admin_tasks_and_team(current_user: dict = Depends(get_current_user)):
+    email = current_user["sub"]
+
+    admin = supabase.table("users").select("id").eq("email", email).execute()
+    if not admin.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    admin_id = admin.data[0]["id"]
+
+    tasks_result = (
+        supabase.table("tasks")
+        .select("*")
+        .eq("created_by", admin_id)
+        .order("deadline", desc=False)
+        .execute()
+    )
+    task_rows = tasks_result.data or []
+
+    connections = (
+        supabase.table("connections")
+        .select("employee_email")
+        .eq("admin_email", email)
+        .eq("status", "accepted")
+        .execute()
+    )
+    employee_emails = [c["employee_email"] for c in connections.data or []]
+
+    employees_by_id = {}
+
+    if employee_emails:
+        team_users = (
+            supabase.table("users")
+            .select("id, name, email")
+            .in_("email", employee_emails)
+            .execute()
+        )
+        for u in team_users.data or []:
+            employees_by_id[u["id"]] = u
+
+    assigned_ids = {t["assigned_to"] for t in task_rows if t.get("assigned_to")}
+    missing_ids = [i for i in assigned_ids if i not in employees_by_id]
+
+    if missing_ids:
+        extra_users = (
+            supabase.table("users")
+            .select("id, name, email")
+            .in_("id", missing_ids)
+            .execute()
+        )
+        for u in extra_users.data or []:
+            employees_by_id[u["id"]] = u
+
+    return {
+        "tasks": task_rows,
+        "employees": list(employees_by_id.values()),
+    }
