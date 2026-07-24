@@ -47,7 +47,11 @@ async function refreshAccessToken(): Promise<string | null> {
 
       const data = await res.json();
       await SecureStore.setItemAsync("token", data.token);
-      if (data.refreshToken) await SecureStore.setItemAsync("refreshToken", data.refreshToken);
+      // Backend returns snake_case (refresh_token) — must match, or the
+      // rotated token never gets saved and the next silent refresh reuses
+      // the now-revoked old one, triggering the reuse-detection path that
+      // kills every session for the user.
+      if (data.refresh_token) await SecureStore.setItemAsync("refreshToken", data.refresh_token);
       return data.token;
     } finally {
       refreshPromise = null;
