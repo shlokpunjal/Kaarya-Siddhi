@@ -6,6 +6,8 @@ from auth_utils import get_current_user
 from services import delete_user_account
 from schemas import DeleteAccountResponse
 from fastapi import Body
+from schemas import DeleteAccountResponse, UpdateProfileRequest
+from services import delete_user_account, normalize_email
 router = APIRouter()
 
 
