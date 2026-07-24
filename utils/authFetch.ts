@@ -27,53 +27,34 @@ async function wipeAndRedirect(sessionAtStart: string | null) {
 // every session for the user — logging them out for simply having two
 // screens load data at once. One in-flight refresh, shared by everyone
 // waiting on it, fixes that.
-let refreshPromise: Promise<{ token: string; refresh_token: string } | null> | null = null;
+let refreshPromise: Promise<string | null> | null = null;
 
-async function refreshAccessToken(): Promise<{ token: string; refresh_token: string } | null> {
+async function refreshAccessToken(): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
 
-  // Captured before the network call so we can tell, once it resolves,
-  // whether a newer login has since replaced this session.
-  const sessionAtStart = await SecureStore.getItemAsync("sessionId");
-
   refreshPromise = (async () => {
-    const refreshToken = await SecureStore.getItemAsync("refreshToken");
-    if (!refreshToken) return null;
-
     try {
-      const refreshRes = await fetch(`${API_BASE_URL}/refresh-token`, {
+      const refreshToken = await SecureStore.getItemAsync("refreshToken");
+      if (!refreshToken) return null;
+
+      const res = await fetch(`${API_BASE_URL}/refresh-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: refreshToken }),
       });
 
-      if (!refreshRes.ok) return null;
+      if (!res.ok) return null;
 
-      const data = await refreshRes.json();
-
-      // A newer login happened while this refresh was in flight — the
-      // token we just got belongs to the old session. Discard it rather
-      // than overwriting whatever the new session already stored.
-      const sessionNow = await SecureStore.getItemAsync("sessionId");
-      if (sessionNow !== sessionAtStart) return null;
-
+      const data = await res.json();
       await SecureStore.setItemAsync("token", data.token);
-      await SecureStore.setItemAsync("refreshToken", data.refresh_token);
-      return data;
-    } catch (error) {
-      console.log("Token refresh failed:", error);
-      return null;
+      if (data.refreshToken) await SecureStore.setItemAsync("refreshToken", data.refreshToken);
+      return data.token;
+    } finally {
+      refreshPromise = null;
     }
   })();
 
-  try {
-    return await refreshPromise;
-  } finally {
-    // Clear once settled so the *next* 401 (a genuinely new expiry,
-    // not one of this batch) triggers a fresh refresh instead of
-    // reusing a resolved promise forever.
-    refreshPromise = null;
-  }
+  return refreshPromise;
 }
 
 export async function authFetch(path: string, options: RequestInit = {}) {
@@ -98,7 +79,7 @@ export async function authFetch(path: string, options: RequestInit = {}) {
       // Retry the original request once with the new access token
       response = await fetch(`${API_BASE_URL}${path}`, {
         ...options,
-        headers: buildHeaders(refreshed.token),
+        headers: buildHeaders(refreshed),
       });
 
       if (response.status !== 401) return response;

@@ -8,6 +8,7 @@ from auth_utils import get_current_user
 from services import normalize_email
 from notify_utils import send_push_notification
 from schemas import ConnectRequest, ConnectionRespond, DisconnectAdminRequest
+from fastapi import HTTPException
 
 router = APIRouter()
 
@@ -320,3 +321,33 @@ async def disconnect_admin(data: DisconnectAdminRequest, current_user: dict = De
     supabase.table("connections").delete().eq("employee_email", employee_email).execute()
 
     return {"success": True, "message": "Disconnected from admin successfully."}
+
+
+@router.get("/connection-requests")
+async def get_connection_requests(current_user: dict = Depends(get_current_user)):
+    admin = supabase.table("users").select("id").eq("email", current_user["sub"]).execute()
+    if not admin.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    admin_id = admin.data[0]["id"]
+
+    rows = (
+        supabase.table("notifications")
+        .select("id, created_at, metadata")
+        .eq("user_id", admin_id)
+        .eq("type", "connection_request")
+        .order("created_at", desc=True)
+        .execute()
+    ).data or []
+
+    emails = [r["metadata"].get("employee_email") for r in rows if r.get("metadata")]
+    emails = [e for e in emails if e]
+
+    names_by_email = {}
+    if emails:
+        users = supabase.table("users").select("email, name").in_("email", emails).execute()
+        names_by_email = {u["email"]: u["name"] for u in users.data or []}
+
+    return [
+        {**r, "employee_name": names_by_email.get((r.get("metadata") or {}).get("employee_email"))}
+        for r in rows
+    ]
