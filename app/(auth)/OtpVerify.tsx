@@ -22,6 +22,7 @@ import { registerPushToken } from "../../utils/pushToken";
 import { sendLoginNotification } from "../../utils/notifications";
 import { wp, moderateScale } from "../../utils/responsive";
 import TrainLoadingAnimation from "../../components/TrainLoadingAnimation";
+import VerifiedSuccess from "../../components/VerifiedSuccess";
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -42,7 +43,7 @@ const OtpVerify = () => {
     name?: string;
   }>();
   const { saveSession } = useAuth();
-
+  const [showSuccess, setShowSuccess] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [resendMessage, setResendMessage] = useState("");
 
@@ -87,7 +88,44 @@ const OtpVerify = () => {
       });
     }, 1000);
   };
+  const proceedAfterVerification = (data: any) => {
+    if (mode === "signup") {
+      if (data.role === "admin") {
+        router.replace({
+          pathname: "/(onboarding)/profileSetup1",
+          params: { role: "admin", name },
+        });
+        return;
+      }
 
+      if (data.role === "employee") {
+        router.replace({
+          pathname: "/(auth)/RequestAdmin",
+          params: { email: data.email, name },
+        });
+        return;
+      }
+    }
+
+    sendLoginNotification(data.email).catch((err) =>
+      console.log("Login notification failed:", err),
+    );
+
+    if (data.role === "admin") {
+      router.replace("/(admin)");
+      return;
+    }
+
+    if (data.role === "employee" && !data.workspace_id) {
+      router.replace({
+        pathname: "/(auth)/RequestAdmin",
+        params: { email: data.email },
+      });
+      return;
+    }
+
+    router.replace("/(employee)");
+  };
   const verifyOTP = async (code?: string) => {
     if (isVerifyingRef.current) return;
 
@@ -164,42 +202,8 @@ const OtpVerify = () => {
         await new Promise((res) => setTimeout(res, MIN_VISIBLE_MS - elapsed));
       }
 
-      if (mode === "signup") {
-        if (data.role === "admin") {
-          router.replace({
-            pathname: "/(onboarding)/profileSetup1",
-            params: { role: "admin", name },
-          });
-          return;
-        }
-
-        if (data.role === "employee") {
-          router.replace({
-            pathname: "/(auth)/RequestAdmin",
-            params: { email: data.email, name },
-          });
-          return;
-        }
-      }
-
-      sendLoginNotification(data.email).catch((err) =>
-        console.log("Login notification failed:", err),
-      );
-
-      if (data.role === "admin") {
-        router.replace("/(admin)");
-        return;
-      }
-
-      if (data.role === "employee" && !data.workspace_id) {
-        router.replace({
-          pathname: "/(auth)/RequestAdmin",
-          params: { email: data.email },
-        });
-        return;
-      }
-
-      router.replace("/(employee)");
+      setShowSuccess(true);
+      setTimeout(() => proceedAfterVerification(data), 1400);
     } catch (error: any) {
       console.log("FULL ERROR:", error);
       const elapsed = Date.now() - startTime;
@@ -282,111 +286,117 @@ const OtpVerify = () => {
                 styles.diviExpanded,
               ]}
             >
-              <Text style={[styles.divtext]}>Login to your workspace</Text>
+             {showSuccess ? (
+                <VerifiedSuccess />
+              ) : (
+                <>
+                  <Text style={[styles.divtext]}>Login to your workspace</Text>
 
-              <View>
-                <View style={styles.otpContainer}>
-                  {otp.map((digit, index) => (
-                    <TextInput
-                      key={index}
-                      ref={(ref) => {
-                        inputRefs.current[index] = ref;
-                      }}
-                      style={[
-                        styles.otpInput,
-                        focusedIndex === index && styles.activeOtpBox,
-                        digit && styles.filledOtpBox,
-                        otpError && styles.otpError,
-                      ]}
-                      onFocus={() => setFocusedIndex(index)}
-                      onBlur={() => setFocusedIndex(-1)}
-                      value={digit}
-                      cursorColor="#E8870A"
-                      selectionColor="#E8870A"
-                      keyboardType="number-pad"
-                      maxLength={1}
-                      onChangeText={(text) => {
-                        const number = text.replace(/[^0-9]/g, "");
+                  <View>
+                    <View style={styles.otpContainer}>
+                      {otp.map((digit, index) => (
+                        <TextInput
+                          key={index}
+                          ref={(ref) => {
+                            inputRefs.current[index] = ref;
+                          }}
+                          style={[
+                            styles.otpInput,
+                            focusedIndex === index && styles.activeOtpBox,
+                            digit && styles.filledOtpBox,
+                            otpError && styles.otpError,
+                          ]}
+                          onFocus={() => setFocusedIndex(index)}
+                          onBlur={() => setFocusedIndex(-1)}
+                          value={digit}
+                          cursorColor="#E8870A"
+                          selectionColor="#E8870A"
+                          keyboardType="number-pad"
+                          maxLength={1}
+                          onChangeText={(text) => {
+                            const number = text.replace(/[^0-9]/g, "");
 
-                        const updated = [...otp];
-                        updated[index] = number;
+                            const updated = [...otp];
+                            updated[index] = number;
 
-                        setOtp(updated);
+                            setOtp(updated);
 
-                        if (otpError) setOtpError("");
-                        if (resendMessage) setResendMessage("");
+                            if (otpError) setOtpError("");
+                            if (resendMessage) setResendMessage("");
 
-                        if (number && index < 5) {
-                          setFocusedIndex(index + 1);
-                          inputRefs.current[index + 1]?.focus();
-                        }
+                            if (number && index < 5) {
+                              setFocusedIndex(index + 1);
+                              inputRefs.current[index + 1]?.focus();
+                            }
 
-                        const otpCode = updated.join("");
+                            const otpCode = updated.join("");
 
-                        if (otpCode.length === 6) {
-                          setTimeout(() => {
-                            verifyOTP(otpCode);
-                          }, 100);
-                        }
-                      }}
-                      onKeyPress={({ nativeEvent }) => {
-                        if (
-                          nativeEvent.key === "Backspace" &&
-                          !otp[index] &&
-                          index > 0
-                        ) {
-                          setFocusedIndex(index - 1);
-                          inputRefs.current[index - 1]?.focus();
-                        }
-                      }}
-                    />
-                  ))}
-                </View>
-                {otpError ? (
-                  <Text style={styles.errorText}>{otpError}</Text>
-                ) : null}
-                {resendMessage ? (
-                  <Text style={styles.successText}>{resendMessage}</Text>
-                ) : null}
-              </View>
-
-              <View style={{ width: "100%" }}>
-                <TouchableOpacity
-                  style={[
-                    styles.LoginStyle,
-                    (otp.join("").length < 6 || isVerifying) && {
-                      opacity: 0.5,
-                    },
-                  ]}
-                  disabled={otp.join("").length < 6 || isVerifying}
-                  onPress={() => verifyOTP(otp.join(""))}
-                >
-                  {isVerifying ? (
-                    <View
-                      style={{ flexDirection: "row", alignItems: "center" }}
-                    >
-                      <Text style={styles.LoginText}>Verifying</Text>
-                      <View style={{ width: 18, height: 18, marginLeft: 8 }}>
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      </View>
+                            if (otpCode.length === 6) {
+                              setTimeout(() => {
+                                verifyOTP(otpCode);
+                              }, 100);
+                            }
+                          }}
+                          onKeyPress={({ nativeEvent }) => {
+                            if (
+                              nativeEvent.key === "Backspace" &&
+                              !otp[index] &&
+                              index > 0
+                            ) {
+                              setFocusedIndex(index - 1);
+                              inputRefs.current[index - 1]?.focus();
+                            }
+                          }}
+                        />
+                      ))}
                     </View>
-                  ) : (
-                    <Text style={styles.LoginText}>Verify OTP</Text>
+                    {otpError ? (
+                      <Text style={styles.errorText}>{otpError}</Text>
+                    ) : null}
+                    {resendMessage ? (
+                      <Text style={styles.successText}>{resendMessage}</Text>
+                    ) : null}
+                  </View>
+
+                  <View style={{ width: "100%" }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.LoginStyle,
+                        (otp.join("").length < 6 || isVerifying) && {
+                          opacity: 0.5,
+                        },
+                      ]}
+                      disabled={otp.join("").length < 6 || isVerifying}
+                      onPress={() => verifyOTP(otp.join(""))}
+                    >
+                      {isVerifying ? (
+                        <View
+                          style={{ flexDirection: "row", alignItems: "center" }}
+                        >
+                          <Text style={styles.LoginText}>Verifying</Text>
+                          <View style={{ width: 18, height: 18, marginLeft: 8 }}>
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          </View>
+                        </View>
+                      ) : (
+                        <Text style={styles.LoginText}>Verify OTP</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {isOnCooldown && (
+                    <Text style={styles.resendText}>Resend in : {cooldown}</Text>
                   )}
-                </TouchableOpacity>
-              </View>
 
-              {isOnCooldown && (
-                <Text style={styles.resendText}>Resend in : {cooldown}</Text>
-              )}
-
-              {!isOnCooldown && (
-                <TouchableOpacity
-                  style={styles.resendButton}
-                  onPress={resendOTP}
-                >
-                  <Text style={styles.LoginText}>Resend OTP</Text>
-                </TouchableOpacity>
+                  {!isOnCooldown && (
+                    <TouchableOpacity
+                      style={styles.resendButton}
+                      onPress={resendOTP}
+                    >
+                      <Text style={styles.LoginText}>Resend OTP</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
             </Animated.View>
           </View>
