@@ -9,7 +9,6 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { useRouter } from "expo-router";
@@ -17,9 +16,7 @@ import { wp, moderateScale } from "../../utils/responsive";
 import { supabase } from "../../lib/supabase";
 import CalendarScreenSkeleton from "../../components/CalendarScreenSkeleton";
 import { authFetch } from "../../utils/authFetch";
-// Removes any existing channel with this name before creating a new one —
-// prevents "cannot add postgres_changes callbacks... after subscribe()"
-// errors caused by Strict Mode / Fast Refresh double-invoking effects.
+
 function getFreshChannel(name: string) {
   const existing = supabase
     .getChannels()
@@ -200,13 +197,11 @@ export default function CalendarScreen() {
   const onRefresh = useCallback(async () => {
     if (!workspaceId) return;
     setRefreshing(true);
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("workspace_id", workspaceId);
-    if (error) {
-      console.error("Error refreshing calendar tasks:", error.message);
+    const res = await authFetch("/calendar-tasks");
+    if (!res.ok) {
+      console.error("Error refreshing calendar tasks:", res.status);
     } else {
+      const data = await res.json();
       setTasksMap(groupTasksByDate((data ?? []) as TaskRow[]));
     }
     setRefreshing(false);

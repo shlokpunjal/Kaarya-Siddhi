@@ -15,7 +15,6 @@ import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import * as DocumentPicker from "expo-document-picker";
 import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -138,18 +137,7 @@ export default function Newtask() {
         showToast("Your session has expired. Please log back in.", "error");
         return;
       }
-
-      // const { data: currentUser, error: userLookupError } = await supabase
-      //   .from("users")
-      //   .select("id, workspace_id")
-      //   .eq("email", email)
-      //   .single();
-
-      // if (userLookupError || !currentUser || !currentUser.workspace_id) {
-      //   showToast("Could not find your workspace. Please log back in.", "error");
-      //   return;
-      // }
-
+      
       const uploadedResults = await Promise.all(
         attachedFiles.map((file) => uploadSingleFile(file))
       );

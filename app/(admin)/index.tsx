@@ -137,6 +137,7 @@ export default function Dashboard() {
       fetchPendingRequestCount();
     }, [fetchPendingRequestCount]),
   );
+
   function getFreshChannel(name: string) {
     const existing = supabase
       .getChannels()
@@ -153,15 +154,11 @@ export default function Dashboard() {
     (async () => {
       const email = await AsyncStorage.getItem("userEmail");
       if (!email) return;
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("id, workspace_id")
-        .eq("email", email)
-        .single();
-      if (!userRow) return;
+      const res = await authFetch("/me");
+      if (!res.ok) return;
+      const userRow = await res.json();
 
-      notifChannel = supabase;
-      getFreshChannel(`dashboard_badge_notifs_${userRow.id}`)
+      notifChannel = getFreshChannel(`dashboard_badge_notifs_${userRow.id}`)
         .on(
           "postgres_changes",
           {
@@ -175,8 +172,7 @@ export default function Dashboard() {
         .subscribe();
 
       if (userRow.workspace_id) {
-        extensionChannel = supabase;
-        getFreshChannel(`dashboard_badge_ext_${userRow.workspace_id}`)
+        extensionChannel = getFreshChannel(`dashboard_badge_ext_${userRow.workspace_id}`)
           .on(
             "postgres_changes",
             {

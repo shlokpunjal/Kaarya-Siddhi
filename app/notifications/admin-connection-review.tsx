@@ -1,25 +1,41 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator, Platform } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
-import { API_BASE_URL } from "../../constants/api";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
-import AdminConnectionReviewSkeleton from '../../components/AdminConnectionReviewSkeleton';
+import AdminConnectionReviewSkeleton from "../../components/AdminConnectionReviewSkeleton";
+import { authFetch } from "../../utils/authFetch";
 
 type Status = "pending" | "accepted" | "rejected";
 
 const statusMeta = (colors: any, status: Status) => {
   if (status === "accepted")
-    return { color: colors.status.completed, icon: "checkmark-circle" as const, label: "Accepted" };
+    return {
+      color: colors.status.completed,
+      icon: "checkmark-circle" as const,
+      label: "Accepted",
+    };
   if (status === "rejected")
-    return { color: colors.status.overdue, icon: "close-circle" as const, label: "Rejected" };
-  return { color: colors.status.pending, icon: "time" as const, label: "Pending Review" };
+    return {
+      color: colors.status.overdue,
+      icon: "close-circle" as const,
+      label: "Rejected",
+    };
+  return {
+    color: colors.status.pending,
+    icon: "time" as const,
+    label: "Pending Review",
+  };
 };
 
 export default function AdminConnectionReview() {
@@ -34,10 +50,17 @@ export default function AdminConnectionReview() {
   const [employeeName, setEmployeeName] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("pending");
   const [loading, setLoading] = useState(true);
-  const [deciding, setDeciding] = useState<"accepted" | "rejected" | null>(null);
+  const [deciding, setDeciding] = useState<"accepted" | "rejected" | null>(
+    null,
+  );
 
   const cardShadow = Platform.select({
-    ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10 },
+    ios: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 10,
+    },
     android: { elevation: 4 },
   });
 
@@ -46,16 +69,15 @@ export default function AdminConnectionReview() {
     (async () => {
       setLoading(true);
 
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("name")
-        .eq("email", employeeEmail)
-        .single();
-      setEmployeeName(userRow?.name ?? null);
+      const nameRes = await authFetch(
+        `/user-name?email=${encodeURIComponent(employeeEmail)}`,
+      );
+      const nameData = nameRes.ok ? await nameRes.json() : { name: null };
+      setEmployeeName(nameData.name);
 
       try {
-        const res = await fetch(
-          `${API_BASE_URL}/connection-status/${encodeURIComponent(employeeEmail)}/${encodeURIComponent(adminEmail)}`
+        const res = await authFetch(
+          `/connection-status/${encodeURIComponent(employeeEmail)}/${encodeURIComponent(adminEmail)}`,
         );
         const json = await res.json();
         if (json?.status === "accepted" || json?.status === "rejected") {
@@ -72,12 +94,8 @@ export default function AdminConnectionReview() {
   const decide = async (decision: "accepted" | "rejected") => {
     setDeciding(decision);
     try {
-      const token = await SecureStore.getItemAsync("token");
-      if (!token) throw new Error("Your session has expired. Please log in again.");
-
-      const res = await fetch(`${API_BASE_URL}/connection-respond`, {
+     const res = await authFetch("/connection-respond", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           employee_email: employeeEmail,
           admin_email: adminEmail,
@@ -86,7 +104,6 @@ export default function AdminConnectionReview() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.detail || "Could not update request.");
-
       // Reflect the decision immediately — don't wait on the list screen's
       // refetch or realtime round-trip.
       setStatus(decision);
@@ -101,9 +118,7 @@ export default function AdminConnectionReview() {
   };
 
   if (loading) {
-    return (
-      <AdminConnectionReviewSkeleton />
-    );
+    return <AdminConnectionReviewSkeleton />;
   }
 
   const meta = statusMeta(colors, status);
@@ -119,8 +134,19 @@ export default function AdminConnectionReview() {
           paddingHorizontal: 15,
         }}
       >
-        <Ionicons onPress={() => router.back()} name="arrow-back" size={moderateScale(26)} color={colors.brand.onPrimary} />
-        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: moderateScale(15) }}>
+        <Ionicons
+          onPress={() => router.back()}
+          name="arrow-back"
+          size={moderateScale(26)}
+          color={colors.brand.onPrimary}
+        />
+        <Text
+          style={{
+            ...typography.heading,
+            color: colors.brand.onPrimary,
+            marginLeft: moderateScale(15),
+          }}
+        >
           Connection Request
         </Text>
       </View>
@@ -147,9 +173,15 @@ export default function AdminConnectionReview() {
               marginBottom: 12,
             }}
           >
-            <Ionicons name={meta.icon} size={moderateScale(34)} color={meta.color} />
+            <Ionicons
+              name={meta.icon}
+              size={moderateScale(34)}
+              color={meta.color}
+            />
           </View>
-          <Text style={{ ...typography.heading3, color: meta.color }}>{meta.label}</Text>
+          <Text style={{ ...typography.heading3, color: meta.color }}>
+            {meta.label}
+          </Text>
         </View>
 
         {/* ── Employee card ── */}
@@ -176,13 +208,31 @@ export default function AdminConnectionReview() {
               marginBottom: 14,
             }}
           >
-            <Ionicons name="person" size={moderateScale(36)} color={colors.brand.accent} />
+            <Ionicons
+              name="person"
+              size={moderateScale(36)}
+              color={colors.brand.accent}
+            />
           </View>
-          <Text style={{ ...typography.heading3, color: colors.text.primary, textAlign: "center" }}>
+          <Text
+            style={{
+              ...typography.heading3,
+              color: colors.text.primary,
+              textAlign: "center",
+            }}
+          >
             {employeeName ?? employeeEmail}
           </Text>
-          <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 4 }}>
-            {status === "pending" ? "wants to connect with you" : "sent a connection request"}
+          <Text
+            style={{
+              ...typography.label,
+              color: colors.text.secondary,
+              marginTop: 4,
+            }}
+          >
+            {status === "pending"
+              ? "wants to connect with you"
+              : "sent a connection request"}
           </Text>
         </View>
 
@@ -209,8 +259,19 @@ export default function AdminConnectionReview() {
                 <ActivityIndicator color={colors.base.surfaceL1} />
               ) : (
                 <>
-                  <Ionicons name="checkmark" size={20} color={colors.base.surfaceL1} />
-                  <Text style={{ ...typography.subheading, color: colors.base.surfaceL1 }}>Accept</Text>
+                  <Ionicons
+                    name="checkmark"
+                    size={20}
+                    color={colors.base.surfaceL1}
+                  />
+                  <Text
+                    style={{
+                      ...typography.subheading,
+                      color: colors.base.surfaceL1,
+                    }}
+                  >
+                    Accept
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -234,8 +295,19 @@ export default function AdminConnectionReview() {
                 <ActivityIndicator color={colors.base.surfaceL1} />
               ) : (
                 <>
-                  <Ionicons name="close" size={20} color={colors.base.surfaceL1} />
-                  <Text style={{ ...typography.subheading, color: colors.base.surfaceL1 }}>Reject</Text>
+                  <Ionicons
+                    name="close"
+                    size={20}
+                    color={colors.base.surfaceL1}
+                  />
+                  <Text
+                    style={{
+                      ...typography.subheading,
+                      color: colors.base.surfaceL1,
+                    }}
+                  >
+                    Reject
+                  </Text>
                 </>
               )}
             </TouchableOpacity>

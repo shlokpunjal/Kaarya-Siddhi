@@ -13,7 +13,6 @@ import { supabase } from "../lib/supabase";
 import { ThemeProvider } from "../context/ThemeContext";
 import { typography } from "../theme/theme";
 import { AuthProvider, useAuth } from "../context/AuthContext";
-import { enableScreens } from "react-native-screens";
 import * as Notifications from "expo-notifications";
 import { sendLocalNotification } from "../utils/notifications";
 import { registerAndSavePushToken } from "../lib/pushNotifications";
