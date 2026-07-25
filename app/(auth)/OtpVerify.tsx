@@ -21,6 +21,7 @@ import BackButton from "../../components/backButton";
 import { registerPushToken } from "../../utils/pushToken";
 import { sendLoginNotification } from "../../utils/notifications";
 import { wp, moderateScale } from "../../utils/responsive";
+import TrainLoadingAnimation from "../../components/TrainLoadingAnimation";
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -271,11 +272,14 @@ const OtpVerify = () => {
                 style={styles.imageStyling}
               />
             </View>
+            <View style={styles.trainAboveCard}>
+              <TrainLoadingAnimation active={isVerifying} />
+            </View>
             <Animated.View
               style={[
                 styles.divi,
                 (isOnCooldown || otpError || resendMessage) &&
-                  styles.diviExpanded,
+                styles.diviExpanded,
               ]}
             >
               <Text style={[styles.divtext]}>Login to your workspace</Text>
@@ -504,7 +508,9 @@ const styles = StyleSheet.create({
   maintext: {
     color: "white",
     fontSize: 18,
-    alignSelf: "center",
+    // alignSelf: "center",
+    marginLeft: 40,
+    marginBottom: 1,
   },
   imagestyle: {
     justifyContent: "center",

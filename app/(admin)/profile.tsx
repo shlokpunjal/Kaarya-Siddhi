@@ -44,10 +44,10 @@ const THEME_OPTIONS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { value: "light", label: "Light", icon: "sunny-outline" },
-  { value: "dark", label: "Dark", icon: "moon-outline" },
-  { value: "system", label: "System", icon: "phone-portrait-outline" },
-];
+    { value: "light", label: "Light", icon: "sunny-outline" },
+    { value: "dark", label: "Dark", icon: "moon-outline" },
+    { value: "system", label: "System", icon: "phone-portrait-outline" },
+  ];
 
 const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
@@ -95,7 +95,7 @@ export default function AdminProfile() {
     try {
       const res = await authFetch("/me");
       if (!res.ok) {
-        setLoading(false);
+        showToast("Could not load your profile. Please try again.", "error");
         return;
       }
 
@@ -108,44 +108,32 @@ export default function AdminProfile() {
       setAvatarUri(data.profile_pic_url ?? null);
     } catch (error: any) {
       console.error("Profile fetch error:", error?.message ?? error);
+      showToast("Could not load your profile. Please try again.", "error");
     } finally {
       setLoading(false);
     }
-
-    const res = await authFetch("/me");
-    const data = res.ok ? await res.json() : null;
-    const error = res.ok ? null : { message: "Could not load profile." };
-
-    if (error) {
-      console.error("Profile fetch error:", error.message);
-      setLoading(false);
-      return;
-    }
-
-    setCurrentUser(data);
-    setName(data.name ?? "");
-    setContact(data.mobile_number ?? "");
-    setemail(data.email ?? "");
-    setAvatarUri(data.profile_pic_url ?? null);
-    setLoading(false);
   };
-
   // ── Fetch this admin's connected employees from the connections table ────
   // Still keyed off the verified user's email (from /me), not the cached one.
   const fetchTeam = async () => {
     setLoadingTeam(true);
 
-    const res = await authFetch("/team");
-    if (!res.ok) {
-      console.error("Team fetch error:", res.status);
+    try {
+      const res = await authFetch("/team");
+      if (!res.ok) {
+        showToast("Could not load your team. Please try again.", "error");
+        return;
+      }
+
+      const team = await res.json();
+      setManagedEmployees(team);
+    } catch (error: any) {
+      console.error("Team fetch error:", error?.message ?? error);
+      showToast("Could not load your team. Please try again.", "error");
+    } finally {
       setLoadingTeam(false);
     }
-
-    const team = await res.json();
-    setManagedEmployees(team);
-    setLoadingTeam(false);
   };
-
   // ── Pull-to-refresh handler: re-run both fetches together ─────────────────
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -246,12 +234,21 @@ export default function AdminProfile() {
             backgroundColor: colors.base.background,
             alignItems: "center",
             justifyContent: "center",
+            gap: 12,
           },
         ]}
       >
         <Text style={[typography.body, { color: colors.text.primary }]}>
-          Could not load your profile. Please try logging in again.
+          Could not load your profile.
         </Text>
+        <Pressable
+          style={[styles.editPill, { borderColor: colors.brand.accent }]}
+          onPress={fetchCurrentUser}
+        >
+          <Text style={[typography.label, { color: colors.brand.accent }]}>
+            Retry
+          </Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -880,4 +877,5 @@ const styles = StyleSheet.create({
   },
   closeModalButton: { position: "absolute", top: 50, right: 20, zIndex: 10 },
   fullscreenImage: { width: "90%", height: "70%" },
+
 });

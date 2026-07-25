@@ -94,7 +94,7 @@ async def login(request: Request, data: LoginRequest):
     )
 
     if not user.data:
-        raise HTTPException(status_code=404, detail="Account doesn't exist.")
+        raise HTTPException(status_code=404, detail="We couldn't verify these details. Please check and try again.")
 
     return {"success": True, "message": "Account Found"}
 
