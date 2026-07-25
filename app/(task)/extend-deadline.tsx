@@ -1,4 +1,3 @@
-
 // Requires: npx expo install @react-native-community/datetimepicker
 // Requires: extension_requests.sql run against your Supabase project
 
@@ -155,7 +154,7 @@ export default function ExtendDeadline() {
               "New Extension Request",
               `A new deadline extension was requested for "${task.title}".`,
               { type: "extension_request", extension_request_id: insertedRows.id, taskId: task.id }
-            ).catch((err) => console.log("Admin push failed:", err));
+            ).catch((err: unknown) => console.log("Admin push failed:", err));
           });
         }
       })();
