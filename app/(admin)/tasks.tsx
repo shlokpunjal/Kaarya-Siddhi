@@ -350,7 +350,7 @@ export default function AdminTasks() {
               key={task.id}
               onPress={() =>
                 router.push({
-                  pathname: "/(task)/task-detail",
+                  pathname: "/(task)/taskDetailAdmin",
                   params: { taskId: task.id },
                 })
               }
