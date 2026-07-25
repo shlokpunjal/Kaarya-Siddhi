@@ -460,7 +460,7 @@ export default function CalendarScreen() {
                 key={task.id ?? i}
                 onPress={() =>
                   router.push({
-                    pathname: "/(task)/task-detail",
+                    pathname: "/(task)/taskDetailAdmin",
                     params: { taskId: task.id },
                   })
                 }
