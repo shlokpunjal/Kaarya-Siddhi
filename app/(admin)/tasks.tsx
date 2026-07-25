@@ -8,14 +8,11 @@ import {
   Modal,
   TextInput,
   Platform,
-  ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../../lib/supabase";
 import { TaskStatus, TaskPriority, Task } from "../../types/task";
 import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";

@@ -15,7 +15,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import { typography } from "../../theme/theme";
 import { useTheme, useThemeMode, ThemeMode } from "../../context/ThemeContext";
@@ -24,7 +23,6 @@ import ConfirmModal from "../../components/confirmModal";
 import { router } from "expo-router";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import { wp, moderateScale } from "../../utils/responsive";
-import { API_BASE_URL } from "../../constants/api";
 import { authFetch } from "../../utils/authFetch"; // adjust path if needed
 import EmployeeProfileSkeleton from "../../components/EmployeeProfileSkeleton";
 import { useToast } from "../../context/ToastContext";

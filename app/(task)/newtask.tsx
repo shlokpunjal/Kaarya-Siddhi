@@ -15,7 +15,6 @@ import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import * as DocumentPicker from "expo-document-picker";
 import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
