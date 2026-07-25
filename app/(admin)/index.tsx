@@ -3,7 +3,6 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import React, { useState, useEffect, useCallback } from "react";
@@ -20,7 +19,7 @@ import NoTasksAdmin from "../(task)/notasksAdmin";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import DashboardSkeleton from "../../components/DashboardSkeleton";
 import { authFetch } from "../../utils/authFetch";
-// Matches the actual `tasks` table columns
+
 type TaskRow = {
   id: string;
   title: string;
@@ -172,7 +171,9 @@ export default function Dashboard() {
         .subscribe();
 
       if (userRow.workspace_id) {
-        extensionChannel = getFreshChannel(`dashboard_badge_ext_${userRow.workspace_id}`)
+        extensionChannel = getFreshChannel(
+          `dashboard_badge_ext_${userRow.workspace_id}`,
+        )
           .on(
             "postgres_changes",
             {
@@ -197,7 +198,10 @@ export default function Dashboard() {
     return <DashboardSkeleton />;
   }
 
-  const overdueTasks = tasks.filter((t) => t.status === "overdue");
+  const todayDateStr = new Date().toISOString().slice(0, 10);
+  const overdueTasks = tasks.filter(
+    (t) => t.status === "pending" && t.dueDate?.slice(0, 10) < todayDateStr,
+  );
   const pendingTasks = tasks.filter((t) => t.status === "pending");
   const reviewTasks = tasks.filter((t) => t.status === "inReview");
   const completedTasks = tasks.filter((t) => t.status === "completed");

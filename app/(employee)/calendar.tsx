@@ -7,9 +7,7 @@ import {
   Pressable,
   Text,
   Platform,
-  ActivityIndicator,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { useRouter } from "expo-router";

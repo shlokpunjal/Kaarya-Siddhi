@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   Animated,
   Dimensions,
   BackHandler,
