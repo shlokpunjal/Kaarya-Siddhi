@@ -31,7 +31,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from supabase_client import supabase
-from notify_utils import send_push_notification
+from notify_utils import create_notification
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -59,20 +59,12 @@ def _notify_admin(admin_row: dict | None, task: dict, employee_name: str | None)
     who = employee_name or "An employee"
     message = f"{who}'s task \"{task['title']}\" is overdue (was due {task['deadline'][:10]})."
 
-    supabase.table("notifications").insert({
-        "user_id": admin_row["id"],
-        "task_id": task["id"],
-        "type": "overdue",
-        "message": message,
-        "is_read": False,
-        "metadata": {"deadline": task["deadline"]},
-    }).execute()
-
-    send_push_notification(
-        admin_row.get("expo_push_token"),
-        "Task overdue",
+    create_notification(
+        admin_row["id"],
+        "overdue",
         message,
-        data={"type": "overdue", "taskId": task["id"]},
+        task_id=task["id"],
+        metadata={"deadline": task["deadline"]},
     )
 
 

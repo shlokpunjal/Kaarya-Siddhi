@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from supabase_client import supabase
 from auth_utils import get_current_user
-from routes.notify import _send_push
+from notify_utils import create_notification, push_only, delete_notifications
 
 router = APIRouter()
 
@@ -50,9 +50,13 @@ async def decide_extension_request(request_id: str, payload: dict, current_user:
             "deadline": row["requested_deadline"], "deadline_reminder_sent": False
         }).eq("id", row["task_id"]).execute()
 
-    supabase.table("notifications").delete().eq("type", "extension_request").contains(
-        "metadata", {"extension_request_id": request_id}
-    ).execute()
+    # Clear the pending "new extension request" push-only event for this
+    # request. NOTE: extension_request events are push-only (see
+    # create_extension_request below) — no notifications row is ever
+    # written for them, so this delete is a no-op today. Left in place
+    # (as a safe best-effort call, not a raw query) in case that ever
+    # changes; it must never be able to fail the decide action itself.
+    delete_notifications(notif_type="extension_request", metadata_match={"extension_request_id": request_id})
 
     task_title = "your task"
     if row.get("task_id"):
@@ -68,15 +72,14 @@ async def decide_extension_request(request_id: str, payload: dict, current_user:
     notif_type = "extension_accepted" if decision == "accepted" else "extension_rejected"
 
     if row.get("requested_by"):
-        supabase.table("notifications").insert({
-            "user_id": row["requested_by"],
-            "task_id": row.get("task_id"),
-            "type": notif_type,
-            "message": message,
-            "is_read": False,
-            "metadata": {"extension_request_id": request_id},
-        }).execute()
-        await _send_push(row["requested_by"], f"Extension {decision.capitalize()}", message, {"type": notif_type, "taskId": row.get("task_id")})
+        create_notification(
+            row["requested_by"],
+            notif_type,
+            message,
+            task_id=row.get("task_id"),
+            metadata={"extension_request_id": request_id},
+            title=f"Extension {decision.capitalize()}",
+        )
 
     return {"status": decision, "admin_note": note, "decided_at": decided_at}
 
@@ -118,19 +121,29 @@ async def create_extension_request(payload: dict, current_user: dict = Depends(g
 
     inserted = result.data[0]
 
-    admins = (
-        supabase.table("users")
-        .select("id")
-        .eq("workspace_id", task_row["workspace_id"])
-        .eq("role", "admin")
-        .execute()
-    )
-    for admin in admins.data or []:
-        await _send_push(
-            admin["id"],
-            "New Extension Request",
-            f'A new deadline extension was requested for "{task_row["title"]}".',
-            {"type": "extension_request", "extension_request_id": inserted["id"], "taskId": task_id},
+    # The extension request itself is already saved at this point — a
+    # failure notifying admins about it must not turn into an error for
+    # the employee who just successfully submitted it.
+    try:
+        admins = (
+            supabase.table("users")
+            .select("id")
+            .eq("workspace_id", task_row["workspace_id"])
+            .eq("role", "admin")
+            .execute()
         )
+        for admin in admins.data or []:
+            # Push-only (no notifications row) — the extension_requests row
+            # itself is the record; the admin's Requests screen reads
+            # pending requests straight from that table, not from
+            # `notifications`.
+            push_only(
+                admin["id"],
+                "New Extension Request",
+                f'A new deadline extension was requested for "{task_row["title"]}".',
+                data={"type": "extension_request", "extension_request_id": inserted["id"], "taskId": task_id},
+            )
+    except Exception as e:
+        print(f"Failed to notify admins of new extension request {inserted['id']}: {e}")
 
     return inserted

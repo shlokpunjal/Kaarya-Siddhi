@@ -42,7 +42,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from supabase_client import supabase
-from notify_utils import send_push_notification
+from notify_utils import create_notification
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -69,20 +69,12 @@ def _notify_assignee(user_row: dict | None, task: dict):
 
     message = f"Your task \"{task['title']}\" is due tomorrow."
 
-    supabase.table("notifications").insert({
-        "user_id": user_row["id"],
-        "task_id": task["id"],
-        "type": "deadline",
-        "message": message,
-        "is_read": False,
-        "metadata": {"deadline": task["deadline"]},
-    }).execute()
-
-    send_push_notification(
-        user_row.get("expo_push_token"),
-        "Task due tomorrow",
+    create_notification(
+        user_row["id"],
+        "deadline",
         message,
-        data={"type": "deadline", "taskId": task["id"]},
+        task_id=task["id"],
+        metadata={"deadline": task["deadline"]},
     )
 
 
