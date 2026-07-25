@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet, ScrollView, TextInput } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { useRouter, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
 import { TaskPriority, TaskStatus } from '../../types/task';

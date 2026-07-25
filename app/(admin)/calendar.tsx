@@ -7,7 +7,6 @@ import {
   Pressable,
   Text,
   Platform,
-  ActivityIndicator,
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
