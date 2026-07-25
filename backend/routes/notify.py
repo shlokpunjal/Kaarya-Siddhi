@@ -45,6 +45,19 @@ async def create_notification(payload: dict, current_user: dict = Depends(get_cu
     return {"success": True}
 
 
+@router.post("/notify-push-only")
+async def push_only(payload: dict, current_user: dict = Depends(get_current_user)):
+    # Push without a notifications row — for cases like extension requests
+    # where the request row itself is the record; a notifications row would
+    # just be a duplicate.
+    user_id = payload["userId"]
+    title = payload.get("title", "Notification")
+    body = payload.get("body", "")
+    data = payload.get("data", {})
+    await _send_push(user_id, title, body, data)
+    return {"success": True}
+
+
 @router.delete("/notify-pending")
 async def delete_pending_notifications(task_id: str, type: str, current_user: dict = Depends(get_current_user)):
     supabase.table("notifications").delete().eq("task_id", task_id).eq("type", type).execute()

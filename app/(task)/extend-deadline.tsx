@@ -1,4 +1,3 @@
-
 // Requires: npx expo install @react-native-community/datetimepicker
 // Requires: extension_requests.sql run against your Supabase project
 

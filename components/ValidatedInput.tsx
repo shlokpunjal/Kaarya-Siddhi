@@ -104,6 +104,7 @@ const ValidatedInput: React.FC<ValidatedInputProps> = ({
             // showTick ? styles.inputSuccess : null,
             isFocused && !showCross ? styles.inputFocused : null,
             showCross ? styles.inputError : null,
+
           ]}
         />
         {showTick && (
@@ -150,6 +151,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     borderColor: DEFAULT_BORDER,
     borderWidth: 0.7,
+    fontFamily: 'Poppins_500Medium',
   },
   inputSuccess: {
     borderColor: SUCCESS,
