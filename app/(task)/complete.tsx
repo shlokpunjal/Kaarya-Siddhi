@@ -16,6 +16,7 @@ import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
+import { authFetch } from "../../utils/authFetch";
 
 export default function Complete() {
   const { colors } = useTheme();
@@ -33,13 +34,9 @@ export default function Complete() {
 
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("id", taskId)
-        .single();
-
-      if (error) console.error("Task fetch error:", error);
+      const res = await authFetch(`/tasks/${taskId}`);
+      const data = res.ok ? await res.json() : null;
+      if (!res.ok) console.error("Task fetch error:", res.status);
       setTask(data);
       setLoading(false);
     })();
@@ -55,15 +52,11 @@ export default function Complete() {
     try {
       setSubmitting("suggestion");
 
-      const { error } = await supabase
-        .from("tasks")
-        .update({
-          status: "pending",
-          suggestion: feedback.trim(),
-        })
-        .eq("id", taskId);
-
-      if (error) throw error;
+      const res = await authFetch(`/tasks/${taskId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "pending", suggestion: feedback.trim() }),
+      });
+      if (!res.ok) throw new Error("Could not send suggestion");
 
       showToast(
         "The task has been sent back to the employee as pending, with your feedback.",
@@ -82,16 +75,11 @@ export default function Complete() {
     try {
       setSubmitting("complete");
 
-      const { error } = await supabase
-        .from("tasks")
-        .update({
-          status: "completed",
-          suggestion: null,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", taskId);
-
-      if (error) throw error;
+      const res = await authFetch(`/tasks/${taskId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "completed", suggestion: null, completed_at: new Date().toISOString() }),
+      });
+      if (!res.ok) throw new Error("Could not complete task");
 
       showToast(
         "This task has been marked as complete. It will be automatically deleted 15 days from now.",
