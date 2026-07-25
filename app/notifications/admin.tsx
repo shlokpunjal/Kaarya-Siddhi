@@ -41,15 +41,17 @@ export default function AdminNotifications() {
   const otherChannelRef = useRef<RealtimeChannel | null>(null);
 
   const fetchOtherNotifications = useCallback(async () => {
-    const res = await authFetch(
-      "/notifications?types=task_assigned_confirmation,task_in_review",
-    );
-    if (!res.ok) {
-      console.error("Error fetching other notifications:", res.status);
-      return;
+    try {
+      const res = await authFetch("/notifications?types=task_in_review");
+      if (!res.ok) {
+        console.error("Error fetching other notifications:", res.status);
+        return;
+      }
+      const data = await res.json();
+      setOtherNotifications((data as OtherNotif[]) ?? []);
+    } catch (err) {
+      console.error("Error fetching other notifications:", err);
     }
-    const data = await res.json();
-    setOtherNotifications((data as OtherNotif[]) ?? []);
   }, []);
 
   useFocusEffect(
@@ -83,13 +85,17 @@ export default function AdminNotifications() {
 
   const clearOtherNotifications = async () => {
     if (otherNotifications.length === 0) return;
-    const ids = otherNotifications.map((n) => n.id).join(",");
-    const res = await authFetch(`/notifications?ids=${ids}`, { method: "DELETE" });
-    if (!res.ok) {
-      console.error("Failed to clear notifications:", res.status);
-      return;
+    try {
+      const ids = otherNotifications.map((n) => n.id).join(",");
+      const res = await authFetch(`/notifications?ids=${ids}`, { method: "DELETE" });
+      if (!res.ok) {
+        console.error("Failed to clear notifications:", res.status);
+        return;
+      }
+      setOtherNotifications([]);
+    } catch (err) {
+      console.error("Failed to clear notifications:", err);
     }
-    setOtherNotifications([]);
   };
 
   useEffect(() => {
@@ -106,10 +112,14 @@ export default function AdminNotifications() {
   }, []);
 
  const fetchPendingCount = useCallback(async () => {
-    const res = await authFetch("/dashboard-counts");
-    if (!res.ok) return;
-    const data = await res.json();
-    setPendingCount(data.count ?? 0);
+    try {
+      const res = await authFetch("/dashboard-counts");
+      if (!res.ok) return;
+      const data = await res.json();
+      setPendingCount(data.count ?? 0);
+    } catch (err) {
+      console.error("Failed to fetch pending count:", err);
+    }
   }, []);
 
   useFocusEffect(
