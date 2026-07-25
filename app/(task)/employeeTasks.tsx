@@ -9,7 +9,6 @@ import React, { useState, useCallback, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { supabase } from "../../lib/supabase";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { Task } from "../../types/task";
@@ -473,7 +472,7 @@ export default function EmployeeTasks() {
                   key={task.id}
                   onPress={() =>
                     router.push({
-                      pathname: "/(task)/task-detail",
+                      pathname: "/(task)/taskDetailAdmin",
                       params: { taskId: task.id },
                     })
                   }
@@ -576,7 +575,7 @@ export default function EmployeeTasks() {
                   key={task.id}
                   onPress={() =>
                     router.push({
-                      pathname: "/(task)/task-detail",
+                      pathname: "/(task)/taskDetailAdmin",
                       params: { taskId: task.id },
                     })
                   }
@@ -678,7 +677,7 @@ export default function EmployeeTasks() {
                   key={task.id}
                   onPress={() =>
                     router.push({
-                      pathname: "/(task)/task-detail",
+                      pathname: "/(task)/taskDetailAdmin",
                       params: { taskId: task.id },
                     })
                   }

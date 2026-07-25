@@ -7,7 +7,6 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import { authFetch } from "../../utils/authFetch";

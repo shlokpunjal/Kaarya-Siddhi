@@ -20,7 +20,7 @@ import NoTaskEmp from "../(task)/notaskEmp";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import DashboardSkeleton from "../../components/DashboardSkeleton";
 import { authFetch } from "../../utils/authFetch";
-// Matches the actual `tasks` table columns
+
 type TaskRow = {
   id: string;
   title: string;

@@ -5,7 +5,6 @@ import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 import { moderateScale, wp, hp } from "../../utils/responsive";
 import { authFetch } from "../../utils/authFetch";
 const { colors } = lightTheme;

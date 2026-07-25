@@ -5,7 +5,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import { authFetch } from "../../utils/authFetch";
 
