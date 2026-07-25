@@ -18,10 +18,6 @@ import { supabase } from "../../lib/supabase";
 import CalendarScreenSkeleton from "../../components/CalendarScreenSkeleton";
 import { authFetch } from "../../utils/authFetch";
 
-
-// Removes any existing channel with this name before creating a new one —
-// prevents "cannot add postgres_changes callbacks... after subscribe()"
-// errors caused by Strict Mode / Fast Refresh double-invoking effects.
 function getFreshChannel(name: string) {
   const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
   if (existing) supabase.removeChannel(existing);
@@ -79,9 +75,6 @@ function mapStatusToCategory(status: TaskRow["status"], deadline: string): TaskC
   if (status === "completed") return "completed";
   if (status === "in_review") return "inReview";
 
-  // Compare calendar dates only (not exact timestamps) so a task stays
-  // "pending" for the entirety of its deadline day, and only becomes
-  // "overdue" starting the day after.
   const deadlineDate = deadline ? deadline.slice(0, 10) : null;
   const todayDate = new Date().toISOString().slice(0, 10);
   const isPastDeadline = deadlineDate ? deadlineDate < todayDate : false;
@@ -190,13 +183,11 @@ export default function CalendarScreen() {
   const onRefresh = useCallback(async () => {
     if (!employeeId) return;
     setRefreshing(true);
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .or(`assigned_to.eq.${employeeId},created_by.eq.${employeeId}`);
-    if (error) {
-      console.error("Error refreshing calendar tasks:", error.message);
+    const res = await authFetch("/calendar-tasks");
+    if (!res.ok) {
+      console.error("Error refreshing calendar tasks:", res.status);
     } else {
+      const data = await res.json();
       setTasksMap(groupTasksByDate((data ?? []) as TaskRow[]));
     }
     setRefreshing(false);

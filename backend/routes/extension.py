@@ -79,3 +79,58 @@ async def decide_extension_request(request_id: str, payload: dict, current_user:
         await _send_push(row["requested_by"], f"Extension {decision.capitalize()}", message, {"type": notif_type, "taskId": row.get("task_id")})
 
     return {"status": decision, "admin_note": note, "decided_at": decided_at}
+
+
+@router.post("/extension-requests")
+async def create_extension_request(payload: dict, current_user: dict = Depends(get_current_user)):
+    user = supabase.table("users").select("id").eq("email", current_user["sub"]).execute()
+    if not user.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    own_id = user.data[0]["id"]
+
+    task_id = payload.get("task_id")
+    task = supabase.table("tasks").select("*").eq("id", task_id).execute()
+    if not task.data:
+        raise HTTPException(status_code=404, detail="Task not found.")
+    task_row = task.data[0]
+
+    if task_row.get("assigned_to") != own_id:
+        raise HTTPException(status_code=403, detail="Not your task.")
+
+    try:
+        result = (
+            supabase.table("extension_requests")
+            .insert({
+                "task_id": task_id,
+                "requested_by": own_id,
+                "workspace_id": task_row["workspace_id"],
+                "current_deadline": task_row.get("deadline"),
+                "requested_deadline": payload.get("requested_deadline"),
+                "reason": payload.get("reason"),
+            })
+            .select()
+            .execute()
+        )
+    except Exception as e:
+        if "23505" in str(e) or "duplicate" in str(e).lower():
+            raise HTTPException(status_code=409, detail="A pending extension request already exists for this task.")
+        raise HTTPException(status_code=500, detail="Could not submit your request.")
+
+    inserted = result.data[0]
+
+    admins = (
+        supabase.table("users")
+        .select("id")
+        .eq("workspace_id", task_row["workspace_id"])
+        .eq("role", "admin")
+        .execute()
+    )
+    for admin in admins.data or []:
+        await _send_push(
+            admin["id"],
+            "New Extension Request",
+            f'A new deadline extension was requested for "{task_row["title"]}".',
+            {"type": "extension_request", "extension_request_id": inserted["id"], "taskId": task_id},
+        )
+
+    return inserted
