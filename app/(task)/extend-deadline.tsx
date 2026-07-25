@@ -28,10 +28,10 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
-import { sendPushOnly } from "../../lib/notify";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { toLocalDateString } from "../../utils/dateFormat";
+import { authFetch } from "../../utils/authFetch";
 
 export default function ExtendDeadline() {
   const { colors, isDark } = useTheme();
@@ -51,12 +51,9 @@ export default function ExtendDeadline() {
     if (!taskId) return;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("id", taskId)
-        .single();
-      if (error) console.error("Task fetch error:", error);
+      const res = await authFetch(`/tasks/${taskId}`);
+      const data = res.ok ? await res.json() : null;
+      if (!res.ok) console.error("Task fetch error:", res.status);
       setTask(data);
       setLoading(false);
     })();
@@ -106,60 +103,30 @@ export default function ExtendDeadline() {
       return;
     }
 
-    setSubmitting(true);
+   setSubmitting(true);
 
-    const { error, data: insertedRows } = await supabase
-      .from("extension_requests")
-      .insert({
+    const res = await authFetch("/extension-requests", {
+      method: "POST",
+      body: JSON.stringify({
         task_id: task.id,
-        requested_by: task.assigned_to,
-        workspace_id: task.workspace_id,
-        current_deadline: task.deadline,
         requested_deadline: toLocalDateString(newDeadline),
         reason: reason.trim(),
-      })
-      .select()
-      .single();
+      }),
+    });
 
     setSubmitting(false);
 
-    if (error) {
-      // unique index "one_pending_request_per_task" throws code 23505 if one already exists
-      if (error.code === "23505") {
+    if (!res.ok) {
+      if (res.status === 409) {
         showToast("A pending extension request already exists for this task.", "error");
       } else {
-        showToast(error.message || "Could not submit your request", "error");
+        showToast("Could not submit your request", "error");
       }
       return;
     }
 
-    // Show success right away — don't make the person wait on push delivery
-    // to someone else's device.
     showToast("Your extension request has been sent to the admin.", "success");
     setTimeout(() => router.back(), 900);
-
-    // Notify admins in the background. Fire-and-forget: a slow or failed
-    // push should never block or fail the person's own request confirmation.
-    if (insertedRows) {
-      (async () => {
-        const { data: admins } = await supabase
-          .from("users")
-          .select("id")
-          .eq("workspace_id", task.workspace_id)
-          .eq("role", "admin");
-
-        if (admins) {
-          admins.forEach((admin) => {
-            sendPushOnly(
-              admin.id,
-              "New Extension Request",
-              `A new deadline extension was requested for "${task.title}".`,
-              { type: "extension_request", extension_request_id: insertedRows.id, taskId: task.id }
-            ).catch((err) => console.log("Admin push failed:", err));
-          });
-        }
-      })();
-    }
   };
 
   return (

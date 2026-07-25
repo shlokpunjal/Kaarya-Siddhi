@@ -129,7 +129,11 @@ async def get_calendar_tasks(current_user: dict = Depends(get_current_user)):
     query = supabase.table("tasks").select("*")
 
     if role == "employee":
-        query = query.or_(f"assigned_to.eq.{user_row['id']},created_by.eq.{user_row['id']}")
+        if not user_row.get("workspace_id"):
+            return []
+        query = query.or_(
+            f"assigned_to.eq.{user_row['id']},created_by.eq.{user_row['id']}"
+        ).eq("workspace_id", user_row["workspace_id"])
     elif role == "admin":
         if not user_row.get("workspace_id"):
             return []
@@ -144,15 +148,17 @@ async def get_calendar_tasks(current_user: dict = Depends(get_current_user)):
 async def get_admin_tasks_and_team(current_user: dict = Depends(get_current_user)):
     email = current_user["sub"]
 
-    admin = supabase.table("users").select("id").eq("email", email).execute()
+    admin = supabase.table("users").select("id, workspace_id").eq("email", email).execute()
     if not admin.data:
         raise HTTPException(status_code=401, detail="Account no longer exists.")
     admin_id = admin.data[0]["id"]
+    admin_workspace_id = admin.data[0].get("workspace_id")
 
     tasks_result = (
         supabase.table("tasks")
         .select("*")
         .eq("created_by", admin_id)
+        .eq("workspace_id", admin_workspace_id)
         .order("deadline", desc=False)
         .execute()
     )

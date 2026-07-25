@@ -60,7 +60,7 @@ async def update_task(task_id: str, payload: dict, current_user: dict = Depends(
     own_id = _get_own_id(current_user["sub"])
     _check_ownership(task_id, own_id)
 
-    allowed = {"title", "deadline", "description", "attachment_url", "priority"}
+    allowed = {"title", "deadline", "description", "attachment_url", "priority", "assigned_to", "status", "suggestion", "completed_at"}
     updates = {k: v for k, v in payload.items() if k in allowed}
     if not updates:
         raise HTTPException(status_code=400, detail="No valid fields to update.")
