@@ -18,7 +18,7 @@ import { useAuth } from "../../context/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
-import { registerPushToken } from "../../utils/pushToken";
+import { registerAndSavePushToken } from "../../lib/pushNotifications";
 import { sendLoginNotification } from "../../utils/notifications";
 import { wp, moderateScale } from "../../utils/responsive";
 import TrainLoadingAnimation from "../../components/TrainLoadingAnimation";
@@ -193,7 +193,7 @@ const OtpVerify = () => {
         data.workspace_id,
         data.refresh_token,
       );
-      registerPushToken().catch((err) =>
+      registerAndSavePushToken().catch((err) =>
         console.log("Push token registration failed:", err),
       );
 

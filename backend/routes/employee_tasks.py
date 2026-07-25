@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from supabase_client import supabase
 from auth_utils import get_current_user
-from routes.notify import _send_push
+from notify_utils import create_notification
 
 router = APIRouter()
 
@@ -180,14 +180,21 @@ async def ask_for_review(task_id: str, current_user: dict = Depends(get_current_
 
     recipients = {task.get("assigned_to"), task.get("created_by")} - {None}
     if recipients:
-        rows = [
-            {"user_id": uid, "type": "task_in_review", "message": f'"{task["title"]}" has been submitted for review.', "task_id": task_id}
-            for uid in recipients
-        ]
-        supabase.table("notifications").insert(rows).execute()
-
-        for uid in recipients:
-            if uid != own_id:
-                await _send_push(uid, "Task submitted for review", f'"{task["title"]}" has been submitted for review.', {"type": "task_in_review", "taskId": task_id})
+        message = f'"{task["title"]}" has been submitted for review.'
+        # The submission itself is already saved above — a failure here
+        # must not turn into an error for the employee who just
+        # successfully submitted their work for review.
+        try:
+            for uid in recipients:
+                create_notification(
+                    uid,
+                    "task_in_review",
+                    message,
+                    task_id=task_id,
+                    title="Task submitted for review",
+                    send_push=(uid != own_id),  # don't buzz the person who just submitted it
+                )
+        except Exception as e:
+            print(f"Failed to notify recipients of task {task_id} in review: {e}")
 
     return {"status": "in_review"}

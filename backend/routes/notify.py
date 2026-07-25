@@ -1,97 +1,96 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from supabase_client import supabase
 from auth_utils import get_current_user
-import httpx
-from fastapi import HTTPException
+from notify_utils import create_notification, push_only, delete_notifications
+
 router = APIRouter()
-
-TITLES = {
-    "extension_accepted": "Extension Accepted",
-    "extension_rejected": "Extension Rejected",
-    "task_assigned": "New Task Assigned",
-}
-
-
-async def _send_push(user_id: str, title: str, body: str, data: dict):
-    user = supabase.table("users").select("expo_push_token").eq("id", user_id).execute()
-    token = user.data[0]["expo_push_token"] if user.data else None
-    if not token:
-        return
-    async with httpx.AsyncClient() as client:
-        await client.post(
-            "https://exp.host/--/api/v2/push/send",
-            json={"to": token, "title": title, "body": body, "sound": "default", "data": data},
-        )
 
 
 @router.post("/notify")
-async def create_notification(payload: dict, current_user: dict = Depends(get_current_user)):
-    user_id = payload["userId"]
-    type_ = payload["type"]
-    message = payload["message"]
+async def create_notification_route(payload: dict, current_user: dict = Depends(get_current_user)):
+    user_id = payload.get("userId")
+    type_ = payload.get("type")
+    message = payload.get("message")
+    if not user_id or not type_ or not message:
+        raise HTTPException(status_code=400, detail="userId, type and message are required.")
+
     task_id = payload.get("taskId")
     metadata = payload.get("metadata", {})
 
-    supabase.table("notifications").insert({
-        "user_id": user_id,
-        "task_id": task_id,
-        "type": type_,
-        "message": message,
-        "is_read": False,
-        "metadata": metadata,
-    }).execute()
-
-    await _send_push(user_id, TITLES.get(type_, "Notification"), message, {"type": type_, "taskId": task_id, **metadata})
+    create_notification(user_id, type_, message, task_id=task_id, metadata=metadata)
     return {"success": True}
 
 
 @router.post("/notify-push-only")
-async def push_only(payload: dict, current_user: dict = Depends(get_current_user)):
+async def push_only_route(payload: dict, current_user: dict = Depends(get_current_user)):
     # Push without a notifications row — for cases like extension requests
-    # where the request row itself is the record; a notifications row would
-    # just be a duplicate.
-    user_id = payload["userId"]
+    # where the request row itself is the record; a notifications row
+    # would just be a duplicate.
+    user_id = payload.get("userId")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="userId is required.")
+
     title = payload.get("title", "Notification")
     body = payload.get("body", "")
     data = payload.get("data", {})
-    await _send_push(user_id, title, body, data)
+    push_only(user_id, title, body, data=data)
     return {"success": True}
 
 
 @router.delete("/notify-pending")
 async def delete_pending_notifications(task_id: str, type: str, current_user: dict = Depends(get_current_user)):
-    supabase.table("notifications").delete().eq("task_id", task_id).eq("type", type).execute()
+    delete_notifications(notif_type=type, task_id=task_id)
     return {"success": True}
+
 
 @router.get("/notifications")
 async def list_notifications(types: str | None = None, current_user: dict = Depends(get_current_user)):
-    user = supabase.table("users").select("id").eq("email", current_user["sub"]).execute()
+    try:
+        user = supabase.table("users").select("id").eq("email", current_user["sub"]).execute()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Could not load notifications right now.")
+
     if not user.data:
         raise HTTPException(status_code=401, detail="Account no longer exists.")
     own_id = user.data[0]["id"]
 
-    query = (
-        supabase.table("notifications")
-        .select("id, type, message, created_at, metadata, task_id")
-        .eq("user_id", own_id)
-        .order("created_at", desc=True)
-    )
-    if types:
-        query = query.in_("type", types.split(","))
+    try:
+        query = (
+            supabase.table("notifications")
+            .select("id, type, message, created_at, metadata, task_id")
+            .eq("user_id", own_id)
+            .order("created_at", desc=True)
+        )
+        if types:
+            query = query.in_("type", types.split(","))
 
-    result = query.execute()
+        result = query.execute()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Could not load notifications right now.")
+
     return result.data
 
 
 @router.delete("/notifications")
-async def delete_notifications(ids: str, current_user: dict = Depends(get_current_user)):
-    user = supabase.table("users").select("id").eq("email", current_user["sub"]).execute()
+async def delete_notifications_route(ids: str, current_user: dict = Depends(get_current_user)):
+    try:
+        user = supabase.table("users").select("id").eq("email", current_user["sub"]).execute()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Could not clear notifications right now.")
+
     if not user.data:
         raise HTTPException(status_code=401, detail="Account no longer exists.")
     own_id = user.data[0]["id"]
 
-    id_list = ids.split(",")
-    # Scoped to the caller's own user_id — can't delete someone else's notifications
-    # even if they somehow guessed another notification's id.
-    supabase.table("notifications").delete().eq("user_id", own_id).in_("id", id_list).execute()
+    id_list = [i for i in ids.split(",") if i]
+    if not id_list:
+        return {"deleted": True}
+
+    try:
+        # Scoped to the caller's own user_id — can't delete someone else's
+        # notifications even if they somehow guessed another notification's id.
+        supabase.table("notifications").delete().eq("user_id", own_id).in_("id", id_list).execute()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Could not clear notifications right now.")
+
     return {"deleted": True}

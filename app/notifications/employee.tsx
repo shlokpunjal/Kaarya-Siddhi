@@ -57,17 +57,21 @@ export default function EmployeeNotifications() {
 
   const fetchNotifications = useCallback(async (id: string) => {
     setLoading(true);
-    const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review";
-    const res = await authFetch(`/notifications?types=${types}`);
+    try {
+      const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review";
+      const res = await authFetch(`/notifications?types=${types}`);
 
-    if (!res.ok) {
-      console.error("Error fetching notifications:", res.status);
+      if (!res.ok) {
+        console.error("Error fetching notifications:", res.status);
+        return;
+      }
+      const data = await res.json();
+      setNotifications((data as NotifRow[]) ?? []);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    } finally {
       setLoading(false);
-      return;
     }
-    const data = await res.json();
-    setNotifications((data as NotifRow[]) ?? []);
-    setLoading(false);
   }, []);
 
   useFocusEffect(
@@ -96,13 +100,17 @@ export default function EmployeeNotifications() {
 
   const clearAll = async () => {
     if (!userId || notifications.length === 0) return;
-    const ids = notifications.map((n) => n.id).join(",");
-    const res = await authFetch(`/notifications?ids=${ids}`, { method: "DELETE" });
-    if (!res.ok) {
-      console.error("Failed to clear notifications:", res.status);
-      return;
+    try {
+      const ids = notifications.map((n) => n.id).join(",");
+      const res = await authFetch(`/notifications?ids=${ids}`, { method: "DELETE" });
+      if (!res.ok) {
+        console.error("Failed to clear notifications:", res.status);
+        return;
+      }
+      setNotifications([]);
+    } catch (err) {
+      console.error("Failed to clear notifications:", err);
     }
-    setNotifications([]);
   };
 
   const handlePress = (n: NotifRow) => {

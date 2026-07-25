@@ -16,7 +16,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from supabase_client import supabase
-from notify_utils import send_push_notification
+from notify_utils import create_notification
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -66,20 +66,11 @@ def send_eoffice_reminders() -> dict:
             noun = "file" if count == 1 else "files"
             message = f"You have {count} eOffice {noun} pending completion."
 
-            supabase.table("notifications").insert({
-                "user_id": user_row["id"],
-                "task_id": None,
-                "type": "eoffice_pending",
-                "message": message,
-                "is_read": False,
-                "metadata": {"file_nos": file_nos, "count": count},
-            }).execute()
-
-            send_push_notification(
-                user_row.get("expo_push_token"),
-                "Track your eOffice files",
+            create_notification(
+                user_row["id"],
+                "eoffice_pending",
                 message,
-                data={"type": "eoffice_pending"},
+                metadata={"file_nos": file_nos, "count": count},
             )
             notified += 1
         except Exception as e:

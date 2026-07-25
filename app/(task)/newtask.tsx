@@ -268,12 +268,17 @@ export default function Newtask() {
           if (!filesRes.ok) throw new Error("Could not attach files.");
         }
 
-        await createNotification({
+        // The task itself is already created at this point — notification
+        // delivery is best-effort and must never surface as a failure for
+        // an action that already succeeded. createNotification() already
+        // never throws, but it's kept out of the outer try/catch's
+        // "something went wrong" path defensively, in case that changes.
+        createNotification({
           userId: selectedEmployeeId,
           type: "task_assigned",
           message: `You've been assigned a new task: "${taskName}".`,
           taskId: task.id,
-        });
+        }).catch((err) => console.log("Notification creation failed:", err));
 
         sendLocalNotification("Task Created", `"${taskName}" has been assigned.`).catch((err) =>
           console.log("Local notification failed:", err)
