@@ -10,27 +10,31 @@
 # Runs once a day at 5:00 PM IST. Unlike deadline_reminders.py this has
 # no "sent once" guard by design — it's meant to repeat daily for as long
 # as files stay open, same reasoning as overdue_reminders.py.
+#
+# PERFORMANCE:
+# Previously fetched each creator one row at a time in the loop, and
+# create_notification did a second, redundant query per creator to
+# re-fetch the same push token. Now every creator is fetched in a single
+# batched query and all notifications + pushes go out in one batched
+# call — see notify_utils.create_notifications_bulk.
 
 from collections import defaultdict
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from supabase_client import supabase
-from notify_utils import create_notification
-
-IST = ZoneInfo("Asia/Kolkata")
+from notify_utils import create_notifications_bulk
 
 
-def _fetch_user(user_id: str | None) -> dict | None:
-    if not user_id:
-        return None
+def _fetch_users(user_ids: list[str]) -> dict[str, dict]:
+    ids = sorted({uid for uid in user_ids if uid})
+    if not ids:
+        return {}
     result = (
         supabase.table("users")
         .select("id, name, expo_push_token")
-        .eq("id", user_id)
+        .in_("id", ids)
         .execute()
     )
-    return result.data[0] if result.data else None
+    return {row["id"]: row for row in (result.data or [])}
 
 
 def send_eoffice_reminders() -> dict:
@@ -55,26 +59,25 @@ def send_eoffice_reminders() -> dict:
         if f.get("created_by"):
             by_creator[f["created_by"]].append(f["file_no"])
 
-    notified = 0
+    users_by_id = _fetch_users(list(by_creator.keys()))
+
+    notifications = []
     for creator_id, file_nos in by_creator.items():
-        try:
-            user_row = _fetch_user(creator_id)
-            if not user_row:
-                continue
+        user_row = users_by_id.get(creator_id)
+        if not user_row:
+            continue
 
-            count = len(file_nos)
-            noun = "file" if count == 1 else "files"
-            message = f"You have {count} eOffice {noun} pending completion."
+        count = len(file_nos)
+        noun = "file" if count == 1 else "files"
+        notifications.append({
+            "user_id": user_row["id"],
+            "notif_type": "eoffice_pending",
+            "message": f"You have {count} eOffice {noun} pending completion.",
+            "metadata": {"file_nos": file_nos, "count": count},
+            "push_token": user_row.get("expo_push_token"),
+        })
 
-            create_notification(
-                user_row["id"],
-                "eoffice_pending",
-                message,
-                metadata={"file_nos": file_nos, "count": count},
-            )
-            notified += 1
-        except Exception as e:
-            print(f"Failed to send eoffice reminder for creator {creator_id}: {e}")
+    create_notifications_bulk(notifications)
 
-    print(f"eOffice reminders: {notified} creator(s) notified")
-    return {"success": True, "creators_notified": notified}
+    print(f"eOffice reminders: {len(notifications)} creator(s) notified")
+    return {"success": True, "creators_notified": len(notifications)}
