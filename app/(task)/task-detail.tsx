@@ -228,7 +228,18 @@ export default function TaskDetail() {
     );
   }
 
-  const statusColor = statusColorMap[task.status] ?? colors.text.secondary;
+ // ── Derived display status — "overdue" isn't a real DB value, it's a
+  // pending task whose deadline has passed (same rule the dashboard uses
+  // to bucket it). We only relabel for display; task.status itself stays
+  // "pending" in the DB and in all the disabled/button logic below. ──
+  const todayDateStr = new Date().toISOString().slice(0, 10);
+  const isOverdue =
+    task.status === "pending" &&
+    !!task.deadline &&
+    task.deadline.slice(0, 10) < todayDateStr;
+
+  const displayStatus = isOverdue ? "overdue" : (task.status ?? "pending");
+  const statusColor = statusColorMap[displayStatus] ?? colors.text.secondary;
 
   // Edit/delete icons should only show for tasks the employee created AND
   // that aren't completed yet.
@@ -387,7 +398,7 @@ export default function TaskDetail() {
                 textTransform: "capitalize",
               }}
             >
-              {task.status ?? "pending"}
+              {displayStatus}
             </Text>
           </View>
 
