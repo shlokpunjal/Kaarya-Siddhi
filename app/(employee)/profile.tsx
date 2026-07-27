@@ -68,6 +68,7 @@ export default function EmployeeProfile() {
   const [contact, setContact] = useState("");
   const [email, setEmail] = useState("");
   const [department, setDepartment] = useState("");
+  const [designation, setDesignation] = useState("");
   const [connectionStatus, setConnectionStatus] = useState<
     "none" | "pending" | "accepted"
   >("none");
@@ -142,6 +143,7 @@ export default function EmployeeProfile() {
     setContact(data.mobile_number ?? "");
     setEmail(data.email ?? "");
     setDepartment(data.department ?? "");
+    setDesignation(data.designation ?? "");
     setAvatarUri(data.profile_pic_url ?? null);
     setLoading(false);
   };
@@ -168,13 +170,16 @@ export default function EmployeeProfile() {
           name: name.trim(),
           mobile_number: contact.trim(),
           department: department.trim(),
+          designation: designation.trim(),
         })
         .eq("id", currentUser.id);
 
       if (error) throw error;
 
       setCurrentUser((prev) =>
-        prev ? { ...prev, name, mobile_number: contact, department } : prev,
+        prev
+          ? { ...prev, name, mobile_number: contact, department, designation }
+          : prev,
       );
       setEditing(false);
       showToast("Profile updated", "success");
@@ -552,11 +557,47 @@ export default function EmployeeProfile() {
                 { color: colors.text.secondary, marginTop: 2 },
               ]}
             >
-              {currentUser.designation ?? "—"}
+              {designation || "—"}
             </Text>
           </View>
 
           <View style={styles.fieldsGroup}>
+            <View
+              style={[
+                styles.fieldRow,
+                { borderBottomColor: colors.base.border },
+              ]}
+            >
+              <Text
+                style={[typography.label, { color: colors.text.secondary }]}
+              >
+                Full name
+              </Text>
+              {editing ? (
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  style={[
+                    styles.input,
+                    typography.body,
+                    {
+                      borderColor: colors.base.border,
+                      color: colors.text.primary,
+                    },
+                  ]}
+                />
+              ) : (
+                <Text
+                  style={[
+                    typography.body,
+                    { color: colors.text.primary, marginTop: 4 },
+                  ]}
+                >
+                  {name}
+                </Text>
+              )}
+            </View>
+
             <View
               style={[
                 styles.fieldRow,
@@ -646,6 +687,42 @@ export default function EmployeeProfile() {
                   ]}
                 >
                   {department || "—"}
+                </Text>
+              )}
+            </View>
+
+            <View
+              style={[
+                styles.fieldRow,
+                { borderBottomColor: colors.base.border },
+              ]}
+            >
+              <Text
+                style={[typography.label, { color: colors.text.secondary }]}
+              >
+                Designation
+              </Text>
+              {editing ? (
+                <TextInput
+                  value={designation}
+                  onChangeText={setDesignation}
+                  style={[
+                    styles.input,
+                    typography.body,
+                    {
+                      borderColor: colors.base.border,
+                      color: colors.text.primary,
+                    },
+                  ]}
+                />
+              ) : (
+                <Text
+                  style={[
+                    typography.body,
+                    { color: colors.text.primary, marginTop: 4 },
+                  ]}
+                >
+                  {designation || "—"}
                 </Text>
               )}
             </View>
