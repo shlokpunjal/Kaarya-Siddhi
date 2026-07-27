@@ -712,24 +712,25 @@ export default function TaskDetail() {
                 opacity: askingReview ? 0.7 : 1,
               }}
             >
-              {askingReview ? (
-                <ActivityIndicator color={colors.base.surfaceL1} />
-              ) : (
-                <Text
-                  numberOfLines={1}
-                  allowFontScaling={false}
-                  style={{
-                    ...typography.subheading,
-                    color: colors.brand.onPrimary,
-                  }}
-                >
-                  {task.status === "completed"
-                    ? "Already Completed"
-                    : task.status === "in_review"
-                      ? "Under Review"
-                      : "Ask to Review"}
-                </Text>
-              )}
+             {askingReview ? (
+                  <ActivityIndicator color={colors.base.surfaceL1} />
+                ) : (
+                  <Text
+                    numberOfLines={1}
+                    allowFontScaling={false}
+                    style={{
+                      ...typography.subheading,
+                      fontSize: moderateScale(18),
+                      color: colors.brand.onPrimary,
+                    }}
+                  >
+                    {task.status === "completed"
+                      ? "Already Completed"
+                      : task.status === "in_review"
+                        ? "Under Review"
+                        : "Ask to Review"}
+                  </Text>
+                )}
             </TouchableOpacity>
           )}
         </View>
