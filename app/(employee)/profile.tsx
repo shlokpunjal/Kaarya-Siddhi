@@ -43,10 +43,10 @@ const THEME_OPTIONS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-    { value: "light", label: "Light", icon: "sunny-outline" },
-    { value: "dark", label: "Dark", icon: "moon-outline" },
-    { value: "system", label: "System", icon: "phone-portrait-outline" },
-  ];
+  { value: "light", label: "Light", icon: "sunny-outline" },
+  { value: "dark", label: "Dark", icon: "moon-outline" },
+  { value: "system", label: "System", icon: "phone-portrait-outline" },
+];
 
 const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
@@ -140,15 +140,15 @@ export default function EmployeeProfile() {
     try {
       setSaving(true);
 
-      const res = await authFetch('/profile', {
-        method: 'PATCH',
+      const res = await authFetch("/profile", {
+        method: "PATCH",
         body: JSON.stringify({
           name: name.trim(),
           mobile_number: contact.trim(),
           department: department.trim(),
         }),
       });
-      if (!res.ok) throw new Error('Could not save changes');
+      if (!res.ok) throw new Error("Could not save changes");
 
       setCurrentUser((prev) =>
         prev
@@ -254,11 +254,11 @@ export default function EmployeeProfile() {
         { folder: "profile_pics", resourceType: "image" },
       );
 
-      const res = await authFetch('/profile', {
-        method: 'PATCH',
+      const res = await authFetch("/profile", {
+        method: "PATCH",
         body: JSON.stringify({ profile_pic_url: secureUrl }),
       });
-      if (!res.ok) throw new Error('Could not update photo');
+      if (!res.ok) throw new Error("Could not update photo");
 
       setAvatarUri(secureUrl);
       setCurrentUser((prev) =>
@@ -465,6 +465,13 @@ export default function EmployeeProfile() {
                     <Image
                       source={{ uri: avatarUri }}
                       style={styles.avatarImage}
+                      onError={(e) =>
+                        console.log(
+                          "Avatar load error:",
+                          JSON.stringify(e.nativeEvent),
+                        )
+                      }
+                      onLoad={() => console.log("Avatar loaded OK")}
                     />
                   ) : (
                     <View
