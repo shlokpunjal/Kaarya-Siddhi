@@ -65,6 +65,7 @@ export default function AdminProfile() {
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [email, setemail] = useState("");
+  const [designation, setDesignation] = useState("");
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
@@ -398,7 +399,7 @@ export default function AdminProfile() {
                 { color: colors.text.secondary, marginTop: 2 },
               ]}
             >
-              {currentUser.designation ?? "—"}
+              {designation || "—"}
             </Text>
           </View>
 
@@ -507,6 +508,42 @@ export default function AdminProfile() {
                   ]}
                 >
                   {contact}
+                </Text>
+              )}
+            </View>
+
+            <View
+              style={[
+                styles.fieldRow,
+                { borderBottomColor: colors.base.border },
+              ]}
+            >
+              <Text
+                style={[typography.label, { color: colors.text.secondary }]}
+              >
+                Designation
+              </Text>
+              {editing ? (
+                <TextInput
+                  value={designation}
+                  onChangeText={setDesignation}
+                  style={[
+                    styles.input,
+                    typography.body,
+                    {
+                      borderColor: colors.base.border,
+                      color: colors.text.primary,
+                    },
+                  ]}
+                />
+              ) : (
+                <Text
+                  style={[
+                    typography.body,
+                    { color: colors.text.primary, marginTop: 4 },
+                  ]}
+                >
+                  {designation || "—"}
                 </Text>
               )}
             </View>
