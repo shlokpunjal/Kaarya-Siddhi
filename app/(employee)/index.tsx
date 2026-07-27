@@ -63,7 +63,7 @@ export default function Dashboard() {
   const [userId, setUserId] = useState<string | null>(null);
 
   // ── Fetch tasks for the logged-in employee. Shared by initial load and pull-to-refresh ──
-  const checkUserAndFetchTasks = useCallback(
+ const checkUserAndFetchTasks = useCallback(
     async (isMounted: () => boolean = () => true) => {
       const email = await AsyncStorage.getItem("userEmail");
       if (!email) {
@@ -85,7 +85,9 @@ export default function Dashboard() {
         console.error("Error fetching tasks:", res.status);
       } else if (isMounted()) {
         const data = await res.json();
-        setTasks((data ?? []).map(mapRowToTask));
+        let mapped = (data ?? []).map(mapRowToTask);
+        mapped = await syncOverdueStatuses(mapped);   // ← added here
+        setTasks(mapped);
       }
     },
     [router],
@@ -102,6 +104,34 @@ export default function Dashboard() {
       mounted = false;
     };
   }, [checkUserAndFetchTasks]);
+
+  // ── Flip any pending-but-overdue tasks to "overdue" in the DB, then reflect
+// it locally. Runs after every fetch, so status is always accurate without
+// needing a scheduled job. ──
+const syncOverdueStatuses = useCallback(async (fetchedTasks: Task[]) => {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const overdueOnes = fetchedTasks.filter(
+    (t) => t.status === "pending" && t.dueDate?.slice(0, 10) < today
+  );
+
+  if (overdueOnes.length === 0) return fetchedTasks;
+
+  await Promise.all(
+    overdueOnes.map((t) =>
+      authFetch(`/tasks/${t.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "overdue" }),
+      }).catch((err) => console.error(`Failed to mark task ${t.id} overdue:`, err))
+    )
+  );
+
+  // Reflect the change locally immediately, without needing a re-fetch
+  return fetchedTasks.map((t) =>
+    overdueOnes.some((o) => o.id === t.id) ? { ...t, status: "overdue" as const } : t
+  );
+}, []);
 
   // ── Refetch tasks whenever the dashboard regains focus (e.g. coming back
   // from task-detail after "Ask to Review" or "Review or Complete") so the
@@ -125,11 +155,14 @@ export default function Dashboard() {
       }
       let mounted = true;
       checkUserAndFetchTasks(() => mounted);
+      
       return () => {
         mounted = false;
       };
     }, [checkUserAndFetchTasks]),
   );
+
+  
 
   // ── Pull-to-refresh ──────────────────────────────────────────────────────────
   const onRefresh = useCallback(async () => {
@@ -182,14 +215,8 @@ export default function Dashboard() {
     return <DashboardSkeleton />;
   }
 
-  const todayDateStr = new Date().toISOString().slice(0, 10);
-
-  const overdueTasks = tasks.filter(
-    (t) => t.status === "pending" && t.dueDate?.slice(0, 10) < todayDateStr,
-  );
-  const pendingTasks = tasks.filter(
-    (t) => t.status === "pending" && t.dueDate?.slice(0, 10) >= todayDateStr,
-  );
+  const overdueTasks = tasks.filter((t) => t.status === "overdue");
+  const pendingTasks = tasks.filter((t) => t.status === "pending");
   const reviewTasks = tasks.filter((t) => t.status === "inReview");
   const completedTasks = tasks.filter((t) => t.status === "completed");
   // ── If every category is empty, show the NoTasks screen instead ──
