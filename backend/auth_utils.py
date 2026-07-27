@@ -8,7 +8,9 @@ from fastapi import HTTPException, Header
 
 from config import JWT_SECRET, JWT_ALGORITHM, ACCESS_TOKEN_MINUTES, REFRESH_TOKEN_DAYS
 from supabase_client import supabase
-
+import os
+from config import CLOUDINARY_CLOUD_NAME
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
@@ -55,3 +57,12 @@ def get_current_user(authorization: str = Header(None)):
     token = authorization.split(" ")[1]
     payload = decode_access_token(token)
     return payload
+
+
+def validate_cloudinary_url(url: str | None) -> str | None:
+    if url is None:
+        return None
+    expected_prefix = f"https://res.cloudinary.com/{CLOUDINARY_CLOUD_NAME}/"
+    if not url.startswith(expected_prefix):
+        raise HTTPException(status_code=400, detail="Invalid attachment URL.")
+    return url

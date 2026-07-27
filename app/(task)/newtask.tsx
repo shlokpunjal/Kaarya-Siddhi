@@ -6,7 +6,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -34,7 +34,12 @@ type EmployeeProfile = {
   name: string;
 };
 
-const PRIORITIES: { label: string; value: Priority; color: string; bg: string }[] = [
+const PRIORITIES: {
+  label: string;
+  value: Priority;
+  color: string;
+  bg: string;
+}[] = [
   { label: "Low", value: "low", color: "#2E7D32", bg: "#E8F5E9" },
   { label: "Medium", value: "medium", color: "#E65100", bg: "#FFF3E0" },
   { label: "High", value: "high", color: "#B71C1C", bg: "#FFEBEE" },
@@ -52,9 +57,13 @@ export default function Newtask() {
 
   // Employee autocomplete
   const [assignToName, setAssignToName] = useState("");
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(
+    null,
+  );
   const [employeesList, setEmployeesList] = useState<EmployeeProfile[]>([]);
-  const [filteredEmployees, setFilteredEmployees] = useState<EmployeeProfile[]>([]);
+  const [filteredEmployees, setFilteredEmployees] = useState<EmployeeProfile[]>(
+    [],
+  );
   const [showDropdown, setShowDropdown] = useState(false);
 
   // Deadline — calendar picker. Always editable here (admin-only screen),
@@ -64,7 +73,9 @@ export default function Newtask() {
 
   const [description, setDescription] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
-  const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
+  const [selectedPriority, setSelectedPriority] = useState<Priority | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
@@ -137,7 +148,7 @@ export default function Newtask() {
       setShowDropdown(false);
     } else {
       const sorted = employeesList.filter((emp) =>
-        emp.name.toLowerCase().includes(text.toLowerCase())
+        emp.name.toLowerCase().includes(text.toLowerCase()),
       );
       setFilteredEmployees(sorted);
       setShowDropdown(true);
@@ -155,6 +166,7 @@ export default function Newtask() {
     setShowDatePicker(Platform.OS === "ios");
     if (selected) setDeadlineDate(selected);
   };
+  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 10MB, pick what fits your use case
 
   const pickFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -163,9 +175,18 @@ export default function Newtask() {
       multiple: true,
     });
     if (!result.canceled) {
+      const oversized = result.assets.filter(
+        (f) => (f.size ?? 0) > MAX_FILE_SIZE,
+      );
+      if (oversized.length) {
+        // show your Toast/AlertModal here
+        return;
+      }
       setAttachedFiles((prev) => {
         const existingNames = new Set(prev.map((f) => f.name));
-        const newFiles = result.assets.filter((f) => !existingNames.has(f.name));
+        const newFiles = result.assets.filter(
+          (f) => !existingNames.has(f.name),
+        );
         return [...prev, ...newFiles];
       });
     }
@@ -211,9 +232,10 @@ export default function Newtask() {
         return;
       }
       const uploadedResults = await Promise.all(
-        attachedFiles.map((file) => uploadSingleFile(file))
+        attachedFiles.map((file) => uploadSingleFile(file)),
       );
-      const mainFileUrl = uploadedResults.length > 0 ? uploadedResults[0].file_url : null;
+      const mainFileUrl =
+        uploadedResults.length > 0 ? uploadedResults[0].file_url : null;
 
       if (isEditMode) {
         const updateRes = await authFetch(`/tasks/${taskId}`, {
@@ -237,7 +259,10 @@ export default function Newtask() {
             file_type: res.file_type,
             storage_service: "cloudinary",
           }));
-          const filesRes = await authFetch("/task-files", { method: "POST", body: JSON.stringify(filesPayload) });
+          const filesRes = await authFetch("/task-files", {
+            method: "POST",
+            body: JSON.stringify(filesPayload),
+          });
           if (!filesRes.ok) throw new Error("Could not attach files.");
         }
 
@@ -266,7 +291,10 @@ export default function Newtask() {
             file_type: res.file_type,
             storage_service: "cloudinary",
           }));
-          const filesRes = await authFetch("/task-files", { method: "POST", body: JSON.stringify(filesPayload) });
+          const filesRes = await authFetch("/task-files", {
+            method: "POST",
+            body: JSON.stringify(filesPayload),
+          });
           if (!filesRes.ok) throw new Error("Could not attach files.");
         }
 
@@ -282,9 +310,10 @@ export default function Newtask() {
           taskId: task.id,
         }).catch((err) => console.log("Notification creation failed:", err));
 
-        sendLocalNotification("Task Created", `"${taskName}" has been assigned.`).catch((err) =>
-          console.log("Local notification failed:", err)
-        );
+        sendLocalNotification(
+          "Task Created",
+          `"${taskName}" has been assigned.`,
+        ).catch((err) => console.log("Local notification failed:", err));
 
         showToast("Task created successfully", "success");
         setTimeout(() => router.back(), 900);
@@ -335,33 +364,52 @@ export default function Newtask() {
   };
 
   if (fetchingTask) {
-    return (
-      <TaskFormSkeleton />
-    );
+    return <TaskFormSkeleton />;
   }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
       {/* Header */}
-      <View style={{
-        backgroundColor: colors.brand.primary,
-        height: moderateScale(70),
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 18,
-      }}>
-        <Ionicons onPress={() => router.back()} name="arrow-back" size={moderateScale(28)} color={colors.brand.onPrimary} />
-        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, flex: 1, textAlign: "center" }}>
+      <View
+        style={{
+          backgroundColor: colors.brand.primary,
+          height: moderateScale(70),
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 18,
+        }}
+      >
+        <Ionicons
+          onPress={() => router.back()}
+          name="arrow-back"
+          size={moderateScale(28)}
+          color={colors.brand.onPrimary}
+        />
+        <Text
+          style={{
+            ...typography.heading,
+            color: colors.brand.onPrimary,
+            flex: 1,
+            textAlign: "center",
+          }}
+        >
           {isEditMode ? "Edit Task" : "Task Assignment"}
         </Text>
 
         {/* Delete icon — only shown when editing an existing task */}
         {isEditMode ? (
-          <TouchableOpacity onPress={handleDeleteTask} disabled={deleting || loading}>
+          <TouchableOpacity
+            onPress={handleDeleteTask}
+            disabled={deleting || loading}
+          >
             {deleting ? (
               <ActivityIndicator size="small" color={colors.brand.onPrimary} />
             ) : (
-              <Ionicons name="trash-outline" size={moderateScale(22)} color={colors.brand.onPrimary} />
+              <Ionicons
+                name="trash-outline"
+                size={moderateScale(22)}
+                color={colors.brand.onPrimary}
+              />
             )}
           </TouchableOpacity>
         ) : (
@@ -369,239 +417,371 @@ export default function Newtask() {
         )}
       </View>
 
-       <KeyboardAvoidingView
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? moderateScale(70) : 0}
       >
-
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={true}
         >
-        <View style={{
-          backgroundColor: colors.base.surfaceL1,
-          borderRadius: 16,
-          marginTop: hp(3.7),
-          borderWidth: 1,
-          borderColor: colors.base.border,
-          padding: wp(5.3),
-          ...Platform.select({
-            ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6 },
-            android: { elevation: 5 },
-          }),
-        }}>
-
-          {/* Task Name */}
-          <TextInput
-            placeholder="Task Name"
-            placeholderTextColor={colors.text.secondary}
-            value={taskName}
-            onChangeText={setTaskName}
-            style={inputStyle}
-          />
-
-          {/* Assign To — autocomplete */}
-          <View style={{ zIndex: 10 }}>
+          <View
+            style={{
+              backgroundColor: colors.base.surfaceL1,
+              borderRadius: 16,
+              marginTop: hp(3.7),
+              borderWidth: 1,
+              borderColor: colors.base.border,
+              padding: wp(5.3),
+              ...Platform.select({
+                ios: {
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.12,
+                  shadowRadius: 6,
+                },
+                android: { elevation: 5 },
+              }),
+            }}
+          >
+            {/* Task Name */}
             <TextInput
-              placeholder="Assign to (Type employee name...)"
+              placeholder="Task Name"
               placeholderTextColor={colors.text.secondary}
-              value={assignToName}
-              onChangeText={handleSearchEmployee}
-              style={[
-                inputStyle,
-                selectedEmployeeId ? { borderColor: colors.brand.accent, borderWidth: 1.5 } : {},
-              ]}
+              value={taskName}
+              onChangeText={setTaskName}
+              style={inputStyle}
             />
-            {selectedEmployeeId && (
-              <View style={{ position: "absolute", right: 12, top: 26 }}>
-                <Ionicons name="checkmark-circle" size={22} color={colors.brand.accent} />
-              </View>
-            )}
-            {showDropdown && filteredEmployees.length > 0 && (
-              <View style={{
-                backgroundColor: colors.base.surfaceL1,
-                borderColor: colors.base.border,
-                borderWidth: 1,
-                borderRadius: 12,
-                marginTop: 4,
-                maxHeight: moderateScale(180),
-                overflow: "hidden",
-              }}>
-                {filteredEmployees.map((emp) => (
-                  <TouchableOpacity
-                    key={emp.id}
-                    onPress={() => selectEmployee(emp)}
+
+            {/* Assign To — autocomplete */}
+            <View style={{ zIndex: 10 }}>
+              <TextInput
+                placeholder="Assign to (Type employee name...)"
+                placeholderTextColor={colors.text.secondary}
+                value={assignToName}
+                onChangeText={handleSearchEmployee}
+                style={[
+                  inputStyle,
+                  selectedEmployeeId
+                    ? { borderColor: colors.brand.accent, borderWidth: 1.5 }
+                    : {},
+                ]}
+              />
+              {selectedEmployeeId && (
+                <View style={{ position: "absolute", right: 12, top: 26 }}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={22}
+                    color={colors.brand.accent}
+                  />
+                </View>
+              )}
+              {showDropdown && filteredEmployees.length > 0 && (
+                <View
+                  style={{
+                    backgroundColor: colors.base.surfaceL1,
+                    borderColor: colors.base.border,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    marginTop: 4,
+                    maxHeight: moderateScale(180),
+                    overflow: "hidden",
+                  }}
+                >
+                  {filteredEmployees.map((emp) => (
+                    <TouchableOpacity
+                      key={emp.id}
+                      onPress={() => selectEmployee(emp)}
+                      style={{
+                        padding: 14,
+                        borderBottomWidth: 1,
+                        borderBottomColor: colors.base.border,
+                        backgroundColor: colors.base.surfaceL2,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          ...typography.body,
+                          color: colors.text.primary,
+                        }}
+                      >
+                        {emp.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* ── Deadline — calendar picker, always editable (admin screen) ── */}
+            <View style={{ marginTop: 14 }}>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: colors.text.secondary,
+                  marginBottom: 6,
+                  paddingLeft: 4,
+                }}
+              >
+                Deadline
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => setShowDatePicker(true)}
+                style={{
+                  backgroundColor: colors.base.surfaceL2,
+                  height: moderateScale(50),
+                  borderRadius: 12,
+                  borderColor: deadlineDate
+                    ? colors.brand.accent
+                    : colors.base.border,
+                  borderWidth: deadlineDate ? 1.5 : 1,
+                  paddingHorizontal: 15,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Text
+                  style={{
+                    ...typography.body,
+                    color: deadlineDate
+                      ? colors.text.primary
+                      : colors.text.secondary,
+                  }}
+                >
+                  {deadlineDate
+                    ? deadlineDate.toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "Select deadline date"}
+                </Text>
+                <Ionicons
+                  name={deadlineDate ? "calendar" : "calendar-outline"}
+                  size={20}
+                  color={
+                    deadlineDate ? colors.brand.accent : colors.text.secondary
+                  }
+                />
+              </TouchableOpacity>
+
+              {deadlineDate && (
+                <TouchableOpacity
+                  onPress={() => setDeadlineDate(null)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    marginTop: 6,
+                    paddingLeft: 4,
+                  }}
+                >
+                  <Ionicons
+                    name="close-circle-outline"
+                    size={14}
+                    color={colors.text.secondary}
+                  />
+                  <Text
                     style={{
-                      padding: 14,
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.base.border,
-                      backgroundColor: colors.base.surfaceL2,
+                      ...typography.label,
+                      color: colors.text.secondary,
                     }}
                   >
-                    <Text style={{ ...typography.body, color: colors.text.primary }}>{emp.name}</Text>
-                  </TouchableOpacity>
+                    Clear date
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={deadlineDate ?? new Date()}
+                  mode="date"
+                  minimumDate={new Date()}
+                  display={Platform.OS === "ios" ? "inline" : "default"}
+                  onChange={onChangeDate}
+                  style={{ marginTop: 8 }}
+                />
+              )}
+            </View>
+
+            {/* Priority */}
+            <View style={{ marginTop: 14 }}>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: colors.text.secondary,
+                  marginBottom: 8,
+                  paddingLeft: 4,
+                }}
+              >
+                Priority
+              </Text>
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                {PRIORITIES.map((p) => {
+                  const isSelected = selectedPriority === p.value;
+                  return (
+                    <TouchableOpacity
+                      key={p.value}
+                      onPress={() => setSelectedPriority(p.value)}
+                      style={{
+                        flex: 1,
+                        height: moderateScale(44),
+                        borderRadius: 12,
+                        borderWidth: isSelected ? 2 : 1,
+                        borderColor: isSelected ? p.color : colors.base.border,
+                        backgroundColor: isSelected
+                          ? p.bg
+                          : colors.base.surfaceL2,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexDirection: "row",
+                        gap: 6,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: moderateScale(8),
+                          height: moderateScale(8),
+                          borderRadius: moderateScale(4),
+                          backgroundColor: isSelected
+                            ? p.color
+                            : colors.text.secondary,
+                        }}
+                      />
+                      <Text
+                        style={{
+                          ...typography.body,
+                          fontSize: moderateScale(14),
+                          fontWeight: isSelected ? "600" : "400",
+                          color: isSelected ? p.color : colors.text.secondary,
+                        }}
+                      >
+                        {p.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Description */}
+            <TextInput
+              placeholder="Add Description"
+              placeholderTextColor={colors.text.secondary}
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              style={[
+                inputStyle,
+                { marginTop: 14, height: moderateScale(100), paddingTop: 12 },
+              ]}
+            />
+
+            {/* File Picker */}
+            <TouchableOpacity
+              onPress={pickFile}
+              style={{
+                backgroundColor: colors.base.surfaceL2,
+                marginTop: 14,
+                height: moderateScale(50),
+                borderRadius: 15,
+                borderColor: colors.base.border,
+                borderWidth: 1,
+                paddingLeft: 15,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <Ionicons name="attach" size={22} color={colors.text.secondary} />
+              <Text
+                style={{ ...typography.body, color: colors.text.secondary }}
+              >
+                {attachedFiles.length > 0
+                  ? `${attachedFiles.length} file${attachedFiles.length > 1 ? "s" : ""} attached — tap to add more`
+                  : "Add files"}
+              </Text>
+            </TouchableOpacity>
+
+            {attachedFiles.length > 0 && (
+              <View style={{ marginTop: 10, gap: 8 }}>
+                {attachedFiles.map((file) => (
+                  <View
+                    key={file.name}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: colors.base.surfaceL2,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: colors.base.border,
+                      padding: 10,
+                      gap: 10,
+                    }}
+                  >
+                    <Ionicons
+                      name="document-outline"
+                      size={20}
+                      color={colors.brand.accent}
+                    />
+                    <Text
+                      style={{
+                        ...typography.body,
+                        color: colors.text.primary,
+                        flex: 1,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {file.name}
+                    </Text>
+                    <TouchableOpacity onPress={() => removeFile(file.name)}>
+                      <Ionicons
+                        name="close-circle"
+                        size={20}
+                        color={colors.status.overdue}
+                      />
+                    </TouchableOpacity>
+                  </View>
                 ))}
               </View>
             )}
-          </View>
 
-          {/* ── Deadline — calendar picker, always editable (admin screen) ── */}
-          <View style={{ marginTop: 14 }}>
-            <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 6, paddingLeft: 4 }}>
-              Deadline
-            </Text>
-
+            {/* Submit */}
             <TouchableOpacity
-              onPress={() => setShowDatePicker(true)}
+              onPress={handleAddTask}
+              disabled={loading || deleting}
               style={{
-                backgroundColor: colors.base.surfaceL2,
-                height: moderateScale(50),
-                borderRadius: 12,
-                borderColor: deadlineDate ? colors.brand.accent : colors.base.border,
-                borderWidth: deadlineDate ? 1.5 : 1,
-                paddingHorizontal: 15,
-                flexDirection: "row",
+                backgroundColor: loading
+                  ? colors.base.border
+                  : colors.brand.accent,
+                height: moderateScale(54),
+                borderRadius: 14,
+                marginTop: 24,
                 alignItems: "center",
-                justifyContent: "space-between",
+                justifyContent: "center",
               }}
             >
-              <Text style={{
-                ...typography.body,
-                color: deadlineDate ? colors.text.primary : colors.text.secondary,
-              }}>
-                {deadlineDate
-                  ? deadlineDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-                  : "Select deadline date"}
-              </Text>
-              <Ionicons
-                name={deadlineDate ? "calendar" : "calendar-outline"}
-                size={20}
-                color={deadlineDate ? colors.brand.accent : colors.text.secondary}
-              />
+              {loading ? (
+                <ActivityIndicator color={colors.base.surfaceL1} />
+              ) : (
+                <Text
+                  style={{
+                    ...typography.subheading,
+                    color: colors.base.surfaceL1,
+                    fontSize: moderateScale(18),
+                  }}
+                >
+                  {isEditMode ? "Save Changes" : "Add task"}
+                </Text>
+              )}
             </TouchableOpacity>
-
-            {deadlineDate && (
-              <TouchableOpacity
-                onPress={() => setDeadlineDate(null)}
-                style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, paddingLeft: 4 }}
-              >
-                <Ionicons name="close-circle-outline" size={14} color={colors.text.secondary} />
-                <Text style={{ ...typography.label, color: colors.text.secondary }}>Clear date</Text>
-              </TouchableOpacity>
-            )}
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={deadlineDate ?? new Date()}
-                mode="date"
-                minimumDate={new Date()}
-                display={Platform.OS === "ios" ? "inline" : "default"}
-                onChange={onChangeDate}
-                style={{ marginTop: 8 }}
-              />
-            )}
           </View>
-
-          {/* Priority */}
-          <View style={{ marginTop: 14 }}>
-            <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 8, paddingLeft: 4 }}>
-              Priority
-            </Text>
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              {PRIORITIES.map((p) => {
-                const isSelected = selectedPriority === p.value;
-                return (
-                  <TouchableOpacity
-                    key={p.value}
-                    onPress={() => setSelectedPriority(p.value)}
-                    style={{
-                      flex: 1, height: moderateScale(44), borderRadius: 12,
-                      borderWidth: isSelected ? 2 : 1,
-                      borderColor: isSelected ? p.color : colors.base.border,
-                      backgroundColor: isSelected ? p.bg : colors.base.surfaceL2,
-                      alignItems: "center", justifyContent: "center",
-                      flexDirection: "row", gap: 6,
-                    }}
-                  >
-                    <View style={{ width: moderateScale(8), height: moderateScale(8), borderRadius: moderateScale(4), backgroundColor: isSelected ? p.color : colors.text.secondary }} />
-                    <Text style={{ ...typography.body, fontSize: moderateScale(14), fontWeight: isSelected ? "600" : "400", color: isSelected ? p.color : colors.text.secondary }}>
-                      {p.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Description */}
-          <TextInput
-            placeholder="Add Description"
-            placeholderTextColor={colors.text.secondary}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            style={[inputStyle, { marginTop: 14, height: moderateScale(100), paddingTop: 12 }]}
-          />
-
-          {/* File Picker */}
-          <TouchableOpacity
-            onPress={pickFile}
-            style={{
-              backgroundColor: colors.base.surfaceL2, marginTop: 14, height: moderateScale(50),
-              borderRadius: 15, borderColor: colors.base.border, borderWidth: 1,
-              paddingLeft: 15, flexDirection: "row", alignItems: "center", gap: 10,
-            }}
-          >
-            <Ionicons name="attach" size={22} color={colors.text.secondary} />
-            <Text style={{ ...typography.body, color: colors.text.secondary }}>
-              {attachedFiles.length > 0
-                ? `${attachedFiles.length} file${attachedFiles.length > 1 ? "s" : ""} attached — tap to add more`
-                : "Add files"}
-            </Text>
-          </TouchableOpacity>
-
-          {attachedFiles.length > 0 && (
-            <View style={{ marginTop: 10, gap: 8 }}>
-              {attachedFiles.map((file) => (
-                <View key={file.name} style={{
-                  flexDirection: "row", alignItems: "center",
-                  backgroundColor: colors.base.surfaceL2, borderRadius: 12,
-                  borderWidth: 1, borderColor: colors.base.border, padding: 10, gap: 10,
-                }}>
-                  <Ionicons name="document-outline" size={20} color={colors.brand.accent} />
-                  <Text style={{ ...typography.body, color: colors.text.primary, flex: 1 }} numberOfLines={1}>
-                    {file.name}
-                  </Text>
-                  <TouchableOpacity onPress={() => removeFile(file.name)}>
-                    <Ionicons name="close-circle" size={20} color={colors.status.overdue} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Submit */}
-          <TouchableOpacity
-            onPress={handleAddTask}
-            disabled={loading || deleting}
-            style={{
-              backgroundColor: loading ? colors.base.border : colors.brand.accent,
-              height: moderateScale(54), borderRadius: 14, marginTop: 24,
-              alignItems: "center", justifyContent: "center",
-            }}
-          >
-            {loading
-              ? <ActivityIndicator color={colors.base.surfaceL1} />
-              : <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, fontSize: moderateScale(18) }}>
-                {isEditMode ? "Save Changes" : "Add task"}
-              </Text>
-            }
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
       <AlertModal
         visible={deleteConfirmVisible}

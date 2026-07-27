@@ -43,10 +43,10 @@ const THEME_OPTIONS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-    { value: "light", label: "Light", icon: "sunny-outline" },
-    { value: "dark", label: "Dark", icon: "moon-outline" },
-    { value: "system", label: "System", icon: "phone-portrait-outline" },
-  ];
+  { value: "light", label: "Light", icon: "sunny-outline" },
+  { value: "dark", label: "Dark", icon: "moon-outline" },
+  { value: "system", label: "System", icon: "phone-portrait-outline" },
+];
 
 const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
@@ -67,6 +67,7 @@ export default function EmployeeProfile() {
   const [contact, setContact] = useState("");
   const [email, setEmail] = useState("");
   const [department, setDepartment] = useState("");
+  const [designation, setDesignation] = useState("");
   const [connectionStatus, setConnectionStatus] = useState<
     "none" | "pending" | "accepted"
   >("none");
@@ -118,6 +119,7 @@ export default function EmployeeProfile() {
     setContact(data.mobile_number ?? "");
     setEmail(data.email ?? "");
     setDepartment(data.department ?? "");
+    setDesignation(data.designation ?? "");
     setAvatarUri(data.profile_pic_url ?? null);
     setLoading(false);
   };
@@ -138,18 +140,20 @@ export default function EmployeeProfile() {
     try {
       setSaving(true);
 
-      const res = await authFetch('/profile', {
-        method: 'PATCH',
+      const res = await authFetch("/profile", {
+        method: "PATCH",
         body: JSON.stringify({
           name: name.trim(),
           mobile_number: contact.trim(),
           department: department.trim(),
         }),
       });
-      if (!res.ok) throw new Error('Could not save changes');
+      if (!res.ok) throw new Error("Could not save changes");
 
       setCurrentUser((prev) =>
-        prev ? { ...prev, name, mobile_number: contact, department } : prev,
+        prev
+          ? { ...prev, name, mobile_number: contact, department, designation }
+          : prev,
       );
       setEditing(false);
       showToast("Profile updated", "success");
@@ -250,11 +254,11 @@ export default function EmployeeProfile() {
         { folder: "profile_pics", resourceType: "image" },
       );
 
-      const res = await authFetch('/profile', {
-        method: 'PATCH',
+      const res = await authFetch("/profile", {
+        method: "PATCH",
         body: JSON.stringify({ profile_pic_url: secureUrl }),
       });
-      if (!res.ok) throw new Error('Could not update photo');
+      if (!res.ok) throw new Error("Could not update photo");
 
       setAvatarUri(secureUrl);
       setCurrentUser((prev) =>
@@ -461,6 +465,13 @@ export default function EmployeeProfile() {
                     <Image
                       source={{ uri: avatarUri }}
                       style={styles.avatarImage}
+                      onError={(e) =>
+                        console.log(
+                          "Avatar load error:",
+                          JSON.stringify(e.nativeEvent),
+                        )
+                      }
+                      onLoad={() => console.log("Avatar loaded OK")}
                     />
                   ) : (
                     <View
@@ -526,11 +537,47 @@ export default function EmployeeProfile() {
                 { color: colors.text.secondary, marginTop: 2 },
               ]}
             >
-              {currentUser.designation ?? "—"}
+              {designation || "—"}
             </Text>
           </View>
 
           <View style={styles.fieldsGroup}>
+            <View
+              style={[
+                styles.fieldRow,
+                { borderBottomColor: colors.base.border },
+              ]}
+            >
+              <Text
+                style={[typography.label, { color: colors.text.secondary }]}
+              >
+                Full name
+              </Text>
+              {editing ? (
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  style={[
+                    styles.input,
+                    typography.body,
+                    {
+                      borderColor: colors.base.border,
+                      color: colors.text.primary,
+                    },
+                  ]}
+                />
+              ) : (
+                <Text
+                  style={[
+                    typography.body,
+                    { color: colors.text.primary, marginTop: 4 },
+                  ]}
+                >
+                  {name}
+                </Text>
+              )}
+            </View>
+
             <View
               style={[
                 styles.fieldRow,
@@ -620,6 +667,42 @@ export default function EmployeeProfile() {
                   ]}
                 >
                   {department || "—"}
+                </Text>
+              )}
+            </View>
+
+            <View
+              style={[
+                styles.fieldRow,
+                { borderBottomColor: colors.base.border },
+              ]}
+            >
+              <Text
+                style={[typography.label, { color: colors.text.secondary }]}
+              >
+                Designation
+              </Text>
+              {editing ? (
+                <TextInput
+                  value={designation}
+                  onChangeText={setDesignation}
+                  style={[
+                    styles.input,
+                    typography.body,
+                    {
+                      borderColor: colors.base.border,
+                      color: colors.text.primary,
+                    },
+                  ]}
+                />
+              ) : (
+                <Text
+                  style={[
+                    typography.body,
+                    { color: colors.text.primary, marginTop: 4 },
+                  ]}
+                >
+                  {designation || "—"}
                 </Text>
               )}
             </View>
