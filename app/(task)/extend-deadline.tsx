@@ -30,6 +30,7 @@ import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { toLocalDateString } from "../../utils/dateFormat";
 import { authFetch } from "../../utils/authFetch";
+import TaskActionSkeleton from "../../components/TaskActionSkeleton";
 
 export default function ExtendDeadline() {
   const { colors, isDark } = useTheme();
@@ -59,9 +60,7 @@ export default function ExtendDeadline() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color={colors.brand.primary} />
-      </SafeAreaView>
+      <TaskActionSkeleton />
     );
   }
 
