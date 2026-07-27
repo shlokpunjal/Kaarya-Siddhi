@@ -9,11 +9,11 @@ import {
   Image,
   Modal,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../../lib/supabase";
 import { typography } from "../../theme/theme";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../context/AuthContext";
@@ -23,7 +23,7 @@ import ConfirmModal from "../../components/confirmModal";
 import AdminProfileSkeleton from "../../components/AdminProfileSkeleton";
 import { router } from "expo-router";
 import { authFetch } from "../../utils/authFetch";
-import { wp, moderateScale } from '../../utils/responsive';
+import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 
 type UserRow = {
@@ -43,10 +43,10 @@ const THEME_OPTIONS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { value: "light", label: "Light", icon: "sunny-outline" },
-  { value: "dark", label: "Dark", icon: "moon-outline" },
-  { value: "system", label: "System", icon: "phone-portrait-outline" },
-];
+    { value: "light", label: "Light", icon: "sunny-outline" },
+    { value: "dark", label: "Dark", icon: "moon-outline" },
+    { value: "system", label: "System", icon: "phone-portrait-outline" },
+  ];
 
 const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
@@ -72,102 +72,68 @@ export default function AdminProfile() {
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
+  const [refreshing, setRefreshing] = useState(false);
   const [managedEmployees, setManagedEmployees] = useState<ManagedEmployee[]>(
     [],
   );
   const [loadingTeam, setLoadingTeam] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
     fetchTeam();
   }, []);
 
-  // ── Fetch the logged-in admin's own row from Supabase ────────────────────
+  // ── Fetch the logged-in admin's own row via the verified /me endpoint ────
+  // Deliberately NOT reading AsyncStorage("userEmail") and querying Supabase
+  // directly with it: that trusted whatever email happened to be cached on
+  // the device rather than the token's own identity, so two people sharing
+  // a device (or a stale cache) could pull up the wrong profile. /me derives
+  // the user strictly from the Bearer token via authFetch.
   const fetchCurrentUser = async () => {
     setLoading(true);
 
-    const savedEmail = await AsyncStorage.getItem("userEmail");
+    try {
+      const res = await authFetch("/me");
+      if (!res.ok) {
+        showToast("Could not load your profile. Please try again.", "error");
+        return;
+      }
 
-    if (!savedEmail) {
+      const data: UserRow = await res.json();
+
+      setCurrentUser(data);
+      setName(data.name ?? "");
+      setContact(data.mobile_number ?? "");
+      setemail(data.email ?? "");
+      setAvatarUri(data.profile_pic_url ?? null);
+    } catch (error: any) {
+      console.error("Profile fetch error:", error?.message ?? error);
+      showToast("Could not load your profile. Please try again.", "error");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const { data, error } = await supabase
-      .from("users")
-      .select(
-        "id, name, email, mobile_number, department, designation, profile_pic_url",
-      )
-      .eq("email", savedEmail)
-      .single();
-
-    if (error) {
-      console.error("Profile fetch error:", error.message);
-      setLoading(false);
-      return;
-    }
-
-    setCurrentUser(data);
-    setName(data.name ?? "");
-    setContact(data.mobile_number ?? "");
-    setemail(data.email ?? "");
-    setDesignation(data.designation ?? "");
-    setAvatarUri(data.profile_pic_url ?? null);
-    setLoading(false);
   };
-
   // ── Fetch this admin's connected employees from the connections table ────
+  // Still keyed off the verified user's email (from /me), not the cached one.
   const fetchTeam = async () => {
     setLoadingTeam(true);
 
-    const savedEmail = await AsyncStorage.getItem("userEmail");
-    if (!savedEmail) {
+    try {
+      const res = await authFetch("/team");
+      if (!res.ok) {
+        showToast("Could not load your team. Please try again.", "error");
+        return;
+      }
+
+      const team = await res.json();
+      setManagedEmployees(team);
+    } catch (error: any) {
+      console.error("Team fetch error:", error?.message ?? error);
+      showToast("Could not load your team. Please try again.", "error");
+    } finally {
       setLoadingTeam(false);
-      return;
     }
-
-    const { data: connections, error: connError } = await supabase
-      .from("connections")
-      .select("employee_email")
-      .eq("admin_email", savedEmail)
-      .eq("status", "accepted");
-
-    if (connError) {
-      console.error("Team fetch error:", connError.message);
-      setLoadingTeam(false);
-      return;
-    }
-
-    const employeeEmails = (connections ?? []).map((c) => c.employee_email);
-
-    if (employeeEmails.length === 0) {
-      setManagedEmployees([]);
-      setLoadingTeam(false);
-      return;
-    }
-
-    const { data: users, error: usersError } = await supabase
-      .from("users")
-      .select("email, name")
-      .in("email", employeeEmails);
-
-    if (usersError) {
-      console.error("Team users fetch error:", usersError.message);
-      setLoadingTeam(false);
-      return;
-    }
-
-    setManagedEmployees(
-      employeeEmails.map((empEmail) => ({
-        email: empEmail,
-        name: users?.find((u) => u.email === empEmail)?.name ?? empEmail,
-      })),
-    );
-    setLoadingTeam(false);
   };
-
   // ── Pull-to-refresh handler: re-run both fetches together ─────────────────
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -175,7 +141,6 @@ export default function AdminProfile() {
     setRefreshing(false);
   }, []);
 
-  // ── Save edited fields back to Supabase ───────────────────────────────────
   const handleSave = async () => {
     if (!currentUser) {
       setEditing(false);
@@ -185,25 +150,24 @@ export default function AdminProfile() {
     try {
       setSaving(true);
 
-      const { error } = await supabase
-        .from("users")
-        .update({
+      const res = await authFetch('/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
           name: name.trim(),
           mobile_number: contact.trim(),
           email: email.trim(),
-          designation: designation.trim(),
-        })
-        .eq("id", currentUser.id);
+        }),
+      });
+      if (!res.ok) throw new Error('Could not save changes');
 
-      if (error) throw error;
+      const updated: UserRow = await res.json();
 
-      await AsyncStorage.setItem("userEmail", email.trim());
+      await AsyncStorage.setItem("userEmail", updated.email);
 
-      setCurrentUser((prev) =>
-        prev
-          ? { ...prev, name, mobile_number: contact, email, designation }
-          : prev,
-      );
+      setCurrentUser(updated);
+      setName(updated.name);
+      setContact(updated.mobile_number ?? "");
+      setemail(updated.email);
       setEditing(false);
       showToast("Profile updated", "success");
     } catch (error: any) {
@@ -228,7 +192,10 @@ export default function AdminProfile() {
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      showToast("Please allow photo library access to set a profile picture.", "warning");
+      showToast(
+        "Please allow photo library access to set a profile picture.",
+        "warning",
+      );
       return;
     }
 
@@ -267,12 +234,21 @@ export default function AdminProfile() {
             backgroundColor: colors.base.background,
             alignItems: "center",
             justifyContent: "center",
+            gap: 12,
           },
         ]}
       >
         <Text style={[typography.body, { color: colors.text.primary }]}>
-          Could not load your profile. Please try logging in again.
+          Could not load your profile.
         </Text>
+        <Pressable
+          style={[styles.editPill, { borderColor: colors.brand.accent }]}
+          onPress={fetchCurrentUser}
+        >
+          <Text style={[typography.label, { color: colors.brand.accent }]}>
+            Retry
+          </Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -281,7 +257,17 @@ export default function AdminProfile() {
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.base.background }]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.brand.accent}
+            colors={[colors.brand.accent]}
+          />
+        }
+      >
         <View style={styles.headerRow}>
           <Text style={[typography.heading, { color: colors.text.primary }]}>
             Profile
@@ -815,7 +801,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   scrollContent: { padding: wp(5.3), paddingBottom: 40 },
-  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  roleBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
   card: { borderRadius: 18, borderWidth: 2, padding: 18, marginBottom: 16 },
   cardTopRow: { flexDirection: "row", justifyContent: "flex-end" },
   editPill: {
@@ -922,4 +913,5 @@ const styles = StyleSheet.create({
   },
   closeModalButton: { position: "absolute", top: 50, right: 20, zIndex: 10 },
   fullscreenImage: { width: "90%", height: "70%" },
+
 });

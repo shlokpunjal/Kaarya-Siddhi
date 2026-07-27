@@ -1,12 +1,8 @@
-// Read-only view of a single extension request, including admin's decision + note.
-// Realtime-synced: updates live the moment the admin accepts/rejects.
-
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,6 +14,7 @@ import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
 import EmployeeRequestDetailSkeleton from '../../components/EmployeeRequestDetailSkeleton';
+import { authFetch } from "../../utils/authFetch";
 
 const statusMeta = (colors: any, status: string) => {
   if (status === "accepted")
@@ -37,12 +34,13 @@ export default function EmployeeRequestDetail() {
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   const fetchRequest = async () => {
-    const { data, error } = await supabase
-      .from("extension_requests")
-      .select("*, tasks(title, priority, deadline)")
-      .eq("id", requestId)
-      .single();
-    if (error) console.error("Error fetching request:", error);
+    const res = await authFetch(`/extension-requests/${requestId}`);
+    if (!res.ok) {
+      console.error("Error fetching request:", res.status);
+      setLoading(false);
+      return;
+    }
+    const data = await res.json();
     setRequest(data);
     setLoading(false);
   };

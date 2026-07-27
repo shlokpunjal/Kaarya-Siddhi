@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { moderateScale } from "../utils/responsive";
+import { useTheme } from "../context/ThemeContext";
 
 const SUCCESS = "#2E7D32";
 const ERROR = "#D32F2F";
@@ -41,6 +42,8 @@ const ValidatedInput: React.FC<ValidatedInputProps> = ({
 }) => {
   const [showError, setShowError] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const { colors } = useTheme();
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isValid = validator ? validator(value) : false;
@@ -83,6 +86,7 @@ const ValidatedInput: React.FC<ValidatedInputProps> = ({
           {...rest}
           value={value}
           onChangeText={onChangeText}
+          placeholderTextColor={colors.text.secondary}
           onFocus={(e) => {
             setIsFocused(true);
             onFocus?.(e);
@@ -100,6 +104,7 @@ const ValidatedInput: React.FC<ValidatedInputProps> = ({
             // showTick ? styles.inputSuccess : null,
             isFocused && !showCross ? styles.inputFocused : null,
             showCross ? styles.inputError : null,
+
           ]}
         />
         {showTick && (
@@ -146,6 +151,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     borderColor: DEFAULT_BORDER,
     borderWidth: 0.7,
+    fontFamily: 'Poppins_500Medium',
   },
   inputSuccess: {
     borderColor: SUCCESS,

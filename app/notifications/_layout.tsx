@@ -1,4 +1,3 @@
-// app/notifications/_layout.tsx
 import React from "react";
 import { Stack } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";

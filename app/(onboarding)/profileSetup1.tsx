@@ -1,4 +1,4 @@
-import { useState } from "react";
+  import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -7,10 +7,9 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import { wp, hp, moderateScale } from "../../utils/responsive";
-
+import { authFetch } from "../../utils/authFetch";
 
 const { colors } = lightTheme;
 const ERROR = "#D32F2F";
@@ -83,15 +82,14 @@ export default function ProfileSetup1() {
         photoUrl = await uploadPhotoToCloudinary(photo);
       }
 
-      const { error } = await supabase
-        .from('users')
-        .update({
+      const res = await authFetch('/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
           designation: designation.trim(),
           ...(photoUrl ? { profile_pic_url: photoUrl } : {}),
-        })
-        .eq('email', savedEmail);
-
-      if (error) throw error;
+        }),
+      });
+      if (!res.ok) throw new Error('Could not save profile.');
 
       router.push({ pathname: "/(onboarding)/profileSetup2", params: { role, name } });
     } catch (error: any) {

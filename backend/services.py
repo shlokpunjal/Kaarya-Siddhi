@@ -86,26 +86,59 @@ The Kaarya Siddhi Team
 
 
 def delete_user_account(supabase, user_id: str, email: str, role: str) -> None:
-    # Tables keyed by email (confirmed from main.py usage)
+    # tasks.assigned_to / created_by are untyped text (no FK) and hold a mix
+    # of email, user_id, and plain names in practice -- match both.
+    task_rows = (
+        supabase.table("tasks")
+        .select("id")
+        .or_(
+            f"assigned_to.eq.{email},assigned_to.eq.{user_id},"
+            f"created_by.eq.{email},created_by.eq.{user_id}"
+        )
+        .execute()
+    )
+    task_ids = [row["id"] for row in task_rows.data]
+
+    # task_files, notifications.task_id, task_reviews.task_id, and
+    # task_submissions.task_id are all NO ACTION (not cascading) -- must be
+    # cleared before the tasks themselves can be deleted, or Postgres raises
+    # a foreign key violation.
+    if task_ids:
+        supabase.table("task_files").delete().in_("task_id", task_ids).execute()
+        supabase.table("notifications").delete().in_("task_id", task_ids).execute()
+        supabase.table("task_reviews").delete().in_("task_id", task_ids).execute()
+        supabase.table("task_submissions").delete().in_("task_id", task_ids).execute()
+        # extension_requests.task_id -> tasks IS ON DELETE CASCADE, no action needed
+
+    # Tables keyed by email
     supabase.table("otp_sessions").delete().eq("email", email).execute()
     supabase.table("refresh_tokens").delete().eq("user_email", email).execute()
 
-    # Tables with FK constraints on users.id (from information_schema query)
+    # Tables with FK constraints on users.id (NO ACTION -> must delete manually)
     supabase.table("otp_tokens").delete().eq("user_id", user_id).execute()
     supabase.table("notifications").delete().eq("user_id", user_id).execute()
     supabase.table("task_submissions").delete().eq("submitted_by", user_id).execute()
     supabase.table("task_reviews").delete().eq("reviewed_by", user_id).execute()
-    supabase.table("chat_messages").delete().eq("sender_id", user_id).execute()
     supabase.table("extension_requests").delete().eq("requested_by", user_id).execute()
 
-    # Not FK-constrained per the query, but still worth cleaning up to avoid orphaned rows
+    # Now safe to delete the tasks themselves
+    if task_ids:
+        supabase.table("tasks").delete().in_("id", task_ids).execute()
+
+    # Not FK-constrained, but cleaned up to avoid orphaned rows.
+    # (admins/employees are separate tables keyed by email, not FK'd to users.)
     if role == "employee":
         supabase.table("connections").delete().eq("employee_email", email).execute()
-        supabase.table("tasks").delete().eq("assigned_to", user_id).execute()
+        supabase.table("employees").delete().eq("email", email).execute()
 
     elif role == "admin":
         supabase.table("connections").delete().eq("admin_email", email).execute()
-        supabase.table("workspaces").delete().eq("admin_id", user_id).execute()
+        supabase.table("admins").delete().eq("email", email).execute()
+        # workspaces.owner_email is intentionally NOT deleted here: workspaces
+        # is still referenced by tasks.workspace_id, users.workspace_id, and
+        # extension_requests.workspace_id (all NO ACTION). Deleting it while
+        # other employees/tasks still belong to it would raise a foreign key
+        # violation. Handle workspace teardown separately if that's needed.
 
     result = supabase.table("users").delete().eq("id", user_id).execute()
 
