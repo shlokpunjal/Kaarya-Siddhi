@@ -65,6 +65,7 @@ export default function AdminProfile() {
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [email, setemail] = useState("");
+  const [designation, setDesignation] = useState("");
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
@@ -112,6 +113,7 @@ export default function AdminProfile() {
     setName(data.name ?? "");
     setContact(data.mobile_number ?? "");
     setemail(data.email ?? "");
+    setDesignation(data.designation ?? "");
     setAvatarUri(data.profile_pic_url ?? null);
     setLoading(false);
   };
@@ -189,6 +191,7 @@ export default function AdminProfile() {
           name: name.trim(),
           mobile_number: contact.trim(),
           email: email.trim(),
+          designation: designation.trim(),
         })
         .eq("id", currentUser.id);
 
@@ -197,7 +200,9 @@ export default function AdminProfile() {
       await AsyncStorage.setItem("userEmail", email.trim());
 
       setCurrentUser((prev) =>
-        prev ? { ...prev, name, mobile_number: contact, email } : prev,
+        prev
+          ? { ...prev, name, mobile_number: contact, email, designation }
+          : prev,
       );
       setEditing(false);
       showToast("Profile updated", "success");
@@ -408,7 +413,7 @@ export default function AdminProfile() {
                 { color: colors.text.secondary, marginTop: 2 },
               ]}
             >
-              {currentUser.designation ?? "—"}
+              {designation || "—"}
             </Text>
           </View>
 
@@ -517,6 +522,42 @@ export default function AdminProfile() {
                   ]}
                 >
                   {contact}
+                </Text>
+              )}
+            </View>
+
+            <View
+              style={[
+                styles.fieldRow,
+                { borderBottomColor: colors.base.border },
+              ]}
+            >
+              <Text
+                style={[typography.label, { color: colors.text.secondary }]}
+              >
+                Designation
+              </Text>
+              {editing ? (
+                <TextInput
+                  value={designation}
+                  onChangeText={setDesignation}
+                  style={[
+                    styles.input,
+                    typography.body,
+                    {
+                      borderColor: colors.base.border,
+                      color: colors.text.primary,
+                    },
+                  ]}
+                />
+              ) : (
+                <Text
+                  style={[
+                    typography.body,
+                    { color: colors.text.primary, marginTop: 4 },
+                  ]}
+                >
+                  {designation || "—"}
                 </Text>
               )}
             </View>
