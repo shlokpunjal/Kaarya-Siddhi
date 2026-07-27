@@ -37,12 +37,19 @@
 # schema.sql's comment claims these columns hold email text, but the
 # live app (newtask.tsx, task-detail.tsx, tasks.tsx) stores and reads
 # both as user UUIDs. Trust the app code over the stale comment.
+#
+# PERFORMANCE:
+# Previously fetched the assignee one row at a time per task, and
+# create_notification did a second, redundant query per task to
+# re-fetch the same user's push token. Now every assignee needed is
+# fetched in a single batched query and all notifications + pushes go
+# out in one batched call — see notify_utils.create_notifications_bulk.
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from supabase_client import supabase
-from notify_utils import create_notification
+from notify_utils import create_notifications_bulk
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -51,31 +58,17 @@ def _tomorrow_str() -> str:
     return (datetime.now(IST) + timedelta(days=1)).strftime("%Y-%m-%d")
 
 
-def _fetch_user(user_id: str | None) -> dict | None:
-    if not user_id:
-        return None
+def _fetch_users(user_ids: list[str]) -> dict[str, dict]:
+    ids = sorted({uid for uid in user_ids if uid})
+    if not ids:
+        return {}
     result = (
         supabase.table("users")
         .select("id, name, expo_push_token")
-        .eq("id", user_id)
+        .in_("id", ids)
         .execute()
     )
-    return result.data[0] if result.data else None
-
-
-def _notify_assignee(user_row: dict | None, task: dict):
-    if not user_row:
-        return
-
-    message = f"Your task \"{task['title']}\" is due tomorrow."
-
-    create_notification(
-        user_row["id"],
-        "deadline",
-        message,
-        task_id=task["id"],
-        metadata={"deadline": task["deadline"]},
-    )
+    return {row["id"]: row for row in (result.data or [])}
 
 
 def send_deadline_reminders() -> dict:
@@ -95,25 +88,40 @@ def send_deadline_reminders() -> dict:
         return {"success": False, "error": str(e)}
 
     tasks = result.data or []
-    notified = 0
+    if not tasks:
+        print(f"Deadline reminders: 0 task(s) notified for {target}")
+        return {"success": True, "date": target, "tasks_notified": 0}
 
+    users_by_id = _fetch_users([t.get("assigned_to") for t in tasks])
+
+    notifications = []
+    for task in tasks:
+        assignee_row = users_by_id.get(task.get("assigned_to"))
+        if not assignee_row:
+            continue
+        notifications.append({
+            "user_id": assignee_row["id"],
+            "notif_type": "deadline",
+            "message": f"Your task \"{task['title']}\" is due tomorrow.",
+            "task_id": task["id"],
+            "metadata": {"deadline": task["deadline"]},
+            "push_token": assignee_row.get("expo_push_token"),
+        })
+
+    create_notifications_bulk(notifications)
+
+    # Mark every task in this batch as sent, even ones whose assignee
+    # was missing or had no user row — the reminder logic ran for them
+    # and they shouldn't be retried for the same deadline.
+    notified = 0
     for task in tasks:
         try:
-            assignee_row = _fetch_user(task.get("assigned_to"))
-            _notify_assignee(assignee_row, task)
-
-            # Mark sent even if the assignee was missing a push token or the
-            # user row itself was gone — the reminder logic ran for this task
-            # and shouldn't be retried for the same deadline.
             supabase.table("tasks").update({
                 "deadline_reminder_sent": True
             }).eq("id", task["id"]).execute()
-
             notified += 1
         except Exception as e:
-            # Don't let one bad task record (bad UUID, missing user, etc.)
-            # crash the whole batch — log it and keep going for the rest.
-            print(f"Failed to send reminder for task {task.get('id')}: {e}")
+            print(f"Failed to flag task {task.get('id')} as reminded: {e}")
 
     print(f"Deadline reminders: {notified} task(s) notified for {target}")
     return {"success": True, "date": target, "tasks_notified": notified}
