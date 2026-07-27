@@ -26,12 +26,22 @@
 # re-runs later the same day (server restart, manual trigger), a task
 # already notified today is skipped; tomorrow it's eligible again
 # automatically, with no reset step needed.
+#
+# PERFORMANCE:
+# Previously this fetched the employee and admin one row at a time per
+# overdue task (2 queries/task), and create_notification did a THIRD
+# query per task to re-look-up the push token it had already just
+# fetched. On a Render free-tier instance (which is often cold when the
+# external cron hits it) that many sequential round trips was enough by
+# itself to exceed the cron scheduler's timeout. Now all the users
+# needed are fetched in a single batched query, and all notifications +
+# pushes go out in one batched call — see notify_utils.create_notifications_bulk.
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from supabase_client import supabase
-from notify_utils import create_notification
+from notify_utils import create_notifications_bulk
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -40,32 +50,18 @@ def _today_str() -> str:
     return datetime.now(IST).strftime("%Y-%m-%d")
 
 
-def _fetch_user(user_id: str | None) -> dict | None:
-    if not user_id:
-        return None
+def _fetch_users(user_ids: list[str]) -> dict[str, dict]:
+    """One query for every user we need, instead of one query per task."""
+    ids = sorted({uid for uid in user_ids if uid})
+    if not ids:
+        return {}
     result = (
         supabase.table("users")
         .select("id, name, expo_push_token")
-        .eq("id", user_id)
+        .in_("id", ids)
         .execute()
     )
-    return result.data[0] if result.data else None
-
-
-def _notify_admin(admin_row: dict | None, task: dict, employee_name: str | None):
-    if not admin_row:
-        return
-
-    who = employee_name or "An employee"
-    message = f"{who}'s task \"{task['title']}\" is overdue (was due {task['deadline'][:10]})."
-
-    create_notification(
-        admin_row["id"],
-        "overdue",
-        message,
-        task_id=task["id"],
-        metadata={"deadline": task["deadline"]},
-    )
+    return {row["id"]: row for row in (result.data or [])}
 
 
 def send_overdue_reminders() -> dict:
@@ -83,28 +79,48 @@ def send_overdue_reminders() -> dict:
         print(f"Overdue reminder query failed: {e}")
         return {"success": False, "error": str(e)}
 
-    tasks = result.data or []
-    notified = 0
+    tasks = [t for t in (result.data or []) if t.get("last_overdue_notified_date") != today]
 
+    if not tasks:
+        print(f"Overdue reminders: 0 task(s) notified for {today}")
+        return {"success": True, "date": today, "tasks_notified": 0}
+
+    user_ids = [t.get("assigned_to") for t in tasks] + [t.get("created_by") for t in tasks]
+    users_by_id = _fetch_users(user_ids)
+
+    notifications = []
+    notified_task_ids = []
     for task in tasks:
-        # Skip tasks already notified today (job re-ran same day).
-        if task.get("last_overdue_notified_date") == today:
+        admin_row = users_by_id.get(task.get("created_by"))
+        if not admin_row:
             continue
 
+        employee_row = users_by_id.get(task.get("assigned_to"))
+        who = employee_row["name"] if employee_row else "An employee"
+        message = f"{who}'s task \"{task['title']}\" is overdue (was due {task['deadline'][:10]})."
+
+        notifications.append({
+            "user_id": admin_row["id"],
+            "notif_type": "overdue",
+            "message": message,
+            "task_id": task["id"],
+            "metadata": {"deadline": task["deadline"]},
+            "push_token": admin_row.get("expo_push_token"),
+        })
+        notified_task_ids.append(task["id"])
+
+    create_notifications_bulk(notifications)
+
+    # Flagging last_overdue_notified_date is a plain DB update per row
+    # (no external network call), so it isn't the expensive part — but
+    # a bad id shouldn't stop the rest from being marked.
+    for task_id in notified_task_ids:
         try:
-            employee_row = _fetch_user(task.get("assigned_to"))
-            admin_row = _fetch_user(task.get("created_by"))
-
-            _notify_admin(admin_row, task, employee_row["name"] if employee_row else None)
-
             supabase.table("tasks").update({
                 "last_overdue_notified_date": today
-            }).eq("id", task["id"]).execute()
-
-            notified += 1
+            }).eq("id", task_id).execute()
         except Exception as e:
-            # One bad task record shouldn't kill the whole batch.
-            print(f"Failed to send overdue reminder for task {task.get('id')}: {e}")
+            print(f"Failed to flag task {task_id} as notified: {e}")
 
-    print(f"Overdue reminders: {notified} task(s) notified for {today}")
-    return {"success": True, "date": today, "tasks_notified": notified}
+    print(f"Overdue reminders: {len(notified_task_ids)} task(s) notified for {today}")
+    return {"success": True, "date": today, "tasks_notified": len(notified_task_ids)}
