@@ -23,6 +23,7 @@ import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/AlertModal";
 import { toLocalDateString } from "../../utils/dateFormat";
 import { authFetch } from "../../utils/authFetch";
+import TaskFormSkeleton from "../../components/TaskFormSkeleton";
 
 type Priority = "low" | "medium" | "high";
 
@@ -249,10 +250,7 @@ export default function Newtask() {
 
   if (fetchingTask) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color={colors.brand.accent} />
-        <Text style={[typography.body, { marginTop: 10, color: colors.text.secondary }]}>Loading task...</Text>
-      </SafeAreaView>
+      <TaskFormSkeleton />
     );
   }
 
