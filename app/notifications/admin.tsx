@@ -33,6 +33,8 @@ export default function AdminNotifications() {
     type: string;
     message: string;
     created_at: string;
+    task_id: string | null;
+    metadata: any;
   };
 
   const [otherNotifications, setOtherNotifications] = useState<OtherNotif[]>(
