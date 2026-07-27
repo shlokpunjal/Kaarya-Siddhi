@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from supabase_client import supabase
-from auth_utils import get_current_user
+from auth_utils import get_current_user, validate_cloudinary_url
 from notify_utils import create_notification
 
 router = APIRouter()
@@ -43,7 +43,7 @@ async def create_self_task(payload: dict, current_user: dict = Depends(get_curre
             "assigned_to": row["id"],
             "deadline": payload.get("deadline"),
             "description": payload.get("description"),
-            "attachment_url": payload.get("attachment_url"),
+            "attachment_url": validate_cloudinary_url(payload.get("attachment_url")),
             "status": "pending",
             "priority": payload.get("priority", "medium"),
             "created_by": row["id"],
@@ -101,7 +101,7 @@ async def create_assigned_task(payload: dict, current_user: dict = Depends(get_c
             "assigned_to": payload.get("assigned_to"),
             "deadline": payload.get("deadline"),
             "description": payload.get("description"),
-            "attachment_url": payload.get("attachment_url"),
+            "attachment_url": validate_cloudinary_url(payload.get("attachment_url")),
             "status": "pending",
             "priority": payload.get("priority", "medium"),
             "created_by": row["id"],

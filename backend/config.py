@@ -11,7 +11,7 @@ ACCESS_TOKEN_MINUTES = 30
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 if not JWT_SECRET:
     raise RuntimeError("JWT_SECRET is not set in .env — add it before starting the server.")
-
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
 # ---- Cron ----
 # Shared secret for the external scheduler (cron-job.org) that pings
 # /cron/send-deadline-reminders. Render's free tier can sleep, so this
