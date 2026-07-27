@@ -1,3 +1,2 @@
-export const API_BASE_URL = "http://10.31.141.243:8000";
-// https://kaarya-siddhi.onrender.com
-
+export const API_BASE_URL = "https://kaarya-siddhi-0w7j.onrender.com";
+// https://kaarya-siddhi-0w7j.onrender.com
