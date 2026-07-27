@@ -58,7 +58,9 @@ def sync_tasks_from_sheet():
     try:
         client = get_sheet_client()
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_TAB_NAME)
-        rows = sheet.get_all_records()
+        header_row = sheet.row_values(1)
+        expected_headers = [h if h.strip() else f"unnamed_{i}" for i, h in enumerate(header_row)]
+        rows = sheet.get_all_records(expected_headers=expected_headers)
     except Exception as e:
         print(f"Sheet sync failed to read sheet: {e}")
         return {"success": False, "error": str(e)}

@@ -7,21 +7,15 @@ import {
   Pressable,
   Text,
   Platform,
-  ActivityIndicator,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { useRouter } from "expo-router";
 import { wp, moderateScale } from "../../utils/responsive";
 import { supabase } from "../../lib/supabase";
 import CalendarScreenSkeleton from "../../components/CalendarScreenSkeleton";
+import { authFetch } from "../../utils/authFetch";
 
-
-
-// Removes any existing channel with this name before creating a new one —
-// prevents "cannot add postgres_changes callbacks... after subscribe()"
-// errors caused by Strict Mode / Fast Refresh double-invoking effects.
 function getFreshChannel(name: string) {
   const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
   if (existing) supabase.removeChannel(existing);
@@ -79,9 +73,6 @@ function mapStatusToCategory(status: TaskRow["status"], deadline: string): TaskC
   if (status === "completed") return "completed";
   if (status === "in_review") return "inReview";
 
-  // Compare calendar dates only (not exact timestamps) so a task stays
-  // "pending" for the entirety of its deadline day, and only becomes
-  // "overdue" starting the day after.
   const deadlineDate = deadline ? deadline.slice(0, 10) : null;
   const todayDate = new Date().toISOString().slice(0, 10);
   const isPastDeadline = deadlineDate ? deadlineDate < todayDate : false;
@@ -128,50 +119,35 @@ export default function CalendarScreen() {
     let tasksChannel: ReturnType<typeof supabase.channel> | null = null;
     let createdTasksChannel: ReturnType<typeof supabase.channel> | null = null;
     let extensionsChannel: ReturnType<typeof supabase.channel> | null = null;
-    const fetchTasks = async (userId: string) => {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .or(`assigned_to.eq.${userId},created_by.eq.${userId}`);
-
-      if (error) {
-        console.error("Error fetching calendar tasks:", error.message);
+    const fetchTasks = async () => {
+      const res = await authFetch("/calendar-tasks");
+      if (!res.ok) {
+        console.error("Error fetching calendar tasks:", res.status);
         return;
       }
+      const data = await res.json();
       if (isMounted) setTasksMap(groupTasksByDate((data ?? []) as TaskRow[]));
     };
 
     const init = async () => {
       setLoading(true);
-      const email = await AsyncStorage.getItem("userEmail");
-      if (!email) {
+      const meRes = await authFetch("/me");
+      if (!meRes.ok) {
         if (isMounted) setLoading(false);
         return;
       }
-
-      const { data: userRow, error: userError } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .single();
-
-      if (userError || !userRow) {
-        console.error("Error resolving employee id:", userError?.message);
-        if (isMounted) setLoading(false);
-        return;
-      }
-
-      const userId = userRow.id as string;
+      const currentUser = await meRes.json();
+      const userId = currentUser.id as string;
       if (isMounted) setEmployeeId(userId);
 
-      await fetchTasks(userId);
+      await fetchTasks();
       if (isMounted) setLoading(false);
 
       tasksChannel = getFreshChannel("employee-calendar-tasks-assigned")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "tasks", filter: `assigned_to=eq.${userId}` },
-          () => { fetchTasks(userId); }
+          () => { fetchTasks(); }
         )
         .subscribe();
 
@@ -179,7 +155,7 @@ export default function CalendarScreen() {
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "tasks", filter: `created_by=eq.${userId}` },
-          () => { fetchTasks(userId); }
+          () => { fetchTasks(); }
         )
         .subscribe();
 
@@ -187,7 +163,7 @@ export default function CalendarScreen() {
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "extension_requests", filter: `requested_by=eq.${userId}` },
-          () => { fetchTasks(userId); }
+          () => { fetchTasks(); }
         )
         .subscribe();
          };
@@ -205,13 +181,11 @@ export default function CalendarScreen() {
   const onRefresh = useCallback(async () => {
     if (!employeeId) return;
     setRefreshing(true);
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .or(`assigned_to.eq.${employeeId},created_by.eq.${employeeId}`);
-    if (error) {
-      console.error("Error refreshing calendar tasks:", error.message);
+    const res = await authFetch("/calendar-tasks");
+    if (!res.ok) {
+      console.error("Error refreshing calendar tasks:", res.status);
     } else {
+      const data = await res.json();
       setTasksMap(groupTasksByDate((data ?? []) as TaskRow[]));
     }
     setRefreshing(false);

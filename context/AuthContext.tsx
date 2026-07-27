@@ -1,10 +1,16 @@
-// context/AuthContext.tsx
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
 import { authFetch } from "../utils/authFetch";
 import { API_BASE_URL } from "../constants/api";
+import { supabase } from "../lib/supabase";
 
 type AuthContextType = {
   token: string | null;
@@ -14,11 +20,26 @@ type AuthContextType = {
   workspaceId: string | null;
   isLoading: boolean;
   isLoggedIn: boolean;
-  saveSession: (token: string, phone: string, email: string, role?: string, workspaceId?: string | null, refreshToken?: string) => Promise<void>;
+  saveSession: (
+    token: string,
+    phone: string,
+    email: string,
+    role?: string,
+    workspaceId?: string | null,
+    refreshToken?: string,
+  ) => Promise<void>;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+// Generates a fresh marker for each login. authFetch checks this before
+// writing a refreshed token back to SecureStore, so a refresh that was
+// started under an old session can't silently overwrite a newer one that
+// logged in while the refresh was still in flight.
+function generateSessionId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
@@ -58,8 +79,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await AsyncStorage.setItem("userEmail", user.email);
       await AsyncStorage.setItem("userRole", user.role);
-      if (user.workspace_id) await AsyncStorage.setItem("workspaceId", user.workspace_id);
-      if (user.mobile_number) await AsyncStorage.setItem("userPhone", user.mobile_number);
+      if (user.workspace_id)
+        await AsyncStorage.setItem("workspaceId", user.workspace_id);
+      if (user.mobile_number)
+        await AsyncStorage.setItem("userPhone", user.mobile_number);
+
+      const rtRes = await authFetch("/realtime-token");
+      if (rtRes.ok) {
+        const { token } = await rtRes.json();
+        supabase.realtime.setAuth(token);
+      }
     } catch (error) {
       console.log("Session load error:", error);
     } finally {
@@ -73,11 +102,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     role?: string,
     workspaceId?: string | null,
-    refreshToken?: string
+    refreshToken?: string,
   ) => {
     try {
+      // New session id first — any refresh from a previous session that's
+      // still in flight will see this and bail instead of overwriting us.
+      const sessionId = generateSessionId();
+      await SecureStore.setItemAsync("sessionId", sessionId);
+
       await SecureStore.setItemAsync("token", token);
-      if (refreshToken) await SecureStore.setItemAsync("refreshToken", refreshToken);
+      if (refreshToken)
+        await SecureStore.setItemAsync("refreshToken", refreshToken);
 
       await AsyncStorage.setItem("userPhone", phone);
       await AsyncStorage.setItem("userEmail", email);
@@ -89,6 +124,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserEmail(email);
       if (role) setUserRole(role);
       setWorkspaceId(workspaceId ?? null);
+
+      const rtRes = await authFetch("/realtime-token");
+      if (rtRes.ok) {
+        const { token } = await rtRes.json();
+        supabase.realtime.setAuth(token);
+      }
     } catch (error) {
       console.log("Session save error:", error);
     }
@@ -98,7 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const refreshToken = await SecureStore.getItemAsync("refreshToken");
       if (refreshToken) {
-        fetch(`${API_BASE_URL}/logout`, {
+        // Awaited on purpose — if this is left fire-and-forget, the app can
+        // navigate away before the revoke call actually lands, leaving the
+        // old refresh token valid on the server. A later refresh attempt
+        // (e.g. a queued request that 401'd right before logout) can then
+        // reissue a token for this "logged out" user and overwrite whatever
+        // the next person on this device just logged in as.
+        await fetch(`${API_BASE_URL}/logout`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refresh_token: refreshToken }),
@@ -107,7 +154,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await SecureStore.deleteItemAsync("token");
       await SecureStore.deleteItemAsync("refreshToken");
-      await AsyncStorage.multiRemove(["userPhone", "userEmail", "userRole", "workspaceId"]);
+      await AsyncStorage.multiRemove([
+        "userPhone",
+        "userEmail",
+        "userRole",
+        "workspaceId",
+      ]);
 
       setToken(null);
       setUserPhone(null);
@@ -115,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserRole(null);
       setWorkspaceId(null);
 
+      supabase.realtime.setAuth(null);
       router.replace("/(auth)/LoginChoice");
     } catch (error) {
       console.log("Logout error:", error);
@@ -124,8 +177,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        token, userPhone, userEmail, userRole, workspaceId,
-        isLoading, isLoggedIn: !!token, saveSession, logout,
+        token,
+        userPhone,
+        userEmail,
+        userRole,
+        workspaceId,
+        isLoading,
+        isLoggedIn: !!token,
+        saveSession,
+        logout,
       }}
     >
       {children}

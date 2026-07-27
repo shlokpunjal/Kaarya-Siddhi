@@ -5,8 +5,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 import { wp, hp, moderateScale } from "../../utils/responsive";
+import { authFetch } from "../../utils/authFetch";
 
 const { colors } = lightTheme;
 
@@ -22,12 +22,11 @@ export default function ProfileSetup3() {
 
       const savedEmail = await AsyncStorage.getItem('userEmail');
       if (savedEmail) {
-        const { error } = await supabase
-          .from('users')
-          .update({ is_profile_setup: true })
-          .eq('email', savedEmail);
-
-        if (error) throw error;
+        const res = await authFetch('/profile', {
+          method: 'PATCH',
+          body: JSON.stringify({ is_profile_setup: true }),
+        });
+        if (!res.ok) throw new Error('Could not save profile.');
       }
 
       if (role === "admin") {

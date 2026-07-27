@@ -5,7 +5,7 @@
     "scheme": "kaaryasiddhi",
     "version": "1.0.0",
     "icon": "./assets/images/logo.png",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
@@ -32,12 +32,19 @@
           "backgroundColor": "#1A2744"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#1A2744"
+        }
+      ]
     ],
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "81041415-44f0-473d-8df5-6743d7054c77"
+        "projectId": "c3b2b1e5-694e-4765-9b07-9001cfc13e87"
       }
     }
   }

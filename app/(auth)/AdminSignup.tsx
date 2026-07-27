@@ -344,7 +344,9 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 22,
     fontFamily: "Poppins_600SemiBold",
-    alignSelf: "center",
+    // alignSelf: "center",
+     marginLeft:40,
+    marginBottom:1,
   },
 
   logoContainer: {

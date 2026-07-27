@@ -15,7 +15,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import { typography } from "../../theme/theme";
 import { useTheme, useThemeMode, ThemeMode } from "../../context/ThemeContext";
@@ -24,10 +23,10 @@ import ConfirmModal from "../../components/confirmModal";
 import { router } from "expo-router";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import { wp, moderateScale } from "../../utils/responsive";
-import { API_BASE_URL } from "../../constants/api";
 import { authFetch } from "../../utils/authFetch"; // adjust path if needed
 import EmployeeProfileSkeleton from "../../components/EmployeeProfileSkeleton";
 import { useToast } from "../../context/ToastContext";
+import { clearSession } from "../../lib/secureSession"; // add this import
 
 type UserRow = {
   id: string;
@@ -44,10 +43,10 @@ const THEME_OPTIONS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { value: "light", label: "Light", icon: "sunny-outline" },
-  { value: "dark", label: "Dark", icon: "moon-outline" },
-  { value: "system", label: "System", icon: "phone-portrait-outline" },
-];
+    { value: "light", label: "Light", icon: "sunny-outline" },
+    { value: "dark", label: "Dark", icon: "moon-outline" },
+    { value: "system", label: "System", icon: "phone-portrait-outline" },
+  ];
 
 const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;
@@ -98,39 +97,16 @@ export default function EmployeeProfile() {
       return;
     }
 
-    const { data: connections, error: connError } = await supabase
-      .from("connections")
-      .select("admin_email, status")
-      .eq("employee_email", savedEmail)
-      .order("created_at", { ascending: false })
-      .limit(1);
+    const connRes = await authFetch("/connection-status");
+    const connData = connRes.ok ? await connRes.json() : { status: "none" };
 
-    if (connError) console.log("Connection query error:", connError);
-
-    const latestConnection = connections?.[0];
-
-    if (latestConnection?.status === "accepted") {
-      setConnectionStatus("accepted");
-
-      const { data: adminUser } = await supabase
-        .from("users")
-        .select("name")
-        .eq("email", latestConnection.admin_email)
-        .maybeSingle();
-
-      setAdminName(adminUser?.name ?? latestConnection.admin_email);
-    } else if (latestConnection?.status === "pending") {
-      setConnectionStatus("pending");
-    } else {
-      setConnectionStatus("none");
+    setConnectionStatus(connData.status);
+    if (connData.status === "accepted") {
+      setAdminName(connData.admin_name);
     }
-    const { data, error } = await supabase
-      .from("users")
-      .select(
-        "id, name, email, mobile_number, department, designation, profile_pic_url",
-      )
-      .eq("email", savedEmail)
-      .single();
+    const res = await authFetch("/me");
+    const data = res.ok ? await res.json() : null;
+    const error = res.ok ? null : { message: "Could not load profile." };
 
     if (error) {
       console.error("Profile fetch error:", error.message);
@@ -164,17 +140,15 @@ export default function EmployeeProfile() {
     try {
       setSaving(true);
 
-      const { error } = await supabase
-        .from("users")
-        .update({
+      const res = await authFetch('/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
           name: name.trim(),
           mobile_number: contact.trim(),
           department: department.trim(),
-          designation: designation.trim(),
-        })
-        .eq("id", currentUser.id);
-
-      if (error) throw error;
+        }),
+      });
+      if (!res.ok) throw new Error('Could not save changes');
 
       setCurrentUser((prev) =>
         prev
@@ -280,12 +254,11 @@ export default function EmployeeProfile() {
         { folder: "profile_pics", resourceType: "image" },
       );
 
-      const { error } = await supabase
-        .from("users")
-        .update({ profile_pic_url: secureUrl })
-        .eq("id", currentUser!.id);
-
-      if (error) throw error;
+      const res = await authFetch('/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ profile_pic_url: secureUrl }),
+      });
+      if (!res.ok) throw new Error('Could not update photo');
 
       setAvatarUri(secureUrl);
       setCurrentUser((prev) =>
@@ -948,8 +921,9 @@ export default function EmployeeProfile() {
           setDeleting(true);
           try {
             await deleteAccount();
+            await clearSession();
             setDeleteVisible(false);
-            router.replace("/LoginChoice");
+            router.replace("/(auth)/LoginChoice");
           } catch (err: any) {
             showToast(err?.message || "Could not delete account", "error");
           } finally {

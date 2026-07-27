@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Image } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { wp, moderateScale } from '../../utils/responsive';
+import { moderateScale } from '../../utils/responsive';
 const icons = {
   home: {
     outline: require('../../assets/icons/home-outline.png'),

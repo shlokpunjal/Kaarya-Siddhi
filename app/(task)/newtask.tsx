@@ -6,15 +6,15 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import * as DocumentPicker from "expo-document-picker";
 import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -22,7 +22,10 @@ import { createNotification } from "../../lib/notify";
 import { sendLocalNotification } from "../../utils/notifications";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
+import { AlertModal } from "../../components/AlertModal";
 import { toLocalDateString } from "../../utils/dateFormat";
+import { authFetch } from "../../utils/authFetch";
+import TaskFormSkeleton from "../../components/TaskFormSkeleton";
 
 type Priority = "low" | "medium" | "high";
 
@@ -40,6 +43,8 @@ const PRIORITIES: { label: string; value: Priority; color: string; bg: string }[
 export default function Newtask() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { taskId } = useLocalSearchParams<{ taskId?: string }>();
+  const isEditMode = !!taskId;
   const { showToast } = useToast();
 
   const [taskName, setTaskName] = useState("");
@@ -52,7 +57,8 @@ export default function Newtask() {
   const [filteredEmployees, setFilteredEmployees] = useState<EmployeeProfile[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // Deadline — calendar picker (replaces text input)
+  // Deadline — calendar picker. Always editable here (admin-only screen),
+  // in both create and edit mode.
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -60,6 +66,13 @@ export default function Newtask() {
   const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
   const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+
+  // ── If editing, wait for both the employee directory AND the existing
+  // task to load, since we need employeesList populated to resolve and
+  // display the assigned employee's name in the autocomplete field. ──
+  const [fetchingTask, setFetchingTask] = useState(isEditMode);
 
   useEffect(() => {
     initAdminAndEmployees();
@@ -70,38 +83,52 @@ export default function Newtask() {
       const email = await AsyncStorage.getItem("userEmail");
       if (!email) return;
 
-      const { data: currentUser, error: userLookupError } = await supabase
-        .from("users")
-        .select("id, workspace_id")
-        .eq("email", email)
-        .single();
+      const employees = await fetchEmployeeProfiles();
 
-      if (userLookupError || !currentUser?.workspace_id) {
-        console.error("Could not resolve admin's workspace:", userLookupError?.message);
-        return;
+      // ── Edit mode: load the existing task now that we have the employee
+      // directory to resolve the assignee's display name from. ──
+      if (isEditMode && taskId) {
+        await fetchTaskForEdit(taskId, employees);
       }
-
-      setWorkspaceId(currentUser.workspace_id);
-      await fetchEmployeeProfiles(currentUser.workspace_id);
     } catch (err: any) {
       console.error("Error initializing admin/employee data:", err.message);
+    } finally {
+      if (isEditMode) setFetchingTask(false);
     }
   };
 
-  const fetchEmployeeProfiles = async (wsId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, name")
-        .eq("role", "employee")
-        .eq("workspace_id", wsId)   // ← only employees in the admin's own workspace
-        .order("name", { ascending: true });
-      if (error) throw error;
-      if (data) setEmployeesList(data);
-    } catch (err: any) {
-      console.error("Error loading employee directory:", err.message);
+  const fetchEmployeeProfiles = async () => {
+    const res = await authFetch("/employees-directory");
+    if (!res.ok) return [];
+    const data = await res.json();
+    setEmployeesList(data);
+    return data;
+  };
+
+  // ── Load an existing task's fields for editing ──────────────────────────────
+  const fetchTaskForEdit = async (id: string, employees: EmployeeProfile[]) => {
+    const res = await authFetch(`/tasks/${id}`);
+    const data = res.ok ? await res.json() : null;
+    const error = res.ok ? null : { message: `HTTP ${res.status}` };
+
+    if (error || !data) {
+      console.error("Failed to load task for editing:", error?.message);
+      showToast("Could not load this task.", "error");
+      return;
+    }
+
+    setTaskName(data.title ?? "");
+    setDescription(data.description ?? "");
+    setDeadlineDate(data.deadline ? new Date(data.deadline) : null);
+    setSelectedPriority((data.priority as Priority) ?? null);
+
+    if (data.assigned_to) {
+      setSelectedEmployeeId(data.assigned_to);
+      const matched = employees.find((e) => e.id === data.assigned_to);
+      setAssignToName(matched?.name ?? "");
     }
   };
+
   const handleSearchEmployee = (text: string) => {
     setAssignToName(text);
     setSelectedEmployeeId(null);
@@ -164,6 +191,7 @@ export default function Newtask() {
     };
   };
 
+  // ── Create OR update depending on mode ──────────────────────────────────────
   const handleAddTask = async () => {
     if (!taskName.trim()) {
       showToast("Please enter a task name", "warning");
@@ -182,71 +210,115 @@ export default function Newtask() {
         showToast("Your session has expired. Please log back in.", "error");
         return;
       }
-
-      const { data: currentUser, error: userLookupError } = await supabase
-        .from("users")
-        .select("id, workspace_id")   // ← pull workspace_id here too
-        .eq("email", email)
-        .single();
-
-      if (userLookupError || !currentUser || !currentUser.workspace_id) {
-        showToast("Could not find your workspace. Please log back in.", "error");
-        return;
-      }
-
       const uploadedResults = await Promise.all(
         attachedFiles.map((file) => uploadSingleFile(file))
       );
       const mainFileUrl = uploadedResults.length > 0 ? uploadedResults[0].file_url : null;
 
-      const { data: task, error: taskError } = await supabase
-        .from("tasks")
-        .insert({
-          title: taskName,
-          assigned_to: selectedEmployeeId,
-          deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
-          description: description || null,
-          attachment_url: mainFileUrl,
-          status: "pending",
-          priority: selectedPriority ?? "medium",
-          created_by: currentUser.id,
-          workspace_id: currentUser.workspace_id,
-        })
-        .select()
-        .single();
+      if (isEditMode) {
+        const updateRes = await authFetch(`/tasks/${taskId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            title: taskName,
+            assigned_to: selectedEmployeeId,
+            deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
+            description: description || null,
+            ...(mainFileUrl ? { attachment_url: mainFileUrl } : {}),
+            priority: selectedPriority ?? "medium",
+          }),
+        });
+        if (!updateRes.ok) throw new Error("Could not update task.");
 
-      if (taskError) throw taskError;
+        if (uploadedResults.length > 0) {
+          const filesPayload = uploadedResults.map((res) => ({
+            task_id: taskId,
+            file_url: res.file_url,
+            file_name: res.file_name,
+            file_type: res.file_type,
+            storage_service: "cloudinary",
+          }));
+          const filesRes = await authFetch("/task-files", { method: "POST", body: JSON.stringify(filesPayload) });
+          if (!filesRes.ok) throw new Error("Could not attach files.");
+        }
 
-      if (uploadedResults.length > 0 && task) {
-        const filesPayload = uploadedResults.map((res) => ({
-          task_id: task.id,
-          file_url: res.file_url,
-          file_name: res.file_name,
-          file_type: res.file_type,
-          storage_service: "cloudinary",
-        }));
-        const { error: fileError } = await supabase.from("task_files").insert(filesPayload);
-        if (fileError) throw fileError;
+        showToast("Task updated successfully", "success");
+        setTimeout(() => router.back(), 900);
+      } else {
+        const createRes = await authFetch("/tasks/assign", {
+          method: "POST",
+          body: JSON.stringify({
+            title: taskName,
+            assigned_to: selectedEmployeeId,
+            deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
+            description: description || null,
+            attachment_url: mainFileUrl,
+            priority: selectedPriority ?? "medium",
+          }),
+        });
+        if (!createRes.ok) throw new Error("Could not create task.");
+        const task = await createRes.json();
+
+        if (uploadedResults.length > 0 && task) {
+          const filesPayload = uploadedResults.map((res) => ({
+            task_id: task.id,
+            file_url: res.file_url,
+            file_name: res.file_name,
+            file_type: res.file_type,
+            storage_service: "cloudinary",
+          }));
+          const filesRes = await authFetch("/task-files", { method: "POST", body: JSON.stringify(filesPayload) });
+          if (!filesRes.ok) throw new Error("Could not attach files.");
+        }
+
+        // The task itself is already created at this point — notification
+        // delivery is best-effort and must never surface as a failure for
+        // an action that already succeeded. createNotification() already
+        // never throws, but it's kept out of the outer try/catch's
+        // "something went wrong" path defensively, in case that changes.
+        createNotification({
+          userId: selectedEmployeeId,
+          type: "task_assigned",
+          message: `You've been assigned a new task: "${taskName}".`,
+          taskId: task.id,
+        }).catch((err) => console.log("Notification creation failed:", err));
+
+        sendLocalNotification("Task Created", `"${taskName}" has been assigned.`).catch((err) =>
+          console.log("Local notification failed:", err)
+        );
+
+        showToast("Task created successfully", "success");
+        setTimeout(() => router.back(), 900);
       }
-
-      await createNotification({
-        userId: selectedEmployeeId,
-        type: "task_assigned",
-        message: `You've been assigned a new task: "${taskName}".`,
-        taskId: task.id,
-      });
-
-      sendLocalNotification("Task Created", `"${taskName}" has been assigned.`).catch((err) =>
-        console.log("Local notification failed:", err)
-      );
-
-      showToast("Task created successfully", "success");
-      setTimeout(() => router.back(), 900);
     } catch (error: any) {
       console.error("Full error:", error);
-      showToast(error?.message || "Something went wrong while creating the task", "error");
+      showToast(error?.message || "Something went wrong", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Delete task (edit mode only) ────────────────────────────────────────────
+  const handleDeleteTask = () => {
+    setDeleteConfirmVisible(true);
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!taskId) return;
+
+    try {
+      setDeleting(true);
+
+      const res = await authFetch(`/tasks/${taskId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+
+      setDeleteConfirmVisible(false);
+      showToast("Task has been deleted.", "success");
+      setTimeout(() => router.back(), 900);
+    } catch (error: any) {
+      setDeleteConfirmVisible(false);
+      showToast(error?.message || "Delete failed", "error");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -262,6 +334,12 @@ export default function Newtask() {
     ...typography.body,
   };
 
+  if (fetchingTask) {
+    return (
+      <TaskFormSkeleton />
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
       {/* Header */}
@@ -273,16 +351,36 @@ export default function Newtask() {
         paddingHorizontal: 18,
       }}>
         <Ionicons onPress={() => router.back()} name="arrow-back" size={moderateScale(28)} color={colors.brand.onPrimary} />
-        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, flex: 1, textAlign: "center", marginRight: moderateScale(28) }}>
-          Task Assignment
+        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, flex: 1, textAlign: "center" }}>
+          {isEditMode ? "Edit Task" : "Task Assignment"}
         </Text>
+
+        {/* Delete icon — only shown when editing an existing task */}
+        {isEditMode ? (
+          <TouchableOpacity onPress={handleDeleteTask} disabled={deleting || loading}>
+            {deleting ? (
+              <ActivityIndicator size="small" color={colors.brand.onPrimary} />
+            ) : (
+              <Ionicons name="trash-outline" size={moderateScale(22)} color={colors.brand.onPrimary} />
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: moderateScale(22) }} />
+        )}
       </View>
 
-      <ScrollView
-        contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+       <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? moderateScale(70) : 0}
       >
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
+        >
         <View style={{
           backgroundColor: colors.base.surfaceL1,
           borderRadius: 16,
@@ -350,13 +448,12 @@ export default function Newtask() {
             )}
           </View>
 
-          {/* ── Deadline — calendar picker ── */}
+          {/* ── Deadline — calendar picker, always editable (admin screen) ── */}
           <View style={{ marginTop: 14 }}>
             <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 6, paddingLeft: 4 }}>
               Deadline
             </Text>
 
-            {/* Trigger button — same look as the text inputs above */}
             <TouchableOpacity
               onPress={() => setShowDatePicker(true)}
               style={{
@@ -386,7 +483,6 @@ export default function Newtask() {
               />
             </TouchableOpacity>
 
-            {/* Clear button — only shown when a date is picked */}
             {deadlineDate && (
               <TouchableOpacity
                 onPress={() => setDeadlineDate(null)}
@@ -397,7 +493,6 @@ export default function Newtask() {
               </TouchableOpacity>
             )}
 
-            {/* The actual picker — shown inline on iOS, modal on Android */}
             {showDatePicker && (
               <DateTimePicker
                 value={deadlineDate ?? new Date()}
@@ -491,7 +586,7 @@ export default function Newtask() {
           {/* Submit */}
           <TouchableOpacity
             onPress={handleAddTask}
-            disabled={loading}
+            disabled={loading || deleting}
             style={{
               backgroundColor: loading ? colors.base.border : colors.brand.accent,
               height: moderateScale(54), borderRadius: 14, marginTop: 24,
@@ -500,11 +595,24 @@ export default function Newtask() {
           >
             {loading
               ? <ActivityIndicator color={colors.base.surfaceL1} />
-              : <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, fontSize: moderateScale(18) }}>Add task</Text>
+              : <Text style={{ ...typography.subheading, color: colors.base.surfaceL1, fontSize: moderateScale(18) }}>
+                {isEditMode ? "Save Changes" : "Add task"}
+              </Text>
             }
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
+      <AlertModal
+        visible={deleteConfirmVisible}
+        type="warning"
+        title="Delete Task"
+        message="Are you sure you want to delete this task? This action cannot be undone."
+        confirmText={deleting ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        onConfirm={confirmDeleteTask}
+        onCancel={() => setDeleteConfirmVisible(false)}
+      />
     </SafeAreaView>
   );
 }

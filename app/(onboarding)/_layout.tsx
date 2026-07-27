@@ -4,8 +4,8 @@ export default function OnboardingLayout() {
   return (
     <Stack
       screenOptions={{
-        headerShown: false,   // hide default header, we use our own custom header per screen
-        gestureEnabled: false, // disable swipe-back so users can't skip steps accidentally
+        headerShown: false, 
+        gestureEnabled: false,
         animation: "slide_from_right",
       }} 
     >
