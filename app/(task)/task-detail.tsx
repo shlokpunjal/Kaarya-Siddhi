@@ -17,6 +17,7 @@ import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/AlertModal";
 import { authFetch } from "../../utils/authFetch";
+import TaskDetailSkeleton from "../../components/TaskDetailSkeleton";
 
 export default function TaskDetail() {
   const { colors } = useTheme();
@@ -169,25 +170,7 @@ export default function TaskDetail() {
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <SafeAreaView
-        style={{
-          flex: 1,
-          backgroundColor: colors.base.background,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <ActivityIndicator size="large" color={colors.brand.accent} />
-        <Text
-          style={{
-            ...typography.body,
-            color: colors.text.secondary,
-            marginTop: 12,
-          }}
-        >
-          Loading task...
-        </Text>
-      </SafeAreaView>
+       <TaskDetailSkeleton />
     );
   }
 
