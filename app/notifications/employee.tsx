@@ -58,7 +58,7 @@ export default function EmployeeNotifications() {
   const fetchNotifications = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review";
+        const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review,deadline,overdue";
       const res = await authFetch(`/notifications?types=${types}`);
 
       if (!res.ok) {
