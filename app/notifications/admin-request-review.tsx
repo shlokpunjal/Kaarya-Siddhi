@@ -590,15 +590,15 @@ export default function AdminRequestReview() {
               <Ionicons
                 name="checkmark"
                 size={20}
-                color={colors.base.surfaceL1}
+                color={colors.brand.onPrimary}
               />
               <Text
                 style={{
                   ...typography.subheading,
-                  color: colors.base.surfaceL1,
+                  color: colors.brand.onPrimary,
                 }}
               >
-                Accept
+                Accept 
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -615,11 +615,11 @@ export default function AdminRequestReview() {
                 ...cardShadow,
               }}
             >
-              <Ionicons name="close" size={20} color={colors.base.surfaceL1} />
+              <Ionicons name="close" size={20} color={colors.brand.onPrimary} />
               <Text
                 style={{
                   ...typography.subheading,
-                  color: colors.base.surfaceL1,
+                  color: colors.brand.onPrimary,
                 }}
               >
                 Reject
