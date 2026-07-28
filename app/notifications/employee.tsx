@@ -58,7 +58,7 @@ export default function EmployeeNotifications() {
   const fetchNotifications = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review";
+        const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review,deadline,overdue";
       const res = await authFetch(`/notifications?types=${types}`);
 
       if (!res.ok) {
@@ -119,7 +119,7 @@ export default function EmployeeNotifications() {
         pathname: "/notifications/employee-request-detail",
         params: { requestId: n.metadata?.extension_request_id },
       });
-    } else if (n.type === "task_assigned") {
+    } else if (n.type === "task_assigned" || n.type === "task_in_review") {
       router.push({
         pathname: "/(task)/task-detail",
         params: { taskId: n.task_id ?? n.metadata?.taskId },
@@ -220,7 +220,7 @@ export default function EmployeeNotifications() {
         {notifications.map((n) => {
           const meta = notifMeta(colors, n.type);
           const isExtension = n.type.startsWith("extension");
-          const isTappable = isExtension || n.type === "task_assigned";
+          const isTappable = isExtension || n.type === "task_assigned" || n.type === "task_in_review";
           return (
             <TouchableOpacity
               key={n.id}

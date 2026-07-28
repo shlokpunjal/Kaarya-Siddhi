@@ -138,7 +138,6 @@ CREATE TABLE chat_messages (
 --------------------------------------------------
 -- NOTIFICATIONS
 --------------------------------------------------
-
 CREATE TABLE notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
@@ -147,7 +146,7 @@ CREATE TABLE notifications (
     -- backend/deadline_reminders.py, backend/overdue_reminders.py.
     type VARCHAR(20)
         CHECK (type IN (
-            'deadline', 'overdue', 'task_assigned',
+            'deadline', 'overdue', 'task_assigned', 'task_in_review', 'eoffice_pending',
             'extension_accepted', 'extension_rejected',
             'connection_request', 'connection_pending',
             'connection_rejected', 'connection_accepted'
