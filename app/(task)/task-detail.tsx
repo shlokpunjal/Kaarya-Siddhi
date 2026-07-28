@@ -49,7 +49,6 @@ export default function TaskDetail() {
   const [task, setTask] = useState<any>(null);
   const [taskFiles, setTaskFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [hasPendingExtension, setHasPendingExtension] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
@@ -57,7 +56,11 @@ export default function TaskDetail() {
   // ── "Ask to Review" (moves task into the review queue for both roles) ───────
   const [askingReview, setAskingReview] = useState(false);
 
-  // "Own task" governs both edit/delete icons AND the Review-or-Complete button —
+  // ── Mark Complete (only for tasks the employee created themselves) ──────────
+  const [completeConfirmVisible, setCompleteConfirmVisible] = useState(false);
+  const [completing, setCompleting] = useState(false);
+
+  // "Own task" governs both edit/delete icons AND the Mark Complete button —
   // an employee should only be able to act on tasks they created themselves,
   // not ones an admin assigned to them.
 
@@ -96,9 +99,8 @@ export default function TaskDetail() {
     fetchTask();
   }, [taskId]);
 
-  
   // ── Check for an existing pending extension request, refreshed on focus ─────
- const checkPendingExtension = useCallback(async () => {
+  const checkPendingExtension = useCallback(async () => {
     if (!taskId) return;
     const res = await authFetch(`/tasks/${taskId}/pending-extension`);
     if (!res.ok) return;
@@ -113,10 +115,9 @@ export default function TaskDetail() {
   );
 
   // ── Ask to Review — moves the task into the in_review queue directly ────────
-  // Distinct from "Review or Complete" (which only shows for tasks the
-  // employee created themselves and routes to a separate completion flow).
-  // This button is available on ANY task assigned to the employee, so it's
-  // placed under Extend Deadline rather than gated by isOwnTask.
+  // Distinct from Mark Complete (which only shows for tasks the employee
+  // created themselves). This button is available on tasks assigned BY the
+  // admin, so it's gated by !isSelfAssigned instead.
   const handleAskToReview = async () => {
     if (!task) return;
 
@@ -132,6 +133,38 @@ export default function TaskDetail() {
       showToast(error?.message || "Failed to request review", "error");
     } finally {
       setAskingReview(false);
+    }
+  };
+
+  // ── Mark Complete — only for tasks the employee created for themselves.
+  // NOTE: assumes a PATCH /tasks/:id endpoint that accepts { status }.
+  // Adjust the path/body shape to match your actual backend route.
+  const handleMarkComplete = () => {
+    setCompleteConfirmVisible(true);
+  };
+
+  const confirmMarkComplete = async () => {
+    if (!task) return;
+
+    try {
+      setCompleting(true);
+
+      const res = await authFetch(`/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" }),
+      });
+
+      if (!res.ok) throw new Error("Failed to mark complete");
+
+      setTask((prev: any) => ({ ...prev, status: "completed" }));
+      setCompleteConfirmVisible(false);
+      showToast("Task marked as completed!", "success");
+    } catch (error: any) {
+      setCompleteConfirmVisible(false);
+      showToast(error?.message || "Failed to mark complete", "error");
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -153,7 +186,7 @@ export default function TaskDetail() {
 
     try {
       setDeleting(true);
-     const res = await authFetch(`/tasks/${task.id}`, { method: "DELETE" });
+      const res = await authFetch(`/tasks/${task.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
 
       setDeleteConfirmVisible(false);
@@ -170,7 +203,7 @@ export default function TaskDetail() {
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-       <TaskDetailSkeleton />
+      <TaskDetailSkeleton />
     );
   }
 
@@ -211,7 +244,7 @@ export default function TaskDetail() {
     );
   }
 
- // ── Derived display status — "overdue" isn't a real DB value, it's a
+  // ── Derived display status — "overdue" isn't a real DB value, it's a
   // pending task whose deadline has passed (same rule the dashboard uses
   // to bucket it). We only relabel for display; task.status itself stays
   // "pending" in the DB and in all the disabled/button logic below. ──
@@ -613,21 +646,16 @@ export default function TaskDetail() {
             ))
           )}
 
-          {/* Submit Task Button — only for tasks the employee created themselves */}
+          {/* Mark Complete Button — only for tasks the employee created
+              themselves. Directly marks the task completed after a confirm
+              dialog, no more navigating to a separate completion screen. */}
           {isOwnTask && (
             <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: "/(task)/complete",
-                  params: { taskId: task.id },
-                })
-              }
-              disabled={
-                task.status === "completed" || task.status === "inReview"
-              }
+              onPress={handleMarkComplete}
+              disabled={completing || task.status === "completed"}
               style={{
                 backgroundColor:
-                  task.status === "completed" || task.status === "inReview"
+                  task.status === "completed"
                     ? colors.base.border
                     : colors.brand.accent,
                 height: moderateScale(50),
@@ -635,10 +663,10 @@ export default function TaskDetail() {
                 justifyContent: "center",
                 alignItems: "center",
                 marginTop: 24,
-                opacity: submitting ? 0.7 : 1,
+                opacity: completing ? 0.7 : 1,
               }}
             >
-              {submitting ? (
+              {completing ? (
                 <ActivityIndicator color={colors.base.surfaceL1} />
               ) : (
                 <Text
@@ -649,47 +677,51 @@ export default function TaskDetail() {
                 >
                   {task.status === "completed"
                     ? "Already Completed"
-                    : task.status === "inReview"
-                      ? "Under Review"
-                      : "Review or Complete"}
+                    : "Mark Complete"}
                 </Text>
               )}
             </TouchableOpacity>
           )}
 
-          {/* Extend Deadline Button */}
-          <TouchableOpacity
-            disabled={hasPendingExtension || task.status === "completed"}
-            onPress={() =>
-              router.push({
-                pathname: "/(task)/extend-deadline",
-                params: { taskId: task.id },
-              })
-            }
-            style={{
-              height: 50,
-              borderRadius: 12,
-              backgroundColor:
-                hasPendingExtension || task.status === "completed"
-                  ? colors.base.border
-                  : colors.brand.secprimary,
-              alignItems: "center",
-              justifyContent: "center",
-              marginTop: 12,
-            }}
-          >
-            <Text
+          {/* Extend Deadline Button — only for admin-created tasks. Employees can
+              edit the deadline directly (via the edit icon above) on tasks they
+              created themselves, so this request-based flow doesn't apply there. */}
+          {!isSelfAssigned && (
+            <TouchableOpacity
+              disabled={hasPendingExtension || task.status === "completed"}
+              onPress={() =>
+                router.push({
+                  pathname: "/(task)/extend-deadline",
+                  params: { taskId: task.id },
+                })
+              }
               style={{
-                ...typography.subheading,
-                color: colors.brand.onPrimary,
+                height: 50,
+                borderRadius: 12,
+                backgroundColor:
+                  hasPendingExtension || task.status === "completed"
+                    ? colors.base.border
+                    : colors.brand.secprimary,
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: 12,
               }}
             >
-              {hasPendingExtension ? "Extension Requested" : "Extend Deadline"}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={{
+                  ...typography.subheading,
+                  color: colors.brand.onPrimary,
+                }}
+              >
+                {hasPendingExtension ? "Extension Requested" : "Extend Deadline"}
+              </Text>
+            </TouchableOpacity>
+          )}
 
-          {/* Ask to Review Button — new: moves task into the review queue and
-              notifies both the assignee and the creator */}
+          {/* Ask to Review Button — moves task into the review queue and
+              notifies both the assignee and the creator. Only for tasks
+              assigned BY the admin (not self-created ones, which use Mark
+              Complete above instead). */}
           {!isSelfAssigned && (
             <TouchableOpacity
               disabled={
@@ -712,29 +744,39 @@ export default function TaskDetail() {
                 opacity: askingReview ? 0.7 : 1,
               }}
             >
-             {askingReview ? (
-                  <ActivityIndicator color={colors.base.surfaceL1} />
-                ) : (
-                  <Text
-                    numberOfLines={1}
-                    allowFontScaling={false}
-                    style={{
-                      ...typography.subheading,
-                      fontSize: moderateScale(18),
-                      color: colors.brand.onPrimary,
-                    }}
-                  >
-                    {task.status === "completed"
-                      ? "Already Completed"
-                      : task.status === "in_review"
-                        ? "Under Review"
-                        : "Ask to Review"}
-                  </Text>
-                )}
+              {askingReview ? (
+                <ActivityIndicator color={colors.base.surfaceL1} />
+              ) : (
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    ...typography.subheading,
+                    color: colors.brand.onPrimary,
+                  }}
+                >
+                  {task.status === "completed"
+                    ? "Already Completed"
+                    : task.status === "in_review"
+                      ? "Under Review"
+                      : "Ask to Review"}
+                </Text>
+              )}
             </TouchableOpacity>
           )}
         </View>
       </ScrollView>
+
+      {/* Mark Complete confirmation */}
+      <AlertModal
+        visible={completeConfirmVisible}
+        type="warning"
+        title="Mark as Complete"
+        message="Do you want to mark this task as complete?"
+        confirmText={completing ? "Marking..." : "Yes, Complete"}
+        cancelText="Cancel"
+        onConfirm={confirmMarkComplete}
+        onCancel={() => setCompleteConfirmVisible(false)}
+      />
 
       <AlertModal
         visible={deleteConfirmVisible}

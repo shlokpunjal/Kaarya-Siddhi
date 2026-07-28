@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  Modal,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -56,6 +58,16 @@ export default function TaskDetailAdmin() {
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
+  // ── Suggest Changes (opens a dialog, admin types a message, task goes
+  // back to pending with the message attached) ────────────────────────────
+  const [suggestionModalVisible, setSuggestionModalVisible] = useState(false);
+  const [suggestionText, setSuggestionText] = useState("");
+  const [sendingSuggestion, setSendingSuggestion] = useState(false);
+
+  // ── Mark Complete (confirm dialog, then updates status) ─────────────────
+  const [completeConfirmVisible, setCompleteConfirmVisible] = useState(false);
+  const [completing, setCompleting] = useState(false);
+
   // Every task on this screen was created by an admin (the dashboard only
   // fetches tasks where created_by = the logged-in admin), but we still
   // confirm ownership before showing edit/delete, same pattern as the
@@ -63,6 +75,7 @@ export default function TaskDetailAdmin() {
   const isOwnTask =
     !!task && !!currentUserId && task.created_by === currentUserId;
   const canEditOrDelete = isOwnTask && task?.status !== "completed";
+  const canReview = task?.status !== "completed";
 
   // ── Fetch task + its files from Supabase ────────────────────────────────────
   useEffect(() => {
@@ -114,6 +127,98 @@ export default function TaskDetailAdmin() {
       showToast(error?.message || "Delete failed", "error");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // ── Suggest Changes: sends the message + pushes the task back to pending ────
+  // NOTE: assumes a PATCH /tasks/:id endpoint that accepts { status, suggestion }.
+  // Adjust the path/body shape to match your actual backend route.
+  const handleOpenSuggestion = () => {
+    setSuggestionText("");
+    setSuggestionModalVisible(true);
+  };
+
+  const handleSendSuggestion = async () => {
+    if (!task || !suggestionText.trim()) {
+      showToast("Please write a suggestion first", "error");
+      return;
+    }
+
+    try {
+      setSendingSuggestion(true);
+
+      const res = await authFetch(`/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "pending",
+          suggestion: suggestionText.trim(),
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to send suggestion");
+
+      // Best-effort notification to the employee — remove this block if you
+      // don't have a /notifications endpoint, the task update above already
+      // carries the message via the `suggestion` field.
+      try {
+        await authFetch("/notifications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: task.assigned_to,
+            type: "task_suggestion",
+            message: suggestionText.trim(),
+            task_id: task.id,
+          }),
+        });
+      } catch (notifyError) {
+        console.error("Notification send error:", notifyError);
+      }
+
+      setTask((prev: any) => ({
+        ...prev,
+        status: "pending",
+        suggestion: suggestionText.trim(),
+      }));
+
+      setSuggestionModalVisible(false);
+      showToast("Suggestion sent to employee.", "success");
+    } catch (error: any) {
+      showToast(error?.message || "Failed to send suggestion", "error");
+    } finally {
+      setSendingSuggestion(false);
+    }
+  };
+
+  // ── Mark Complete: confirm dialog, then updates status ──────────────────────
+  // NOTE: same assumption as above — adjust the endpoint/body to your backend.
+  const handleMarkComplete = () => {
+    setCompleteConfirmVisible(true);
+  };
+
+  const confirmMarkComplete = async () => {
+    if (!task) return;
+
+    try {
+      setCompleting(true);
+
+      const res = await authFetch(`/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" }),
+      });
+
+      if (!res.ok) throw new Error("Failed to mark complete");
+
+      setTask((prev: any) => ({ ...prev, status: "completed" }));
+      setCompleteConfirmVisible(false);
+      showToast("Task marked as completed!", "success");
+    } catch (error: any) {
+      setCompleteConfirmVisible(false);
+      showToast(error?.message || "Failed to mark complete", "error");
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -516,44 +621,186 @@ export default function TaskDetailAdmin() {
             ))
           )}
 
-          {/* Review or Complete Button — replaces the old "Submit Task"
-              button. Admin doesn't "submit" their own task; they review
-              what the employee submitted (or complete it directly) on
-              complete.tsx, same screen the employee's self-created-task
-              flow uses. */}
-          <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: "/(task)/complete",
-                params: { taskId: task.id },
-              })
-            }
-            disabled={task.status === "completed"}
+          {/* Suggest Changes / Mark Complete — two separate actions replacing
+              the old single "Review or Complete" button. */}
+          {canReview ? (
+            <View style={{ marginTop: 24 }}>
+              <TouchableOpacity
+                onPress={handleOpenSuggestion}
+                style={{
+                  width: "100%",
+                  backgroundColor: colors.brand.secprimary,
+                  height: moderateScale(50),
+                  borderRadius: 12,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.brand.onPrimary,
+                    ...typography.subheading,
+                  }}
+                >
+                  Suggest Changes
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleMarkComplete}
+                style={{
+                  width: "100%",
+                  backgroundColor: colors.brand.accent,
+                  height: moderateScale(50),
+                  borderRadius: 12,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  marginTop: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.brand.onPrimary,
+                    ...typography.subheading,
+                  }}
+                >
+                  Mark Complete
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View
+              style={{
+                backgroundColor: colors.base.border,
+                height: moderateScale(50),
+                borderRadius: 12,
+                justifyContent: "center",
+                alignItems: "center",
+                marginTop: 24,
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.brand.onPrimary,
+                  ...typography.subheading,
+                }}
+              >
+                Already Completed
+              </Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Suggest Changes Modal — free-text message that goes back to the
+          employee, and pushes the task back into Pending */}
+      <Modal
+        visible={suggestionModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSuggestionModalVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            padding: wp(6.4),
+          }}
+        >
+          <View
             style={{
-              backgroundColor:
-                task.status === "completed"
-                  ? colors.base.border
-                  : colors.brand.accent,
-              height: moderateScale(50),
-              borderRadius: 12,
-              justifyContent: "center",
-              alignItems: "center",
-              marginTop: 24,
+              backgroundColor: colors.base.surfaceL1,
+              borderRadius: 16,
+              padding: 20,
+              borderWidth: 1,
+              borderColor: colors.base.border,
             }}
           >
             <Text
               style={{
-                color: colors.brand.onPrimary,
-                ...typography.subheading,
+                ...typography.heading3,
+                color: colors.text.primary,
+                marginBottom: 12,
               }}
             >
-              {task.status === "completed"
-                ? "Already Completed"
-                : "Review or Complete"}
+              Suggest Changes
             </Text>
-          </TouchableOpacity>
+            <TextInput
+              value={suggestionText}
+              onChangeText={setSuggestionText}
+              placeholder="What should the employee change?"
+              placeholderTextColor={colors.text.secondary}
+              multiline
+              numberOfLines={4}
+              style={{
+                ...typography.body,
+                color: colors.text.primary,
+                backgroundColor: colors.base.surfaceL2,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: colors.base.border,
+                padding: 12,
+                minHeight: 100,
+                textAlignVertical: "top",
+                marginBottom: 16,
+              }}
+            />
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setSuggestionModalVisible(false)}
+                disabled={sendingSuggestion}
+                style={{
+                  flex: 1,
+                  height: 46,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.base.border,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ ...typography.body, color: colors.text.primary }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSendSuggestion}
+                disabled={sendingSuggestion}
+                style={{
+                  flex: 1,
+                  height: 46,
+                  borderRadius: 10,
+                  backgroundColor: colors.brand.accent,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  opacity: sendingSuggestion ? 0.7 : 1,
+                }}
+              >
+                {sendingSuggestion ? (
+                  <ActivityIndicator color={colors.base.surfaceL1} />
+                ) : (
+                  <Text style={{ ...typography.body, color: colors.brand.onPrimary }}>
+                    Send
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </ScrollView>
+      </Modal>
+
+      {/* Mark Complete confirmation */}
+      <AlertModal
+        visible={completeConfirmVisible}
+        type="warning"
+        title="Mark as Complete"
+        message="Do you want to mark this task as complete?"
+        confirmText={completing ? "Marking..." : "Yes, Complete"}
+        cancelText="Cancel"
+        onConfirm={confirmMarkComplete}
+        onCancel={() => setCompleteConfirmVisible(false)}
+      />
 
       <AlertModal
         visible={deleteConfirmVisible}
