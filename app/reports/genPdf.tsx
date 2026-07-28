@@ -29,6 +29,26 @@ type RangePreset = "last_week" | "last_fortnight" | "last_month" | "custom";
 
 const STATUSES: TaskStatus[] = ["overdue", "pending", "inReview", "completed"];
 const PRIORITIES: TaskPriority[] = ["low", "medium", "high"];
+import { useState } from 'react';
+import { View, Text, Pressable, StyleSheet, ScrollView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { File, Paths } from 'expo-file-system';
+// import * as Sharing from 'expo-sharing';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useTheme } from '../../context/ThemeContext';
+import { typography } from '../../theme/theme';
+import { TaskPriority, TaskStatus } from '../../types/task';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useToast } from '../../context/ToastContext';
+import { authFetch } from '../../utils/authFetch';
+
+type FilterMode = 'status' | 'priority';
+type PickerTarget = 'start' | 'end' | null;
+type RangePreset = 'last_week' | 'last_fortnight' | 'last_month' | 'custom';
+
+const STATUSES: TaskStatus[] = ['overdue', 'pending', 'inReview', 'completed'];
+const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high'];
 
 const RANGE_PRESETS: { key: RangePreset; label: string }[] = [
   { key: "last_week", label: "Last Week" },
@@ -189,36 +209,17 @@ export default function GenPdf() {
     }
   };
 
-  const handleOpen = async () => {
-      if (!reportFileUri) return;
+  const handleOpen = () => {
+    if (!reportFileUri) return;
+    router.push({
+      pathname: '/reports/pdfViewer',
+      params: {
+        uri: reportFileUri,
+        title: `Task Report (${toDisplayDateString(startDate as Date)} – ${toDisplayDateString(endDate as Date)})`,
+      },
+    });
+  };
   
-      try {
-        if (Platform.OS === "android") {
-          // 1. Convert file:// URI to a secure content:// URI
-          const contentUri = await FileSystem.getContentUriAsync(reportFileUri);
-  
-          // 2. Determine the correct MIME type based on file extension
-          const isExcel = reportFileUri.endsWith(".xlsx");
-          const mimeType = isExcel
-            ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            : "application/pdf";
-  
-          // 3. Launch an Android Intent with read permissions granted
-          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
-            data: contentUri,
-            flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
-            type: mimeType,
-          });
-        } else {
-          // iOS handles local file:// URIs without issue
-          await WebBrowser.openBrowserAsync(reportFileUri);
-        }
-      } catch (error) {
-        console.error("Error opening file:", error);
-      }
-    };
-  
-
   const optionsForMode = (): string[] => {
     if (filterMode === "status") return STATUSES;
     if (filterMode === "priority") return PRIORITIES;

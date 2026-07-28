@@ -23,17 +23,20 @@ import { sendLoginNotification } from "../../utils/notifications";
 import { wp, moderateScale } from "../../utils/responsive";
 import TrainLoadingAnimation from "../../components/TrainLoadingAnimation";
 import VerifiedSuccess from "../../components/VerifiedSuccess";
-import RadialOtpBoxes from "../../components/RadialOtpBoxes";
+
+type TrainStatus = "idle" | "loading" | "success" | "error";
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [trainStatus, setTrainStatus] = useState<TrainStatus>("idle");
   const [focusedIndex, setFocusedIndex] = useState(0);
   const cardOpacity = useRef(new Animated.Value(0)).current;
   const cardTranslateY = useRef(new Animated.Value(60)).current;
   const cardScale = useRef(new Animated.Value(0.95)).current;
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const isVerifyingRef = useRef(false);
+  const pendingVerifiedDataRef = useRef<any>(null);
   const [cooldown, setCooldown] = useState(30);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { email, ph, role, mode, name } = useLocalSearchParams<{
@@ -127,6 +130,18 @@ const OtpVerify = () => {
 
     router.replace("/(employee)");
   };
+
+  // Fired once the train has visibly arrived at the end of the track and
+  // faded out — only then do we swap in VerifiedSuccess and navigate.
+  const handleTrainFinished = () => {
+    setShowSuccess(true);
+    const data = pendingVerifiedDataRef.current;
+    pendingVerifiedDataRef.current = null;
+    setTimeout(() => {
+      if (data) proceedAfterVerification(data);
+    }, 1100);
+  };
+
   const verifyOTP = async (code?: string) => {
     if (isVerifyingRef.current) return;
 
@@ -144,6 +159,7 @@ const OtpVerify = () => {
     try {
       setIsVerifying(true);
       setOtpError("");
+      setTrainStatus("loading");
 
       const response = await fetch(`${API_BASE_URL}/verify-otp`, {
         method: "POST",
@@ -165,6 +181,8 @@ const OtpVerify = () => {
         if (elapsed < MIN_VISIBLE_MS) {
           await new Promise((res) => setTimeout(res, MIN_VISIBLE_MS - elapsed));
         }
+
+        setTrainStatus("error");
 
         const detail = (data.detail || "").toLowerCase();
 
@@ -203,30 +221,17 @@ const OtpVerify = () => {
         await new Promise((res) => setTimeout(res, MIN_VISIBLE_MS - elapsed));
       }
 
-      /*
- * isVerifying becomes false in finally.
- *
- * That tells RadialOtpBoxes:
- * "verification succeeded".
- *
- * Give it ~500ms to collapse into the center.
- */
-      setTimeout(() => {
-        setShowSuccess(true);
-      }, 500);
-
-      /*
-       * Then let VerifiedSuccess play before navigating.
-       */
-      setTimeout(() => {
-        proceedAfterVerification(data);
-      }, 2100);
+      // Don't show success or navigate yet — wait for the train to
+      // finish its arrival animation first (see handleTrainFinished).
+      pendingVerifiedDataRef.current = data;
+      setTrainStatus("success");
     } catch (error: any) {
       console.log("FULL ERROR:", error);
       const elapsed = Date.now() - startTime;
       if (elapsed < MIN_VISIBLE_MS) {
         await new Promise((res) => setTimeout(res, MIN_VISIBLE_MS - elapsed));
       }
+      setTrainStatus("error");
       setOtpError("Verification failed. Please try again.");
     } finally {
       setIsVerifying(false);
@@ -293,9 +298,12 @@ const OtpVerify = () => {
                 style={styles.imageStyling}
               />
             </View>
-            {/* <View style={styles.trainAboveCard}>
-              <TrainLoadingAnimation active={isVerifying} />
-            </View> */}
+            <View style={styles.trainAboveCard}>
+              <TrainLoadingAnimation
+                status={trainStatus}
+                onFinished={handleTrainFinished}
+              />
+            </View>
             <Animated.View
               style={[
                 styles.divi,
@@ -309,46 +317,64 @@ const OtpVerify = () => {
                 <>
                   <Text style={[styles.divtext]}>Login to your workspace</Text>
 
-                  <View style={styles.otpSection}>
-                    <RadialOtpBoxes
-                      otp={otp}
-                      focusedIndex={focusedIndex}
-                      otpError={otpError}
-                      isVerifying={isVerifying}
-                      inputRefs={inputRefs}
-                      onFocus={setFocusedIndex}
-                      onBlur={() => setFocusedIndex(-1)}
-                      onChangeText={(text, index) => {
-                        const number = text.replace(/[^0-9]/g, "");
+                  <View>
+                    <View style={styles.otpContainer}>
+                      {otp.map((digit, index) => (
+                        <TextInput
+                          key={index}
+                          ref={(ref) => {
+                            inputRefs.current[index] = ref;
+                          }}
+                          style={[
+                            styles.otpInput,
+                            focusedIndex === index && styles.activeOtpBox,
+                            digit && styles.filledOtpBox,
+                            otpError && styles.otpError,
+                          ]}
+                          onFocus={() => setFocusedIndex(index)}
+                          onBlur={() => setFocusedIndex(-1)}
+                          value={digit}
+                          cursorColor="#E8870A"
+                          selectionColor="#E8870A"
+                          keyboardType="number-pad"
+                          maxLength={1}
+                          onChangeText={(text) => {
+                            const number = text.replace(/[^0-9]/g, "");
 
-                        const updated = [...otp];
-                        updated[index] = number;
+                            const updated = [...otp];
+                            updated[index] = number;
 
-                        setOtp(updated);
+                            setOtp(updated);
 
-                        if (otpError) setOtpError("");
-                        if (resendMessage) setResendMessage("");
+                            if (otpError) setOtpError("");
+                            if (resendMessage) setResendMessage("");
 
-                        if (number && index < 5) {
-                          setFocusedIndex(index + 1);
-                          inputRefs.current[index + 1]?.focus();
-                        }
+                            if (number && index < 5) {
+                              setFocusedIndex(index + 1);
+                              inputRefs.current[index + 1]?.focus();
+                            }
 
-                        const otpCode = updated.join("");
+                            const otpCode = updated.join("");
 
-                        if (otpCode.length === 6) {
-                          setTimeout(() => {
-                            verifyOTP(otpCode);
-                          }, 100);
-                        }
-                      }}
-                      onKeyPress={(index, key) => {
-                        if (key === "Backspace" && !otp[index] && index > 0) {
-                          setFocusedIndex(index - 1);
-                          inputRefs.current[index - 1]?.focus();
-                        }
-                      }}
-                    />
+                            if (otpCode.length === 6) {
+                              setTimeout(() => {
+                                verifyOTP(otpCode);
+                              }, 100);
+                            }
+                          }}
+                          onKeyPress={({ nativeEvent }) => {
+                            if (
+                              nativeEvent.key === "Backspace" &&
+                              !otp[index] &&
+                              index > 0
+                            ) {
+                              setFocusedIndex(index - 1);
+                              inputRefs.current[index - 1]?.focus();
+                            }
+                          }}
+                        />
+                      ))}
+                    </View>
                     {otpError ? (
                       <Text style={styles.errorText}>{otpError}</Text>
                     ) : null}
@@ -411,10 +437,6 @@ const ERROR = "#D32F2F";
 const SUCCESS = "#2E7D32";
 
 const styles = StyleSheet.create({
-  otpSection: {
-    width: "100%",
-    alignItems: "center",
-  },
   trainAboveCard: {
     width: "85%",
     marginTop: 30,
@@ -530,7 +552,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     height: moderateScale(120),
     width: moderateScale(120),
-    marginTop: 50,
+    marginTop: 60,
     borderRadius: moderateScale(96),
     backgroundColor: "#E8870A",
   },
@@ -547,10 +569,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
 
     paddingHorizontal: wp(5.3),
-    paddingTop: 24,
+    paddingTop: 22,
     paddingBottom: 18,
 
-    marginTop: 42,
+    marginTop: 10,
 
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
@@ -570,7 +592,71 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontFamily: "Poppins_400Regular",
   },
+  otpContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 14,
+    marginBottom: 14,
+  },
+  otpInput: {
+    width: moderateScale(42),
+    height: moderateScale(52),
+    marginHorizontal: 3.5,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#D8DEE9",
+    backgroundColor: "#FFFFFF",
+    fontSize: 22,
+    color: "#1A2744",
+    textAlign: "center",
+  },
+
   otpError: {
     borderColor: "#D32F2F",
+  },
+
+  otpBoxes: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  otpBox: {
+    width: moderateScale(40),
+    height: moderateScale(48),
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 3.5,
+  },
+
+  activeOtpBox: {
+    borderColor: "#E8870A",
+    backgroundColor: "#FFF8EF",
+    borderWidth: 2,
+
+    shadowColor: "#E8870A",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+
+    elevation: 5,
+
+    transform: [{ scale: 1.04 }],
+  },
+  filledOtpBox: {
+    borderColor: "#E8870A",
+  },
+
+  errorOtpBox: {
+    borderColor: "#D32F2F",
+  },
+
+  otpDigit: {
+    fontSize: 22,
+    color: "#1A2744",
   },
 });

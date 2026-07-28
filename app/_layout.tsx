@@ -488,6 +488,7 @@ export default function RootLayout() {
               <Stack.Screen name="(task)/extend-deadline" />
               <Stack.Screen name="reports/genExcel" />
               <Stack.Screen name="reports/genPdf" />
+              <Stack.Screen name="reports/pdfViewer" />
             </Stack>
           </OfflineScreen>
         </ToastProvider>

@@ -71,6 +71,28 @@ const rangeForPreset = (
       return null;
   }
 };
+import { useState } from 'react';
+import { View, Text, Pressable, StyleSheet, ScrollView, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { router } from 'expo-router';
+import { useTheme } from '../../context/ThemeContext';
+import { typography } from '../../theme/theme';
+import { TaskPriority, TaskStatus } from '../../types/task';
+import { API_BASE_URL } from '../../constants/api';
+import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
+import { useToast } from '../../context/ToastContext';
+import { Platform } from 'react-native';
+import * as IntentLauncher from 'expo-intent-launcher';
+
+type FilterMode = 'status' | 'priority';
+
+const STATUSES: TaskStatus[] = ['overdue', 'pending', 'inReview', 'completed'];
+const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high'];
+
+const sanitizeDate = (value: string) => value.replace(/[–—−]/g, '-').trim();
 
 export default function GenExcel() {
   const { colors } = useTheme();
@@ -185,30 +207,30 @@ export default function GenExcel() {
 
   const handleOpen = async () => {
     if (!reportFileUri) return;
+    const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-    try {
-      if (Platform.OS === "android") {
-        // 1. Convert file:// URI to a secure content:// URI
-        const contentUri = await FileSystem.getContentUriAsync(reportFileUri);
+    if (Platform.OS === 'android') {
+      try {
+        const file = new File(reportFileUri);
+        const contentUri = file.contentUri;
 
-        // 2. Determine the correct MIME type based on file extension
-        const isExcel = reportFileUri.endsWith(".xlsx");
-        const mimeType = isExcel
-          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          : "application/pdf";
-
-        // 3. Launch an Android Intent with read permissions granted
-        await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
           data: contentUri,
           flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
           type: mimeType,
         });
-      } else {
-        // iOS handles local file:// URIs without issue
-        await WebBrowser.openBrowserAsync(reportFileUri);
+        return;
+      } catch (e) {
+        console.log('No spreadsheet app found, falling back to share sheet', e);
       }
-    } catch (error) {
-      console.error("Error opening file:", error);
+    }
+
+    // iOS, or Android fallback if no spreadsheet app is installed
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(reportFileUri, { mimeType, dialogTitle: 'Task Report' });
+    } else {
+      showToast(`Report saved to: ${reportFileUri}`, 'success');
     }
   };
 
