@@ -9,18 +9,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { API_BASE_URL } from "../../constants/api";
 import { typography } from '../../theme/theme';
 import BackButton from "../../components/backButton";
+import { authFetch } from "../../utils/authFetch";
 import { wp, moderateScale } from "../../utils/responsive";
 
 
 export default function WaitingApproval() {
-  const { employee_email, admin_email, name } =
+  const { employee_email, admin_email, name, mode } =
     useLocalSearchParams<{
       employee_email: string;
       admin_email: string;
       name?: string;
+      mode?: string;
     }>();
 
   const [status, setStatus] = useState("pending");
@@ -38,9 +39,15 @@ export default function WaitingApproval() {
 
   const checkStatus = async () => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/connection-status/${employee_email}/${admin_email}`
+      const response = await authFetch(
+        `/connection-status/${employee_email}/${admin_email}`
       );
+
+      if (!response.ok) {
+        // Auth hiccup, server error, etc. — don't let a failed poll
+        // overwrite the last known status with an error body's shape.
+        return;
+      }
 
       const data = await response.json();
 
@@ -50,10 +57,16 @@ export default function WaitingApproval() {
         setStatusMessage("Your admin has accepted your request.");
 
         setTimeout(() => {
-          router.replace({
-            pathname: "/(onboarding)/profileSetup1",
-            params: { role: "employee", name },
-          });
+          if (mode === "signup") {
+            router.replace({
+              pathname: "/(onboarding)/profileSetup1",
+              params: { role: "employee", name },
+            });
+          } else {
+            // Already-onboarded employee (change admin, or connecting
+            // after login) — no onboarding needed, just back to profile.
+            router.replace("/(employee)/profile");
+          }
         }, 1500);
       }
 
@@ -61,13 +74,16 @@ export default function WaitingApproval() {
         setStatusMessage("Your request was rejected.");
 
         setTimeout(() => {
-          router.replace({
-            pathname: "/(auth)/RequestAdmin",
-            params: {
-              email: employee_email,
-              name,
-            },
-          });
+          if (mode === "signup") {
+            router.replace({
+              pathname: "/(auth)/RequestAdmin",
+              params: { email: employee_email, name, mode },
+            });
+          } else {
+            // Already-onboarded employee — send them back to their
+            // profile rather than looping them through signup screens.
+            router.replace("/(employee)/profile");
+          }
         }, 1500);
       }
     } catch (error) {
