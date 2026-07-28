@@ -72,7 +72,7 @@ scheduler.start()
 # ---- Routers ----
 from routes.auth import router as auth_router
 from routes.connections import router as connections_router
-from routes.admin import router as admin_router
+from routes.admin_route import router as admin_router
 from routes.users import router as users_router
 from routes.excel_report import router as excel_report_router
 from routes.pdf_report import router as pdf_report_router
