@@ -366,7 +366,9 @@ export default function Newtask() {
               style={inputStyle}
             />
 
-            {/* ── Deadline — calendar picker (view-only when editing) ── */}
+            {/* ── Deadline — calendar picker, always editable (this screen
+                only ever handles the employee's own self-created tasks;
+                admin-created tasks are edited via a separate screen) ── */}
             <View style={{ marginTop: 14 }}>
               <Text
                 style={{
@@ -379,122 +381,83 @@ export default function Newtask() {
                 Deadline
               </Text>
 
-              {isEditMode ? (
-                // Read-only display — deadline cannot be changed once a task exists
-                <View
+              <TouchableOpacity
+                onPress={() => setShowDatePicker(true)}
+                style={{
+                  backgroundColor: colors.base.surfaceL2,
+                  height: moderateScale(50),
+                  borderRadius: 12,
+                  borderColor: deadlineDate
+                    ? colors.brand.accent
+                    : colors.base.border,
+                  borderWidth: deadlineDate ? 1.5 : 1,
+                  paddingHorizontal: 15,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Text
                   style={{
-                    backgroundColor: colors.base.surfaceL2,
-                    height: moderateScale(50),
-                    borderRadius: 12,
-                    borderColor: colors.base.border,
-                    borderWidth: 1,
-                    paddingHorizontal: 15,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    opacity: 0.7,
+                    ...typography.body,
+                    color: deadlineDate
+                      ? colors.text.primary
+                      : colors.text.secondary,
                   }}
                 >
-                  <Text
-                    style={{ ...typography.body, color: colors.text.secondary }}
-                  >
-                    {deadlineDate
-                      ? deadlineDate.toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : "No deadline set"}
-                  </Text>
+                  {deadlineDate
+                    ? deadlineDate.toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "Select deadline date"}
+                </Text>
+                <Ionicons
+                  name={deadlineDate ? "calendar" : "calendar-outline"}
+                  size={20}
+                  color={
+                    deadlineDate ? colors.brand.accent : colors.text.secondary
+                  }
+                />
+              </TouchableOpacity>
+
+              {deadlineDate && (
+                <TouchableOpacity
+                  onPress={() => setDeadlineDate(null)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    marginTop: 6,
+                    paddingLeft: 4,
+                  }}
+                >
                   <Ionicons
-                    name="lock-closed-outline"
-                    size={18}
+                    name="close-circle-outline"
+                    size={14}
                     color={colors.text.secondary}
                   />
-                </View>
-              ) : (
-                <>
-                  <TouchableOpacity
-                    onPress={() => setShowDatePicker(true)}
+                  <Text
                     style={{
-                      backgroundColor: colors.base.surfaceL2,
-                      height: moderateScale(50),
-                      borderRadius: 12,
-                      borderColor: deadlineDate
-                        ? colors.brand.accent
-                        : colors.base.border,
-                      borderWidth: deadlineDate ? 1.5 : 1,
-                      paddingHorizontal: 15,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
+                      ...typography.label,
+                      color: colors.text.secondary,
                     }}
                   >
-                    <Text
-                      style={{
-                        ...typography.body,
-                        color: deadlineDate
-                          ? colors.text.primary
-                          : colors.text.secondary,
-                      }}
-                    >
-                      {deadlineDate
-                        ? deadlineDate.toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })
-                        : "Select deadline date"}
-                    </Text>
-                    <Ionicons
-                      name={deadlineDate ? "calendar" : "calendar-outline"}
-                      size={20}
-                      color={
-                        deadlineDate
-                          ? colors.brand.accent
-                          : colors.text.secondary
-                      }
-                    />
-                  </TouchableOpacity>
+                    Clear date
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-                  {deadlineDate && (
-                    <TouchableOpacity
-                      onPress={() => setDeadlineDate(null)}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 4,
-                        marginTop: 6,
-                        paddingLeft: 4,
-                      }}
-                    >
-                      <Ionicons
-                        name="close-circle-outline"
-                        size={14}
-                        color={colors.text.secondary}
-                      />
-                      <Text
-                        style={{
-                          ...typography.label,
-                          color: colors.text.secondary,
-                        }}
-                      >
-                        Clear date
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {showDatePicker && (
-                    <DateTimePicker
-                      value={deadlineDate ?? new Date()}
-                      mode="date"
-                      minimumDate={new Date()}
-                      display={Platform.OS === "ios" ? "inline" : "default"}
-                      onChange={onChangeDate}
-                      style={{ marginTop: 8 }}
-                    />
-                  )}
-                </>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={deadlineDate ?? new Date()}
+                  mode="date"
+                  minimumDate={new Date()}
+                  display={Platform.OS === "ios" ? "inline" : "default"}
+                  onChange={onChangeDate}
+                  style={{ marginTop: 8 }}
+                />
               )}
             </View>
 
