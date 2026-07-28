@@ -3,30 +3,49 @@ import { View, StyleSheet, Animated, Easing, LayoutChangeEvent } from "react-nat
 import Svg, { Path, Rect, Circle, Line } from "react-native-svg";
 import { moderateScale } from "../utils/responsive";
 
+type TrainStatus = "idle" | "loading" | "success" | "error";
+
 interface TrainLoadingAnimationProps {
-  active: boolean;
+  /**
+   * "idle"    -> hidden (fades out from wherever it is, if currently shown)
+   * "loading" -> fades in and eases toward `maxLoadingProgress` over `loadingDurationMs`.
+   *              Never reaches the end on its own — it's meant to look like it's
+   *              still working no matter how long the real request takes.
+   * "success" -> sprints the remaining distance to the end of the track, holds
+   *              briefly, fades out, then calls `onFinished`.
+   * "error"   -> fades out in place (same as idle), no completion callback.
+   */
+  status: TrainStatus;
+  /** Called once the success arrival + fade-out animation has fully completed. */
+  onFinished?: () => void;
   cabColor?: string;
   bodyColor?: string;
   darkColor?: string;
   trackColor?: string;
   trainWidth?: number;
-  durationMs?: number;
+  /** How long the fake "loading" progress takes to ease toward maxLoadingProgress. */
+  loadingDurationMs?: number;
+  /** Ceiling the loading phase eases toward, so it never finishes on its own (0-1). */
+  maxLoadingProgress?: number;
 }
 
 const TrainLoadingAnimation: React.FC<TrainLoadingAnimationProps> = ({
-  active,
+  status,
+  onFinished,
   cabColor = "#E8870A",
   bodyColor = "#F2A438",
   darkColor = "#1A2744",
   trackColor = "#E5E7EB",
   trainWidth = moderateScale(62),
-  durationMs = 1500,
+  loadingDurationMs = 6000,
+  maxLoadingProgress = 0.92,
 }) => {
   const [trackWidth, setTrackWidth] = useState(0);
   const [shouldRender, setShouldRender] = useState(false);
-  const translateX = useRef(new Animated.Value(0)).current;
+  const progress = useRef(new Animated.Value(0)).current; // 0 -> 1 along the track
   const opacity = useRef(new Animated.Value(0)).current;
-  const loopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const animRef = useRef<Animated.CompositeAnimation | null>(null);
+  const prevStatusRef = useRef<TrainStatus>("idle");
   const trainHeight = trainWidth * 0.5;
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -36,65 +55,101 @@ const TrainLoadingAnimation: React.FC<TrainLoadingAnimationProps> = ({
     }
   };
 
+  // Mount / fade-in / fade-out handling, keyed off status changes.
   useEffect(() => {
-    if (active) {
-      // Starting fresh: mount, reset position, fade in, start looping
+    const prevStatus = prevStatusRef.current;
+    prevStatusRef.current = status;
+
+    if (status === "loading") {
       setShouldRender(true);
-      translateX.setValue(0);
-      opacity.setValue(0);
+
+      // Only reset the train back to the start when beginning a genuinely
+      // fresh attempt (not when we're already mid-flight for some reason).
+      const startingFresh = prevStatus === "idle" || prevStatus === "error";
+      if (startingFresh) {
+        progress.setValue(0);
+      }
 
       Animated.timing(opacity, {
         toValue: 1,
         duration: 200,
         useNativeDriver: true,
       }).start();
-    } else {
-      // Stopping: DON'T touch translateX — fade out from wherever it currently is
-      loopRef.current?.stop();
+      return;
+    }
 
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 220,
+    if (status === "success") {
+      // Arrival + fade-out + onFinished is driven entirely by the progress
+      // effect below, since it needs trackWidth to compute the distance.
+      return;
+    }
+
+    // idle / error -> fade out from wherever it currently is, then unmount.
+    animRef.current?.stop();
+    Animated.timing(opacity, {
+      toValue: 0,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        setShouldRender(false);
+        progress.setValue(0);
+      }
+    });
+  }, [status]);
+
+  // Progress animation: fake-advance while loading, sprint to the end on success.
+  useEffect(() => {
+    if (!shouldRender || trackWidth <= 0) return;
+
+    animRef.current?.stop();
+
+    if (status === "loading") {
+      animRef.current = Animated.timing(progress, {
+        toValue: maxLoadingProgress,
+        duration: loadingDurationMs,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
-      }).start(({ finished }) => {
+      });
+      animRef.current.start();
+    }
+
+    if (status === "success") {
+      animRef.current = Animated.sequence([
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: 350,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.delay(200),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]);
+      animRef.current.start(({ finished }) => {
         if (finished) {
           setShouldRender(false);
+          progress.setValue(0);
+          onFinished?.();
         }
       });
     }
-  }, [active]);
-
-  useEffect(() => {
-    loopRef.current?.stop();
-
-    if (active && shouldRender && trackWidth > 0) {
-      const travelDistance = trackWidth - trainWidth;
-
-      loopRef.current = Animated.loop(
-        Animated.sequence([
-          Animated.timing(translateX, {
-            toValue: travelDistance,
-            duration: durationMs,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateX, {
-            toValue: 0,
-            duration: durationMs,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      loopRef.current.start();
-    }
 
     return () => {
-      loopRef.current?.stop();
+      animRef.current?.stop();
     };
-  }, [active, shouldRender, trackWidth]);
+  }, [status, shouldRender, trackWidth]);
 
   if (!shouldRender) return null;
+
+  const travelDistance = Math.max(trackWidth - trainWidth, 0);
+  const translateX = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, travelDistance],
+  });
 
   return (
     <View style={styles.wrapper} onLayout={onLayout}>

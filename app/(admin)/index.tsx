@@ -492,7 +492,7 @@ export default function Dashboard() {
                 height: moderateScale(60),
                 borderRadius: 32,
                 flexDirection: "row",
-                marginTop: 20,
+                marginTop: 24,
                 justifyContent: "center",
                 alignItems: "center",
               }}
@@ -520,7 +520,7 @@ export default function Dashboard() {
         <View
           style={{
             marginHorizontal: wp(8.8),
-            marginTop: hp(3.7),
+            marginTop: hp(3.3),
             borderColor: colors.base.border,
             borderWidth: 1,
             borderRadius: 19,
