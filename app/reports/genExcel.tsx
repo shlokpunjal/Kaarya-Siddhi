@@ -11,6 +11,8 @@ import { API_BASE_URL } from '../../constants/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useToast } from '../../context/ToastContext';
+import { Platform } from 'react-native';
+import * as IntentLauncher from 'expo-intent-launcher';
 
 type FilterMode = 'status' | 'priority';
 
@@ -101,13 +103,28 @@ export default function GenExcel() {
 
   const handleOpen = async () => {
     if (!reportFileUri) return;
+    const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
+    if (Platform.OS === 'android') {
+      try {
+        const file = new File(reportFileUri);
+        const contentUri = file.contentUri;
+
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+          type: mimeType,
+        });
+        return;
+      } catch (e) {
+        console.log('No spreadsheet app found, falling back to share sheet', e);
+      }
+    }
+
+    // iOS, or Android fallback if no spreadsheet app is installed
     const canShare = await Sharing.isAvailableAsync();
     if (canShare) {
-      await Sharing.shareAsync(reportFileUri, {
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        dialogTitle: 'Task Report',
-      });
+      await Sharing.shareAsync(reportFileUri, { mimeType, dialogTitle: 'Task Report' });
     } else {
       showToast(`Report saved to: ${reportFileUri}`, 'success');
     }
