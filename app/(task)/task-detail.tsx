@@ -451,6 +451,46 @@ export default function TaskDetail() {
             </View>
           )}
 
+          {/* Admin's suggestion — shown when the admin sent this task back
+              for changes. Cleared whenever the employee asks for review
+              again (that endpoint should null it out server-side). */}
+          {!!task.suggestion && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 8,
+                backgroundColor: colors.base.surfaceL2,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: colors.brand.accent,
+                padding: 10,
+                marginBottom: 16,
+              }}
+            >
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={16}
+                color={colors.brand.accent}
+                style={{ marginTop: 1 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    ...typography.label,
+                    color: colors.brand.accent,
+                    marginBottom: 2,
+                  }}
+                >
+                  Suggestion from admin
+                </Text>
+                <Text style={{ ...typography.body, color: colors.text.secondary }}>
+                  {task.suggestion}
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Divider */}
           <View
             style={{
