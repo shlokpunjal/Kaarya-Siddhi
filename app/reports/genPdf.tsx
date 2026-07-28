@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+// import * as Sharing from 'expo-sharing';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/theme';
@@ -153,20 +153,17 @@ export default function GenPdf() {
     }
   };
 
-  const handleOpen = async () => {
+  const handleOpen = () => {
     if (!reportFileUri) return;
-
-    const canShare = await Sharing.isAvailableAsync();
-    if (canShare) {
-      await Sharing.shareAsync(reportFileUri, {
-        mimeType: 'application/pdf',
-        dialogTitle: 'Task Report',
-      });
-    } else {
-      showToast(`Report saved to: ${reportFileUri}`, 'success');
-    }
+    router.push({
+      pathname: '/reports/pdfViewer',
+      params: {
+        uri: reportFileUri,
+        title: `Task Report (${toDisplayDateString(startDate as Date)} – ${toDisplayDateString(endDate as Date)})`,
+      },
+    });
   };
-
+  
   const optionsForMode = (): string[] => {
     if (filterMode === 'status') return STATUSES;
     if (filterMode === 'priority') return PRIORITIES;
