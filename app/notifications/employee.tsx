@@ -16,7 +16,7 @@ type NotifRow = {
   type:
   | "connection_accepted" | "connection_rejected"
   | "extension_accepted" | "extension_rejected"
-  | "task_assigned" | "task_in_review" | "task_suggestion";
+  | "task_assigned" | "task_in_review";
   message: string;
   created_at: string;
   metadata: any;
@@ -28,8 +28,6 @@ const notifMeta = (colors: any, type: NotifRow["type"]) => {
     return { color: colors.status.completed, icon: "checkmark-circle-outline" as const };
   if (type === "task_assigned")
     return { color: colors.brand.accent, icon: "briefcase-outline" as const };
-  if (type === "task_suggestion")
-    return { color: colors.brand.accent, icon: "chatbubble-ellipses-outline" as const };
   return { color: colors.status.overdue, icon: "close-circle-outline" as const };
 };
 
@@ -60,7 +58,7 @@ export default function EmployeeNotifications() {
   const fetchNotifications = useCallback(async (id: string) => {
     setLoading(true);
     try {
-        const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review,task_suggestion,deadline,overdue";
+        const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review,deadline,overdue";
       const res = await authFetch(`/notifications?types=${types}`);
 
       if (!res.ok) {
@@ -121,7 +119,7 @@ export default function EmployeeNotifications() {
         pathname: "/notifications/employee-request-detail",
         params: { requestId: n.metadata?.extension_request_id },
       });
-    } else if (n.type === "task_assigned" || n.type === "task_in_review" || n.type === "task_suggestion") {
+    } else if (n.type === "task_assigned" || n.type === "task_in_review") {
       router.push({
         pathname: "/(task)/task-detail",
         params: { taskId: n.task_id ?? n.metadata?.taskId },
@@ -222,11 +220,7 @@ export default function EmployeeNotifications() {
         {notifications.map((n) => {
           const meta = notifMeta(colors, n.type);
           const isExtension = n.type.startsWith("extension");
-          const isTappable =
-            isExtension ||
-            n.type === "task_assigned" ||
-            n.type === "task_in_review" ||
-            n.type === "task_suggestion";
+          const isTappable = isExtension || n.type === "task_assigned" || n.type === "task_in_review";
           return (
             <TouchableOpacity
               key={n.id}
