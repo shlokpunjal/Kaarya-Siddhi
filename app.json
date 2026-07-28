@@ -39,12 +39,13 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#1A2744"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "c3b2b1e5-694e-4765-9b07-9001cfc13e87"
+        "projectId": "d4226724-f800-484d-bed7-9ddb1fa6a52a"
       }
     }
   }
