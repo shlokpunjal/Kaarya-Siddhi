@@ -60,29 +60,47 @@ export default function TaskDetailSkeleton() {
             <SkeletonBox width={140} height={15} borderRadius={4} />
           </View>
 
-          {/* Label rows: priority, label, assigned to, deadline */}
-          {[90, 100, 120, 110].map((w, i) => (
-            <View key={i} style={styles.rowLine}>
-              <SkeletonBox width={w} height={13} borderRadius={4} />
-              <SkeletonBox width={90} height={13} borderRadius={4} style={{ marginLeft: 'auto' }} />
+          <View style={[styles.divider, { backgroundColor: colors.base.border }]} />
+
+          {/* Description heading + paragraph */}
+          <SkeletonBox width={110} height={15} borderRadius={4} style={{ marginBottom: 8 }} />
+          <SkeletonBox width="100%" height={13} borderRadius={4} style={{ marginBottom: 6 }} />
+          <SkeletonBox width="70%" height={13} borderRadius={4} style={{ marginBottom: 20 }} />
+
+          {/* Deadline row: icon + inline label+value */}
+          <View style={styles.rowLine}>
+            <SkeletonBox width={18} height={18} borderRadius={5} style={{ marginRight: 8 }} />
+            <SkeletonBox width={180} height={15} borderRadius={4} />
+          </View>
+
+          {/* Assigned To row: icon + inline label+value */}
+          <View style={[styles.rowLine, { marginBottom: 16 }]}>
+            <SkeletonBox width={18} height={18} borderRadius={5} style={{ marginRight: 8 }} />
+            <SkeletonBox width={160} height={15} borderRadius={4} />
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: colors.base.border }]} />
+
+          {/* Files Attached heading */}
+          <SkeletonBox width={150} height={15} borderRadius={4} style={{ marginBottom: 10 }} />
+
+          {/* File list rows: icon + filename bar + open icon, each its own bordered row */}
+          {[0, 1].map((i) => (
+            <View
+              key={i}
+              style={[
+                styles.fileRow,
+                { backgroundColor: colors.base.surfaceL2, borderColor: colors.base.border },
+              ]}
+            >
+              <SkeletonBox width={22} height={22} borderRadius={5} />
+              <SkeletonBox width="60%" height={14} borderRadius={4} style={{ marginLeft: 10 }} />
+              <SkeletonBox width={18} height={18} borderRadius={5} style={{ marginLeft: 'auto' }} />
             </View>
           ))}
 
-          {/* Description block */}
-          <SkeletonBox width={100} height={14} borderRadius={4} style={{ marginTop: 12, marginBottom: 8 }} />
-          <SkeletonBox width="100%" height={13} borderRadius={4} style={{ marginBottom: 6 }} />
-          <SkeletonBox width="90%" height={13} borderRadius={4} style={{ marginBottom: 6 }} />
-          <SkeletonBox width="60%" height={13} borderRadius={4} />
-
-          {/* Files attached */}
-          <SkeletonBox width={110} height={14} borderRadius={4} style={{ marginTop: 18, marginBottom: 10 }} />
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <SkeletonBox width={64} height={64} borderRadius={10} />
-            <SkeletonBox width={64} height={64} borderRadius={10} />
-          </View>
-
-          {/* Feedback / action button */}
-          <SkeletonBox width="100%" height={48} borderRadius={14} style={{ marginTop: 22 }} />
+          {/* Review or Complete button */}
+          <SkeletonBox width="100%" height={50} borderRadius={12} style={{ marginTop: 24 }} />
         </View>
       </View>
     </SafeAreaView>
@@ -93,5 +111,13 @@ const styles = StyleSheet.create({
   card: { borderRadius: 16, borderWidth: 1, padding: wp(5.3) },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 20 },
   divider: { height: 1, marginBottom: 16 },
-  rowLine: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  rowLine: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  fileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 8,
+  },
 });
