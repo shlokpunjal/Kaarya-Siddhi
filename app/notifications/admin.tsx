@@ -385,49 +385,60 @@ export default function AdminNotifications() {
             </Text>
           </View>
         ) : (
-          otherNotifications.map((n) => (
-            <View
-              key={n.id}
-              style={{
-                flexDirection: "row",
-                alignItems: "flex-start",
-                backgroundColor: colors.base.surfaceL1,
-                borderColor: colors.base.border,
-                borderWidth: 1,
-                borderRadius: 16,
-                padding: 16,
-                marginBottom: 12,
-                gap: 12,
-              }}
-            >
-              <Ionicons
-                name="briefcase-outline"
-                size={20}
-                color={colors.brand.accent}
-                style={{ marginTop: 2 }}
-              />
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{ ...typography.body, color: colors.text.primary }}
-                >
-                  {n.message}
-                </Text>
-                <Text
+            otherNotifications.map((n) => {
+              const taskId = n.task_id ?? n.metadata?.taskId;
+              return (
+                <TouchableOpacity
+                  key={n.id}
+                  disabled={!taskId}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(task)/taskDetailAdmin",
+                      params: { taskId },
+                    })
+                  }
                   style={{
-                    ...typography.label,
-                    color: colors.text.secondary,
-                    marginTop: 4,
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    backgroundColor: colors.base.surfaceL1,
+                    borderColor: colors.base.border,
+                    borderWidth: 1,
+                    borderRadius: 16,
+                    padding: 16,
+                    marginBottom: 12,
+                    gap: 12,
                   }}
                 >
-                  {new Date(n.created_at).toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </Text>
-              </View>
-            </View>
-          ))
+                  <Ionicons
+                    name="briefcase-outline"
+                    size={20}
+                    color={colors.brand.accent}
+                    style={{ marginTop: 2 }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ ...typography.body, color: colors.text.primary }}>
+                      {n.message}
+                    </Text>
+                    <Text
+                      style={{
+                        ...typography.label,
+                        color: colors.text.secondary,
+                        marginTop: 4,
+                      }}
+                    >
+                      {new Date(n.created_at).toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </Text>
+                  </View>
+                  {taskId && (
+                    <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })
         )}
       </ScrollView>
     </SafeAreaView>
