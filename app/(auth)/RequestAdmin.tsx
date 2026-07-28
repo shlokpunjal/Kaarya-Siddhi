@@ -9,6 +9,7 @@ import {
   ScrollView,
   Platform,
   Animated,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -18,18 +19,19 @@ import BackButton from "../../components/backButton";
 import { authFetch } from "../../utils/authFetch";
 import ValidatedInput from "../../components/ValidatedInput";
 import { isValidEmail } from "../../constants/validators";
-import useLoading from "../../hooks/useLoading";
 import { wp, moderateScale } from "../../utils/responsive";
 
 export default function RequestAdmin() {
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const { email, name, mode } = useLocalSearchParams<{
+    email: string;
+    name?: string;
+    mode?: string;
+  }>();
 
   const [adminEmail, setAdminEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
-  const { showLoading, hideLoading } = useLoading();
 
   const inputsFade = useRef(new Animated.Value(1)).current;
 
@@ -58,7 +60,6 @@ export default function RequestAdmin() {
       setLoading(true);
       setError("");
       setSuccessMessage("");
-      showLoading("Connecting to workspace...");
 
       const trimmedAdminEmail = adminEmail.trim();
 
@@ -67,7 +68,6 @@ export default function RequestAdmin() {
 
       if (!lookupData.found) {
         setError("No admin found with that email");
-        hideLoading();
         return;
       }
 
@@ -83,22 +83,21 @@ export default function RequestAdmin() {
 
       if (!response.ok) {
         setError(data.detail || "Unable to send request");
-        hideLoading();
         return;
       }
 
       setSuccessMessage("Request sent successfully.");
-      hideLoading();
 
       router.replace({
         pathname: "/(auth)/WaitingApproval",
         params: {
           employee_email: email,
           admin_email: trimmedAdminEmail,
+          name,
+          mode,
         },
       });
     } catch (err: any) {
-      hideLoading();
       console.log(err);
       setError(err.message || "Unable to connect to server.");
     } finally {
@@ -171,7 +170,16 @@ export default function RequestAdmin() {
                   onPress={sendRequest}
                   disabled={loading}
                 >
-                  <Text style={styles.buttonText}>Send Request</Text>
+                  {loading ? (
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={styles.buttonText}>Sending</Text>
+                      <View style={{ width: 18, height: 18, marginLeft: 8 }}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.buttonText}>Send Request</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -218,8 +226,7 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 22,
     fontFamily: "Poppins_600SemiBold",
-    // alignSelf: "center",
-     marginLeft:40,
+    marginLeft:40,
     marginBottom:1,
   },
 
@@ -259,7 +266,6 @@ const styles = StyleSheet.create({
   title: {
     textAlign: "center",
     fontSize: 18,
-    // fontWeight: "700",
     color: PRIMARY,
     marginBottom: 4,
     fontFamily: "Poppins_400Regular",
@@ -298,7 +304,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "white",
     fontSize: 16,
-    // fontWeight: "700",
     fontFamily: "Poppins_400Regular",
     letterSpacing: 0.3,
   },
