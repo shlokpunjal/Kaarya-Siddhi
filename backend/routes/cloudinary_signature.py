@@ -9,7 +9,7 @@ from auth_utils import get_current_user
 
 router = APIRouter()
 
-CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+from config import CLOUDINARY_CLOUD_NAME
 CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
@@ -25,17 +25,19 @@ def _sign_params(params: dict) -> str:
     to_sign += CLOUDINARY_API_SECRET
     return hashlib.sha1(to_sign.encode("utf-8")).hexdigest()
 
+ALLOWED_FOLDERS = {"profile_pics", "task_attachments"}
 
 @router.get("/cloudinary/signature")
 async def get_cloudinary_signature(
     folder: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
 ):
+    if folder and folder not in ALLOWED_FOLDERS:
+        raise HTTPException(status_code=400, detail="Invalid folder.")
+
     if not (CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET):
-        raise HTTPException(
-            status_code=500,
-            detail="Cloudinary is not configured on the server.",
-        )
+        raise HTTPException(status_code=500, detail="Cloudinary is not configured on the server.")
+    ...
 
     timestamp = int(time.time())
 

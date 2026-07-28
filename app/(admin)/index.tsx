@@ -60,8 +60,34 @@ export default function Dashboard() {
   // requests they themselves filed (admins don't file extension requests).
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
 
+   // ── Flip any pending-but-overdue tasks to "overdue" in the DB, then reflect
+  // it locally. Runs after every fetch, so status is always accurate without
+  // needing a scheduled job. ──
+  const syncOverdueStatuses = useCallback(async (fetchedTasks: Task[]) => {
+    const today = new Date().toISOString().slice(0, 10);
+
+    const overdueOnes = fetchedTasks.filter(
+      (t) => t.status === "pending" && t.dueDate?.slice(0, 10) < today
+    );
+
+    if (overdueOnes.length === 0) return fetchedTasks;
+
+    await Promise.all(
+      overdueOnes.map((t) =>
+        authFetch(`/tasks/${t.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "overdue" }),
+        }).catch((err) => console.error(`Failed to mark task ${t.id} overdue:`, err))
+      )
+    );
+
+    return fetchedTasks.map((t) =>
+      overdueOnes.some((o) => o.id === t.id) ? { ...t, status: "overdue" as const } : t
+    );
+  }, []);
   // ── Fetch tasks for the logged-in admin. Shared by initial load and pull-to-refresh ──
-  const checkUserAndFetchTasks = useCallback(
+ const checkUserAndFetchTasks = useCallback(
     async (isMounted: () => boolean = () => true) => {
       const email = await AsyncStorage.getItem("userEmail");
       if (!email) {
@@ -75,12 +101,15 @@ export default function Dashboard() {
         console.error("Error fetching tasks:", res.status);
       } else if (isMounted()) {
         const data = await res.json();
-        setTasks((data ?? []).map(mapRowToTask));
+        let mapped = (data ?? []).map(mapRowToTask);
+        mapped = await syncOverdueStatuses(mapped);
+        setTasks(mapped);
       }
     },
-    [router],
+    [router, syncOverdueStatuses],
   );
 
+ 
   // ── Initial task fetch ───────────────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
@@ -198,10 +227,7 @@ export default function Dashboard() {
     return <DashboardSkeleton />;
   }
 
-  const todayDateStr = new Date().toISOString().slice(0, 10);
-  const overdueTasks = tasks.filter(
-    (t) => t.status === "pending" && t.dueDate?.slice(0, 10) < todayDateStr,
-  );
+  const overdueTasks = tasks.filter((t) => t.status === "overdue");
   const pendingTasks = tasks.filter((t) => t.status === "pending");
   const reviewTasks = tasks.filter((t) => t.status === "inReview");
   const completedTasks = tasks.filter((t) => t.status === "completed");
@@ -466,7 +492,7 @@ export default function Dashboard() {
                 height: moderateScale(60),
                 borderRadius: 32,
                 flexDirection: "row",
-                marginTop: 20,
+                marginTop: 24,
                 justifyContent: "center",
                 alignItems: "center",
               }}
@@ -494,7 +520,7 @@ export default function Dashboard() {
         <View
           style={{
             marginHorizontal: wp(8.8),
-            marginTop: hp(3.7),
+            marginTop: hp(3.3),
             borderColor: colors.base.border,
             borderWidth: 1,
             borderRadius: 19,

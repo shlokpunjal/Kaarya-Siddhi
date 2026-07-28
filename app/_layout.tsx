@@ -71,6 +71,7 @@ function notifTitle(type: string): string {
 function navigateFromNotificationData(
   data: Record<string, any>,
   router: ReturnType<typeof useRouter>,
+  userRole?: string | null,
 ) {
   if (!data?.type) return;
 
@@ -102,9 +103,18 @@ function navigateFromNotificationData(
       });
       break;
     case "task_assigned":
-    case "task_in_review":
       router.push({
         pathname: "/(task)/task-detail",
+        params: { taskId: data.taskId },
+      });
+      break;
+    case "task_in_review":
+      // Sent to both the assignee and the task's creator — the creator is
+      // often an admin, who needs taskDetailAdmin, not the employee-facing
+      // task-detail screen (which the in-app "Other Notifications" tap in
+      // admin.tsx already routes to for the same notification type).
+      router.push({
+        pathname: userRole === "admin" ? "/(task)/taskDetailAdmin" : "/(task)/task-detail",
         params: { taskId: data.taskId },
       });
       break;
@@ -116,8 +126,7 @@ function navigateFromNotificationData(
 
 function NotificationBridge() {
   const router = useRouter();
-  const { userEmail } = useAuth();
-
+  const { userEmail, userRole } = useAuth();
   // ---------------------------------------------------------
   // 1. PUSH TOKEN + SUPABASE REALTIME NOTIFICATIONS
   // ---------------------------------------------------------
@@ -183,7 +192,7 @@ function NotificationBridge() {
         // ---------------------------------------------------
         // Notification table realtime listener
         // ---------------------------------------------------
-        try {
+       try {
           notifChannel = getFreshChannel(`global_notifs_${userRow.id}`)
             .on(
               "postgres_changes",
@@ -209,7 +218,11 @@ function NotificationBridge() {
                   const message =
                     notification.message ?? "You have a new notification.";
 
-                  await sendLocalNotification(title, message);
+                  await sendLocalNotification(title, message, {
+                    type: notification.type,
+                    taskId: notification.task_id,
+                    ...(notification.metadata ?? {}),
+                  });
                 } catch (notificationError) {
                   console.error(
                     "[NotificationBridge] Failed to show local notification:",
@@ -242,11 +255,19 @@ function NotificationBridge() {
                   table: "extension_requests",
                   filter: `workspace_id=eq.${userRow.workspace_id}`,
                 },
-                async () => {
+                async (payload) => {
                   try {
+                    const row = payload?.new;
                     await sendLocalNotification(
                       "New Extension Request",
                       "A deadline extension was requested.",
+                      row
+                        ? {
+                            type: "extension_request",
+                            extension_request_id: row.id,
+                            taskId: row.task_id,
+                          }
+                        : undefined,
                     );
                   } catch (notificationError) {
                     console.error(
@@ -340,7 +361,7 @@ function NotificationBridge() {
         // Router might not be completely mounted during cold start.
         navigationTimer = setTimeout(() => {
           try {
-            navigateFromNotificationData(data, router);
+            navigateFromNotificationData(data, router, userRole);
           } catch (navigationError) {
             console.error(
               "[NotificationBridge] Cold-start navigation failed:",
@@ -376,7 +397,7 @@ function NotificationBridge() {
               return;
             }
 
-            navigateFromNotificationData(data, router);
+            navigateFromNotificationData(data, router, userRole);
           } catch (error) {
             console.error(
               "[NotificationBridge] Notification navigation failed:",
@@ -405,7 +426,7 @@ function NotificationBridge() {
         console.error("[NotificationBridge] Listener cleanup failed:", error);
       }
     };
-  }, [router]);
+ }, [router, userRole]);
 
   return null;
 }
@@ -467,6 +488,7 @@ export default function RootLayout() {
               <Stack.Screen name="(task)/extend-deadline" />
               <Stack.Screen name="reports/genExcel" />
               <Stack.Screen name="reports/genPdf" />
+              <Stack.Screen name="reports/pdfViewer" />
             </Stack>
           </OfflineScreen>
         </ToastProvider>
