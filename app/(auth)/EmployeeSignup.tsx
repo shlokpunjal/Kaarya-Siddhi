@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  Animated,
 } from "react-native";
 import React, { useState, useEffect, useRef } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -37,6 +38,15 @@ export default function EmployeeSignup() {
   // Card-level error (e.g. "user already exists") shown below the card
   const [cardError, setCardError] = useState("");
   const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputsFade = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(inputsFade, {
+      toValue: loading ? 0.4 : 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [loading]);
 
   useEffect(() => {
     if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
@@ -233,7 +243,12 @@ export default function EmployeeSignup() {
             <View style={[styles.card, cardError ? styles.cardError : null]}>
               <Text style={styles.title}>Create Employee Account</Text>
 
-              <View style={{ width: "100%", alignItems: "center" }}>
+              <Animated.View
+                style={[
+                  { width: "100%", alignItems: "center", opacity: inputsFade },
+                ]}
+                pointerEvents={loading ? "none" : "auto"}
+              >
                 <ValidatedInput
                   value={name}
                   placeholder="Full Name"
@@ -244,6 +259,7 @@ export default function EmployeeSignup() {
                   validator={isValidName}
                   errorMessage="Name should only contain letters"
                   externalError={errors.name}
+                  editable={!loading}
                 />
 
                 <ValidatedInput
@@ -257,6 +273,7 @@ export default function EmployeeSignup() {
                   validator={isValidName}
                   errorMessage="Department should only contain letters"
                   externalError={errors.department}
+                  editable={!loading}
                 />
 
                 <ValidatedInput
@@ -271,6 +288,7 @@ export default function EmployeeSignup() {
                   validator={isValidPhone}
                   errorMessage="Enter a valid 10-digit phone number"
                   externalError={errors.phone}
+                  editable={!loading}
                 />
 
                 <ValidatedInput
@@ -286,8 +304,9 @@ export default function EmployeeSignup() {
                   validator={isValidEmail}
                   errorMessage="Please enter a valid email"
                   externalError={errors.email}
+                  editable={!loading}
                 />
-              </View>
+              </Animated.View>
 
               <View style={{ width: "100%" }}>
                 <TouchableOpacity

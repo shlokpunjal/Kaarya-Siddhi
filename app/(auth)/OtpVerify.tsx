@@ -34,6 +34,7 @@ const OtpVerify = () => {
   const cardOpacity = useRef(new Animated.Value(0)).current;
   const cardTranslateY = useRef(new Animated.Value(60)).current;
   const cardScale = useRef(new Animated.Value(0.95)).current;
+  const inputsFade = useRef(new Animated.Value(1)).current;
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const isVerifyingRef = useRef(false);
   const pendingVerifiedDataRef = useRef<any>(null);
@@ -80,6 +81,14 @@ const OtpVerify = () => {
     };
   }, []);
 
+  useEffect(() => {
+    Animated.timing(inputsFade, {
+      toValue: isVerifying ? 0.4 : 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isVerifying]);
+
   const startCooldown = () => {
     setCooldown(30);
     intervalRef.current = setInterval(() => {
@@ -105,7 +114,7 @@ const OtpVerify = () => {
       if (data.role === "employee") {
         router.replace({
           pathname: "/(auth)/RequestAdmin",
-          params: { email: data.email, name },
+          params: { email: data.email, name, mode: "signup" },
         });
         return;
       }
@@ -123,7 +132,7 @@ const OtpVerify = () => {
     if (data.role === "employee" && !data.workspace_id) {
       router.replace({
         pathname: "/(auth)/RequestAdmin",
-        params: { email: data.email },
+        params: { email: data.email, mode: "login" },
       });
       return;
     }
@@ -317,7 +326,10 @@ const OtpVerify = () => {
                 <>
                   <Text style={[styles.divtext]}>Login to your workspace</Text>
 
-                  <View>
+                  <Animated.View
+                    style={{ width: "100%", alignItems: "center", opacity: inputsFade }}
+                    pointerEvents={isVerifying ? "none" : "auto"}
+                  >
                     <View style={styles.otpContainer}>
                       {otp.map((digit, index) => (
                         <TextInput
@@ -338,6 +350,7 @@ const OtpVerify = () => {
                           selectionColor="#E8870A"
                           keyboardType="number-pad"
                           maxLength={1}
+                          editable={!isVerifying}
                           onChangeText={(text) => {
                             const number = text.replace(/[^0-9]/g, "");
 
@@ -381,7 +394,7 @@ const OtpVerify = () => {
                     {resendMessage ? (
                       <Text style={styles.successText}>{resendMessage}</Text>
                     ) : null}
-                  </View>
+                  </Animated.View>
 
                   <View style={{ width: "100%" }}>
                     <TouchableOpacity
