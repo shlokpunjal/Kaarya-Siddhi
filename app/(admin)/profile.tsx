@@ -23,6 +23,7 @@ import ConfirmModal from "../../components/confirmModal";
 import AdminProfileSkeleton from "../../components/AdminProfileSkeleton";
 import { router } from "expo-router";
 import { authFetch } from "../../utils/authFetch";
+import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 
@@ -60,6 +61,7 @@ export default function AdminProfile() {
   const [currentUser, setCurrentUser] = useState<UserRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -105,6 +107,7 @@ export default function AdminProfile() {
       setName(data.name ?? "");
       setContact(data.mobile_number ?? "");
       setemail(data.email ?? "");
+      setDesignation(data.designation ?? "");
       setAvatarUri(data.profile_pic_url ?? null);
     } catch (error: any) {
       console.error("Profile fetch error:", error?.message ?? error);
@@ -141,6 +144,7 @@ export default function AdminProfile() {
     setRefreshing(false);
   }, []);
 
+  // ── Save edited fields. Email is identity, never sent here — read-only. ──
   const handleSave = async () => {
     if (!currentUser) {
       setEditing(false);
@@ -155,19 +159,17 @@ export default function AdminProfile() {
         body: JSON.stringify({
           name: name.trim(),
           mobile_number: contact.trim(),
-          email: email.trim(),
+          designation: designation.trim(),
         }),
       });
       if (!res.ok) throw new Error('Could not save changes');
 
       const updated: UserRow = await res.json();
 
-      await AsyncStorage.setItem("userEmail", updated.email);
-
       setCurrentUser(updated);
       setName(updated.name);
       setContact(updated.mobile_number ?? "");
-      setemail(updated.email);
+      setDesignation(updated.designation ?? "");
       setEditing(false);
       showToast("Profile updated", "success");
     } catch (error: any) {
@@ -189,6 +191,7 @@ export default function AdminProfile() {
       throw new Error("Failed to delete account");
     }
   }
+
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -206,10 +209,37 @@ export default function AdminProfile() {
       quality: 0.8,
     });
 
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setAvatarUri(result.assets[0].uri);
-      // TEMPORARY — local state only for now; hook up upload (e.g. Cloudinary)
-      // and persist the URL to users.profile_pic_url when ready.
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    const localUri = result.assets[0].uri;
+    setAvatarUri(localUri); // optimistic preview
+    setUploading(true);
+
+    try {
+      const secureUrl = await uploadToCloudinary(
+        {
+          uri: localUri,
+          type: "image/jpeg",
+          name: `avatar_${currentUser!.id}.jpg`,
+        },
+        { folder: "profile_pics", resourceType: "image" },
+      );
+
+      const res = await authFetch('/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ profile_pic_url: secureUrl }),
+      });
+      if (!res.ok) throw new Error('Could not update photo');
+
+      setAvatarUri(secureUrl);
+      setCurrentUser((prev) =>
+        prev ? { ...prev, profile_pic_url: secureUrl } : prev,
+      );
+    } catch (err: any) {
+      showToast(err.message || "Could not upload photo.", "error");
+      setAvatarUri(currentUser?.profile_pic_url ?? null); // revert preview
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -262,7 +292,8 @@ export default function AdminProfile() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={editing ? undefined : onRefresh}
+            enabled={!editing}
             tintColor={colors.brand.accent}
             colors={[colors.brand.accent]}
           />
@@ -341,7 +372,13 @@ export default function AdminProfile() {
           <View style={styles.avatarSection}>
             <View style={styles.avatarWrap}>
               <Pressable
-                onPress={() => (avatarUri ? setShowImage(true) : pickAvatar())}
+                onPress={() => {
+                  if (editing) {
+                    pickAvatar();
+                  } else if (avatarUri) {
+                    setShowImage(true);
+                  }
+                }}
               >
                 <View
                   style={[
@@ -369,19 +406,38 @@ export default function AdminProfile() {
                   )}
                 </View>
               </Pressable>
-              <Pressable
-                style={[
-                  styles.cameraBadge,
-                  {
-                    backgroundColor: colors.brand.primary,
-                    borderColor: colors.base.surfaceL1,
-                  },
-                ]}
-                onPress={pickAvatar}
-                hitSlop={8}
-              >
-                <Ionicons name="camera" size={13} color="#FFFFFF" />
-              </Pressable>
+
+              {uploading && (
+                <View
+                  style={[
+                    StyleSheet.absoluteFill,
+                    {
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: RING_SIZE / 2,
+                      backgroundColor: "rgba(0,0,0,0.35)",
+                    },
+                  ]}
+                >
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                </View>
+              )}
+
+              {editing && (
+                <Pressable
+                  style={[
+                    styles.cameraBadge,
+                    {
+                      backgroundColor: colors.brand.primary,
+                      borderColor: colors.base.surfaceL1,
+                    },
+                  ]}
+                  onPress={pickAvatar}
+                  hitSlop={8}
+                >
+                  <Ionicons name="camera" size={13} color="#FFFFFF" />
+                </Pressable>
+              )}
             </View>
 
             {editing ? (
@@ -450,29 +506,14 @@ export default function AdminProfile() {
               >
                 Email id
               </Text>
-              {editing ? (
-                <TextInput
-                  value={email}
-                  onChangeText={setemail}
-                  style={[
-                    styles.input,
-                    typography.body,
-                    {
-                      borderColor: colors.base.border,
-                      color: colors.text.primary,
-                    },
-                  ]}
-                />
-              ) : (
-                <Text
-                  style={[
-                    typography.body,
-                    { color: colors.text.primary, marginTop: 4 },
-                  ]}
-                >
-                  {email}
-                </Text>
-              )}
+              <Text
+                style={[
+                  typography.body,
+                  { color: colors.text.primary, marginTop: 4 },
+                ]}
+              >
+                {email}
+              </Text>
             </View>
 
             <View
@@ -894,5 +935,4 @@ const styles = StyleSheet.create({
   },
   closeModalButton: { position: "absolute", top: 50, right: 20, zIndex: 10 },
   fullscreenImage: { width: "90%", height: "70%" },
-
 });
