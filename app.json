@@ -39,8 +39,7 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#1A2744"
         }
-      ],
-      "expo-web-browser"
+      ]
     ],
     "extra": {
       "router": {},

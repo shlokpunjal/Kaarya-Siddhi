@@ -8,29 +8,17 @@
 // in standalone/production builds) logic. Every call site should import
 // from here.
 
-// import * as Notifications from "expo-notifications";
-// import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { API_BASE_URL } from "../constants/api";
 import Constants from "expo-constants";
 
-const isExpoGo = Constants.appOwnership === "expo";
-
-let Notifications: typeof import("expo-notifications") | null = null;
-let Device: typeof import("expo-device") | null = null;
-
-if (!isExpoGo) {
-  Notifications = require("expo-notifications");
-  Device = require("expo-device");
-}
+// Notifications.setNotificationHandler(...) lives in app/_layout.tsx as
+// the single source of truth â€” don't duplicate it here.
 
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
-  if (isExpoGo || !Notifications || !Device) {
-    console.warn("Push notifications are not supported in Expo Go — skipping.");
-    return null;
-  }
-
   try {
     if (!Device.isDevice) {
       console.warn("Push notifications require a physical device.");
@@ -59,7 +47,11 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     if (!projectId) {
-      console.warn("No EAS projectId configured — push token registration skipped.");
+      // Without a projectId, getExpoPushTokenAsync can silently fail (or
+      // throw) in standalone/production builds â€” fail loudly here so
+      // it's obvious in logs rather than surfacing as "push just doesn't
+      // work" days later.
+      console.warn("No EAS projectId configured â€” push token registration skipped.");
       return null;
     }
 

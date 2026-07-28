@@ -48,10 +48,8 @@ def generate_pdf_report(
     end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
     status: str | None = Query(None),
     priority: str | None = Query(None),
-    employee_id: str | None = Query(None),
     user: dict = Depends(get_current_user),
 ):
-    
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Only admins can generate task reports.")
 
@@ -77,8 +75,7 @@ def generate_pdf_report(
         query = query.eq("status", status)
     if priority:
         query = query.eq("priority", priority)
-    if employee_id:
-        query = query.eq("assigned_to", employee_id)
+
     result = query.execute()
     tasks = result.data or []
 
