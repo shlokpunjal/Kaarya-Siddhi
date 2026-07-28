@@ -18,7 +18,6 @@ def generate_task_report(
     end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
     status: str | None = Query(None),
     priority: str | None = Query(None),
-    employee_id: str | None = Query(None),
     user: dict = Depends(get_current_user),
 ):
     # Only admins can generate workspace-wide reports
@@ -48,9 +47,7 @@ def generate_task_report(
         query = query.eq("status", status)
     if priority:
         query = query.eq("priority", priority)
-    if employee_id:
-        query = query.eq("assigned_to", employee_id)
-        
+
     result = query.execute()
     tasks = result.data or []
 
@@ -59,13 +56,6 @@ def generate_task_report(
             status_code=404,
             detail="No tasks found for the given filters and date range.",
         )
-    users_result = (
-        supabase.table("users")
-        .select("id, name")
-        .eq("workspace_id", workspace_id)
-        .execute()
-    )
-    user_name_map = {u["id"]: u["name"] for u in (users_result.data or [])}
 
     wb = Workbook()
     sheet = wb.active
@@ -99,7 +89,7 @@ def generate_task_report(
         row_values = [
             task.get("id", ""),
             task.get("title", ""),
-            user_name_map.get(task.get("assigned_to"), "Unassigned"),
+            task.get("assigned_to", ""),
             task.get("status", ""),
             task.get("priority", ""),
             task.get("deadline", ""),
