@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { supabase } from "../../lib/supabase";
 import { typography } from "../../theme/theme";
 import FadeIn from "../../components/FadeIn";
 import BackButton from "../../components/backButton";
