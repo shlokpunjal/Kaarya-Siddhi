@@ -5,9 +5,8 @@ import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProgressDots from "../../components/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 import { moderateScale, wp, hp } from "../../utils/responsive";
-
+import { authFetch } from "../../utils/authFetch";
 const { colors } = lightTheme;
 
 export default function ProfileSetup2() {
@@ -23,10 +22,10 @@ export default function ProfileSetup2() {
       const savedEmail = await AsyncStorage.getItem('userEmail');
       if (!savedEmail) return;
 
-      await supabase
-        .from('users')
-        .update({ notifications_enabled: enabled })
-        .eq('email', savedEmail);
+      await authFetch('/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ notifications_enabled: enabled }),
+      });
     } catch (error) {
       console.log('Could not save notification preference:', error);
     }

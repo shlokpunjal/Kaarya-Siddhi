@@ -11,3 +11,4 @@ if not SUPABASE_KEY:
     raise RuntimeError("SUPABASE_KEY is not set — backend needs this to bypass RLS.")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    

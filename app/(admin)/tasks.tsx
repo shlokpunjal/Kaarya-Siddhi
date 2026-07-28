@@ -8,20 +8,17 @@ import {
   Modal,
   TextInput,
   Platform,
-  ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../../lib/supabase";
 import { TaskStatus, TaskPriority, Task } from "../../types/task";
 import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { wp } from "../../utils/responsive";
 import AdminTasksSkeleton from "../../components/AdminTasksSkeleton";
-
+import { authFetch } from "../../utils/authFetch";
 type FilterType =
   | "all"
   | "status"
@@ -45,6 +42,13 @@ type TaskRow = {
 };
 
 type ManagedEmployee = { id: string; name: string; email: string };
+
+const STATUS_RANK: Record<TaskStatus, number> = {
+  overdue: 0,
+  pending: 1,
+  inReview: 2,
+  completed: 3,
+};
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   overdue: "Overdue",
@@ -100,100 +104,19 @@ export default function AdminTasks() {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
-    const adminEmail = await AsyncStorage.getItem("userEmail");
+    const res = await authFetch("/admin-tasks-and-team");
 
-    if (!adminEmail) {
-      router.replace("/(auth)/LoginChoice");
-      return;
-    }
-
-    const { data: currentAdmin, error: adminLookupError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", adminEmail)
-      .single();
-
-    if (adminLookupError || !currentAdmin) {
-      console.error("Could not resolve admin id for email:", adminEmail);
+    if (!res.ok) {
+      console.error("Could not load tasks and team:", res.status);
       setLoading(false);
+      setRefreshing(false);
       return;
     }
 
-    // ── Tasks this admin created ─────────────────────────────────────────
-    const { data: taskRows, error: taskError } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("created_by", currentAdmin.id)
-      .order("deadline", { ascending: true });
+    const { tasks: taskRows, employees } = await res.json();
 
-    let fetchedTasks: Task[] = [];
-    if (taskError) {
-      console.error("Error fetching tasks list:", taskError.message);
-    } else {
-      fetchedTasks = (taskRows ?? []).map(mapRowToTask);
-      setTasks(fetchedTasks);
-    }
-
-    // ── This admin's connected employees, for names + the filter list ────
-    const { data: connections, error: connError } = await supabase
-      .from("connections")
-      .select("employee_email")
-      .eq("admin_email", adminEmail)
-      .eq("status", "accepted");
-
-    let connectedEmployees: ManagedEmployee[] = [];
-    if (connError) {
-      console.error("Error fetching team:", connError.message);
-    } else {
-      const employeeEmails = (connections ?? []).map((c) => c.employee_email);
-
-      if (employeeEmails.length > 0) {
-        const { data: users, error: usersError } = await supabase
-          .from("users")
-          .select("id, name, email")
-          .in("email", employeeEmails);
-
-        if (usersError) {
-          console.error("Error fetching team emails:", usersError.message);
-        } else {
-          connectedEmployees = (users ?? []).map((u) => ({
-            id: u.id,
-            name: u.name,
-            email: u.email,
-          }));
-        }
-      }
-    }
-
-    setEmployees(connectedEmployees);
-
-    // ── Resolve names for every assignee on these tasks, even if no longer connected ──
-    const assignedIds = Array.from(
-      new Set(fetchedTasks.map((t) => t.assignedTo)),
-    );
-    const knownIds = new Set(connectedEmployees.map((e) => e.id));
-    const missingIds = assignedIds.filter((id) => id && !knownIds.has(id));
-
-    if (missingIds.length > 0) {
-      const { data: extraUsers, error: extraError } = await supabase
-        .from("users")
-        .select("id, name, email")
-        .in("id", missingIds);
-
-      if (extraError) {
-        console.error(
-          "Error resolving extra assignee names:",
-          extraError.message,
-        );
-      } else {
-        const extras = (extraUsers ?? []).map((u) => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-        }));
-        setEmployees((prev) => [...prev, ...extras]);
-      }
-    }
+    setTasks((taskRows ?? []).map(mapRowToTask));
+    setEmployees(employees ?? []);
 
     setLoading(false);
     setRefreshing(false);
@@ -230,7 +153,9 @@ export default function AdminTasks() {
   };
 
   const getVisibleTasks = () => {
-    let list = [...tasks];
+    let list = [...tasks].sort(
+      (a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status]
+    );
 
     if (appliedType === "status" && appliedValue) {
       list = list.filter((t) => t.status === appliedValue);
@@ -425,7 +350,7 @@ export default function AdminTasks() {
               key={task.id}
               onPress={() =>
                 router.push({
-                  pathname: "/(task)/task-detail",
+                  pathname: "/(task)/taskDetailAdmin",
                   params: { taskId: task.id },
                 })
               }
@@ -486,7 +411,7 @@ export default function AdminTasks() {
               styles.modalCard,
               { backgroundColor: colors.base.surfaceL1 },
             ]}
-            onPress={() => {}}
+            onPress={() => { }}
           >
             <ScrollView
               showsVerticalScrollIndicator={false}

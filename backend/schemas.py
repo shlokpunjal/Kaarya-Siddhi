@@ -1,3 +1,4 @@
+# this file has the structure of the data that is returned or processed in json format
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -69,3 +70,8 @@ class LogoutRequest(BaseModel):
 class DeleteAccountResponse(BaseModel):
     success: bool
     message: str
+
+class UpdateProfileRequest(BaseModel):
+    name: str | None = None
+    mobile_number: str | None = None
+    email: str | None = None

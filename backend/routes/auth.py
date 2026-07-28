@@ -94,7 +94,7 @@ async def login(request: Request, data: LoginRequest):
     )
 
     if not user.data:
-        raise HTTPException(status_code=404, detail="Account doesn't exist.")
+        raise HTTPException(status_code=404, detail="We couldn't verify these details. Please check and try again.")
 
     return {"success": True, "message": "Account Found"}
 
@@ -225,7 +225,7 @@ async def verify_otp(request: Request, data: VerifyOTPRequest):
 
     access_token = create_access_token(email=user["email"], role=user["role"], workspace_id=user.get("workspace_id"))
     refresh_token = create_refresh_token(user["email"])
-
+    
     return {
         "success": True,
         "token": access_token,

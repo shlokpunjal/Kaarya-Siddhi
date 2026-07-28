@@ -1,5 +1,3 @@
-# backend/rate_limit.py
-#
 # Single shared Limiter instance so main.py and every router use the same
 # state. Keyed by client IP — good enough to blunt scripted brute-force
 # and enumeration attempts against unauthenticated endpoints. This is on
