@@ -146,6 +146,7 @@ export default function EmployeeProfile() {
           name: name.trim(),
           mobile_number: contact.trim(),
           department: department.trim(),
+          designation: designation.trim(),
         }),
       });
       if (!res.ok) throw new Error("Could not save changes");
@@ -522,62 +523,61 @@ export default function EmployeeProfile() {
               )}
             </View>
 
-            <Text
-              style={[
-                typography.subheading,
-                { color: colors.text.primary, marginTop: 12 },
-              ]}
-              numberOfLines={1}
-            >
-              {name}
-            </Text>
-            <Text
-              style={[
-                typography.body,
-                { color: colors.text.secondary, marginTop: 2 },
-              ]}
-            >
-              {designation || "—"}
-            </Text>
+            {editing ? (
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="Full name"
+                placeholderTextColor={colors.text.secondary}
+                style={[
+                  typography.subheading,
+                  styles.avatarNameInput,
+                  {
+                    borderColor: colors.base.border,
+                    color: colors.text.primary,
+                  },
+                ]}
+              />
+            ) : (
+              <Text
+                style={[
+                  typography.subheading,
+                  { color: colors.text.primary, marginTop: 12 },
+                ]}
+                numberOfLines={1}
+              >
+                {name}
+              </Text>
+            )}
+
+            {editing ? (
+              <TextInput
+                value={designation}
+                onChangeText={setDesignation}
+                placeholder="Designation"
+                placeholderTextColor={colors.text.secondary}
+                style={[
+                  typography.body,
+                  styles.avatarDesignationInput,
+                  {
+                    borderColor: colors.base.border,
+                    color: colors.text.primary,
+                  },
+                ]}
+              />
+            ) : (
+              <Text
+                style={[
+                  typography.body,
+                  { color: colors.text.secondary, marginTop: 2 },
+                ]}
+              >
+                {designation || "—"}
+              </Text>
+            )}
           </View>
 
           <View style={styles.fieldsGroup}>
-            <View
-              style={[
-                styles.fieldRow,
-                { borderBottomColor: colors.base.border },
-              ]}
-            >
-              <Text
-                style={[typography.label, { color: colors.text.secondary }]}
-              >
-                Full name
-              </Text>
-              {editing ? (
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  style={[
-                    styles.input,
-                    typography.body,
-                    {
-                      borderColor: colors.base.border,
-                      color: colors.text.primary,
-                    },
-                  ]}
-                />
-              ) : (
-                <Text
-                  style={[
-                    typography.body,
-                    { color: colors.text.primary, marginTop: 4 },
-                  ]}
-                >
-                  {name}
-                </Text>
-              )}
-            </View>
-
             <View
               style={[
                 styles.fieldRow,
@@ -667,42 +667,6 @@ export default function EmployeeProfile() {
                   ]}
                 >
                   {department || "—"}
-                </Text>
-              )}
-            </View>
-
-            <View
-              style={[
-                styles.fieldRow,
-                { borderBottomColor: colors.base.border },
-              ]}
-            >
-              <Text
-                style={[typography.label, { color: colors.text.secondary }]}
-              >
-                Designation
-              </Text>
-              {editing ? (
-                <TextInput
-                  value={designation}
-                  onChangeText={setDesignation}
-                  style={[
-                    styles.input,
-                    typography.body,
-                    {
-                      borderColor: colors.base.border,
-                      color: colors.text.primary,
-                    },
-                  ]}
-                />
-              ) : (
-                <Text
-                  style={[
-                    typography.body,
-                    { color: colors.text.primary, marginTop: 4 },
-                  ]}
-                >
-                  {designation || "—"}
                 </Text>
               )}
             </View>
@@ -1018,6 +982,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
+  },
+  avatarNameInput: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    minWidth: 180,
+    textAlign: "center",
+  },
+  avatarDesignationInput: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    minWidth: 160,
+    textAlign: "center",
   },
   fieldsGroup: { marginTop: 4 },
   fieldRow: { borderBottomWidth: 1, paddingVertical: 12 },

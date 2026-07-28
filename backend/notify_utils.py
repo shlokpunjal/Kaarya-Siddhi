@@ -143,82 +143,14 @@ def create_notification(
 
     return row_written
 
-
-def send_push_notifications_bulk(messages: list[dict]) -> None:
-    """Fire many Expo pushes in as few HTTP round trips as possible.
-    Expo's send endpoint accepts a JSON array and batches internally, but
-    it caps each request at 100 messages, so we chunk. Never raises —
-    used by the cron reminder jobs, which fan out to many users and were
-    previously doing one blocking `requests.post` per user (the main
-    reason those endpoints were slow enough to time out on a cold
-    Render instance)."""
-    if not messages:
-        return
-    CHUNK = 100
-    for i in range(0, len(messages), CHUNK):
-        chunk = messages[i:i + CHUNK]
-        try:
-            resp = http_requests.post(
-                "https://exp.host/--/api/v2/push/send",
-                json=chunk,
-                headers={"Content-Type": "application/json"},
-                timeout=10,
-            )
-            if resp.status_code >= 400:
-                print(f"Bulk push rejected ({resp.status_code}): {resp.text[:200]}")
-        except Exception as e:
-            print(f"Bulk push failed for a chunk of {len(chunk)}: {e}")
-
-
-def create_notifications_bulk(notifications: list[dict]) -> int:
-    """Batched version of create_notification for cron jobs that notify
-    many users in one run (overdue/deadline/eoffice reminders).
-
-    Each item in `notifications` is a dict with:
-      user_id, notif_type, message, task_id=None, metadata=None,
-      title=None, push_token=None  (pass the token if you already have
-      it from a prior query — avoids re-fetching it per user)
-
-    Does ONE bulk insert for all notification rows, then ONE (chunked)
-    bulk push call, instead of the previous per-user insert + per-user
-    token lookup + per-user push. Never raises. Returns how many rows
-    were written (0 if the bulk insert itself failed — callers can
-    still rely on the fact that a partial failure here doesn't crash
-    the cron job)."""
-    if not notifications:
-        return 0
-
-    rows = [{
-        "user_id": n["user_id"],
-        "task_id": n.get("task_id"),
-        "type": n["notif_type"],
-        "message": n["message"],
-        "is_read": False,
-        "metadata": n.get("metadata") or {},
-    } for n in notifications]
-
-    written = 0
-    try:
-        supabase.table("notifications").insert(rows).execute()
-        written = len(rows)
-    except Exception as e:
-        print(f"Bulk notification insert failed ({len(rows)} rows): {e}")
-
-    push_messages = []
-    for n in notifications:
-        token = n.get("push_token")
-        if not token:
-            continue
-        push_messages.append({
-            "to": token,
-            "title": n.get("title") or DEFAULT_TITLES.get(n["notif_type"], "Notification"),
-            "body": n["message"],
-            "sound": "default",
-            "data": {"type": n["notif_type"], "taskId": n.get("task_id"), **(n.get("metadata") or {})},
-        })
-    send_push_notifications_bulk(push_messages)
-
-    return written
+# NOTE: send_push_notifications_bulk / create_notifications_bulk used to
+# live here, for the deadline/overdue/eoffice cron reminder jobs. That
+# whole flow (batched insert + chunked Expo push) has been reimplemented
+# directly in Postgres — see database/reminders_pg_cron.sql — since the
+# reminder jobs themselves are no longer Python at all. Removed rather
+# than left as dead code; every remaining function below is still used
+# by routes/connections.py, routes/employee_tasks.py, routes/extension.py,
+# routes/notify.py.
 
 
 def push_only(user_id: str, title: str, body: str, data: dict | None = None) -> None:

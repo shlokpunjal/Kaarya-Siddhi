@@ -2,7 +2,7 @@
 # wires up FastAPI, CORS, rate limiting, the background scheduler, and
 # global exception handling.
 import logging
-from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware # enables data sharing by the backend to frontend on various domains
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -10,13 +10,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException # used 
 from apscheduler.schedulers.background import BackgroundScheduler
 from slowapi.errors import RateLimitExceeded # sets limits to use of api 
 from slowapi import _rate_limit_exceeded_handler # avoids spams and too many requests
-from config import ALLOWED_ORIGINS, CRON_SECRET
+from config import ALLOWED_ORIGINS
 from rate_limit import limiter
 from sheets_sync import sync_tasks_from_sheet
-from deadline_reminders import send_deadline_reminders
-from overdue_reminders import send_overdue_reminders
 from routes.tasks import router as tasks_router
-from eoffice_reminders import send_eoffice_reminders
 from routes.employee_tasks import router as employee_tasks_router
 from routes.eoffice import router as eoffice_router
 from routes.notify import router as notify_router
@@ -57,50 +54,17 @@ async def unhandled_exception_handler(request, exc):
 async def health_check():
     return {"status": "ok"}
 
-@app.post("/cron/send-deadline-reminders")
-async def cron_deadline_reminders(background_tasks: BackgroundTasks, x_cron_secret: str = Header(None)):
-    # Called by an external scheduler (cron-job.org) since Render's free
-    # tier can put the app to sleep, making an in-process APScheduler
-    # cron unreliable. Secret-header auth instead of a user JWT, since a
-    # cron pinger can't maintain a login session.
-    #
-    # The actual reminder work runs as a BackgroundTask so this endpoint
-    # can ack (200 OK) immediately after the request wakes/reaches the
-    # instance, instead of making the cron scheduler wait out the full
-    # notification fan-out (DB queries + Expo push calls) on top of a
-    # possible cold start. That fan-out is what previously made this
-    # endpoint slow enough to trip cron-job.org's timeout.
-    if not CRON_SECRET or x_cron_secret != CRON_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid cron secret.")
-    background_tasks.add_task(send_deadline_reminders)
-    return {"success": True, "status": "queued"}
-
-@app.post("/cron/send-overdue-reminders")
-async def cron_overdue_reminders(background_tasks: BackgroundTasks, x_cron_secret: str = Header(None)):
-    # Same external-scheduler + fast-ack pattern as /cron/send-deadline-reminders.
-    if not CRON_SECRET or x_cron_secret != CRON_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid cron secret.")
-    background_tasks.add_task(send_overdue_reminders)
-    return {"success": True, "status": "queued"}
-
-@app.post("/cron/send-eoffice-reminders")
-async def cron_eoffice_reminders(background_tasks: BackgroundTasks, x_cron_secret: str = Header(None)):
-    if not CRON_SECRET or x_cron_secret != CRON_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid cron secret.")
-    background_tasks.add_task(send_eoffice_reminders)
-    return {"success": True, "status": "queued"}
-
 # ---- Background jobs ----
-# NOTE: the deadline/overdue/eoffice reminders are intentionally NOT
-# scheduled here. They used to be scheduled both here (in-process,
-# BackgroundScheduler) AND externally via cron-job.org hitting the
-# /cron/... routes above. Whenever the instance happened to be awake at
-# 9:00/9:30/17:00 IST, both fired and the job ran twice in the same
-# window. The external cron is the one that actually works reliably on
-# a free-tier instance that sleeps (that's why it was added in the first
-# place — see the route comments above), so it's now the ONLY trigger
-# for these three jobs. Only the sheet sync — which has nothing external
-# driving it — stays on the in-process scheduler.
+# NOTE: the deadline/overdue/eoffice reminders are NOT scheduled here,
+# have no HTTP routes, and have no Python implementation at all anymore
+# (backend/deadline_reminders.py, overdue_reminders.py, eoffice_reminders.py,
+# cron_runner.py were all deleted). That logic now lives entirely inside
+# Supabase's Postgres — see database/reminders_pg_cron.sql — scheduled by
+# pg_cron and sent via pg_net's async net.http_post() straight to Expo's
+# push API. Nothing about this app server being awake, asleep, or cold-
+# starting affects those jobs at all anymore. Only the sheet sync — which
+# has nothing external driving it and needs to run every 5 minutes while
+# this service happens to be up — stays on the in-process scheduler.
 scheduler = BackgroundScheduler()
 scheduler.add_job(sync_tasks_from_sheet, "interval", minutes=5)
 scheduler.start()
@@ -108,7 +72,7 @@ scheduler.start()
 # ---- Routers ----
 from routes.auth import router as auth_router
 from routes.connections import router as connections_router
-from routes.admin import router as admin_router
+from routes.admin_route import router as admin_router
 from routes.users import router as users_router
 from routes.excel_report import router as excel_report_router
 from routes.pdf_report import router as pdf_report_router
