@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useEffect, useRef } from "react";
@@ -41,6 +42,15 @@ export default function AdminSignup() {
   });
 
   const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputsFade = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(inputsFade, {
+      toValue: loading ? 0.4 : 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [loading]);
 
   useEffect(() => {
     if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
@@ -224,7 +234,12 @@ export default function AdminSignup() {
             <View style={styles.card}>
               <Text style={[styles.title, typography.subheading]}>Create Admin Account</Text>
 
-              <View style={{ width: "100%", alignItems: "center" }}>
+              <Animated.View
+                style={[
+                  { width: "100%", alignItems: "center", opacity: inputsFade },
+                ]}
+                pointerEvents={loading ? "none" : "auto"}
+              >
                 <ValidatedInput
                   value={name}
                   placeholder="Full Name"
@@ -236,6 +251,7 @@ export default function AdminSignup() {
                   errorMessage="Name should only contain letters"
                   externalError={errors.name}
                   helperText={nameChecking ? "Checking availability..." : ""}
+                  editable={!loading}
                 />
 
                 <ValidatedInput
@@ -246,6 +262,7 @@ export default function AdminSignup() {
                     if (errors.department) setErrors((prev) => ({ ...prev, department: "" }));
                   }}
                   externalError={errors.department}
+                  editable={!loading}
                 />
 
                 <ValidatedInput
@@ -260,6 +277,7 @@ export default function AdminSignup() {
                   validator={isValidPhone}
                   errorMessage="Enter a valid 10-digit phone number"
                   externalError={errors.phone}
+                  editable={!loading}
                 />
 
                 <ValidatedInput
@@ -274,8 +292,9 @@ export default function AdminSignup() {
                   validator={isValidEmail}
                   errorMessage="Please enter a valid email"
                   externalError={errors.email}
+                  editable={!loading}
                 />
-              </View>
+              </Animated.View>
 
               <View style={{ width: "100%" }}>
                 <TouchableOpacity

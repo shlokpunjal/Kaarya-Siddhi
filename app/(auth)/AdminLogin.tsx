@@ -8,9 +8,10 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
@@ -30,6 +31,16 @@ const AdminLogin = () => {
     phone: "",
     email: "",
   });
+
+  const inputsFade = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(inputsFade, {
+      toValue: isSending ? 0.4 : 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isSending]);
 
   const startCooldown = () => {
     setCooldown(30); // the 30 sec pause shown to the user
@@ -205,7 +216,12 @@ const AdminLogin = () => {
               <Text style={[styles.divtext, typography.subheading]}>
                 Login to your workspace
               </Text>
-              <View style={{ width: "100%", alignItems: "center" }}>
+              <Animated.View
+                style={[
+                  { width: "100%", alignItems: "center", opacity: inputsFade },
+                ]}
+                pointerEvents={isSending ? "none" : "auto"}
+              >
                 <ValidatedInput
                   value={ph}
                   placeholder="Enter Phone Number"
@@ -219,6 +235,7 @@ const AdminLogin = () => {
                   validator={isValidPhone}
                   errorMessage="Enter a valid 10-digit phone number"
                   externalError={errors.phone}
+                  editable={!isSending}
                 />
 
                 <ValidatedInput
@@ -234,8 +251,9 @@ const AdminLogin = () => {
                   validator={isValidEmail}
                   errorMessage="Please enter a valid email"
                   externalError={errors.email}
+                  editable={!isSending}
                 />
-              </View>
+              </Animated.View>
               <View style={{ width: "100%" }}>
                 <TouchableOpacity
                   activeOpacity={0.85}

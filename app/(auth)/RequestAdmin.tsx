@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -29,6 +30,16 @@ export default function RequestAdmin() {
   const [successMessage, setSuccessMessage] = useState("");
 
   const { showLoading, hideLoading } = useLoading();
+
+  const inputsFade = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(inputsFade, {
+      toValue: loading ? 0.4 : 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [loading]);
 
   const sendRequest = async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -127,7 +138,12 @@ export default function RequestAdmin() {
             <View style={styles.card}>
               <Text style={styles.title}>Enter your Admin's Email</Text>
 
-              <View style={{ width: "100%", alignItems: "center" }}>
+              <Animated.View
+                style={[
+                  { width: "100%", alignItems: "center", opacity: inputsFade },
+                ]}
+                pointerEvents={loading ? "none" : "auto"}
+              >
                 <ValidatedInput
                   value={adminEmail}
                   placeholder="Admin Email"
@@ -140,8 +156,9 @@ export default function RequestAdmin() {
                   validator={isValidEmail}
                   errorMessage="Please enter a valid email"
                   externalError={error}
+                  editable={!loading}
                 />
-              </View>
+              </Animated.View>
 
               <FadeIn visible={!!successMessage}>
                 <Text style={styles.successText}>{successMessage}</Text>
