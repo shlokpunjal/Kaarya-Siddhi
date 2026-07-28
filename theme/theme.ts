@@ -1,5 +1,3 @@
-// theme.ts
-//
 // FONT LOADING REQUIREMENT:
 // This file assumes you are loading STATIC, per-weight font files —
 // Poppins-Bold, Poppins-SemiBold, Poppins-Medium, Poppins-Regular —

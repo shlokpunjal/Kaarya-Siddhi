@@ -18,9 +18,12 @@ import { useAuth } from "../../context/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
 import BackButton from "../../components/backButton";
-import { registerPushToken } from "../../utils/pushToken";
+import { registerAndSavePushToken } from "../../lib/pushNotifications";
 import { sendLoginNotification } from "../../utils/notifications";
 import { wp, moderateScale } from "../../utils/responsive";
+import TrainLoadingAnimation from "../../components/TrainLoadingAnimation";
+import VerifiedSuccess from "../../components/VerifiedSuccess";
+import RadialOtpBoxes from "../../components/RadialOtpBoxes";
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -41,7 +44,7 @@ const OtpVerify = () => {
     name?: string;
   }>();
   const { saveSession } = useAuth();
-
+  const [showSuccess, setShowSuccess] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [resendMessage, setResendMessage] = useState("");
 
@@ -86,7 +89,44 @@ const OtpVerify = () => {
       });
     }, 1000);
   };
+  const proceedAfterVerification = (data: any) => {
+    if (mode === "signup") {
+      if (data.role === "admin") {
+        router.replace({
+          pathname: "/(onboarding)/profileSetup1",
+          params: { role: "admin", name },
+        });
+        return;
+      }
 
+      if (data.role === "employee") {
+        router.replace({
+          pathname: "/(auth)/RequestAdmin",
+          params: { email: data.email, name },
+        });
+        return;
+      }
+    }
+
+    sendLoginNotification(data.email).catch((err) =>
+      console.log("Login notification failed:", err),
+    );
+
+    if (data.role === "admin") {
+      router.replace("/(admin)");
+      return;
+    }
+
+    if (data.role === "employee" && !data.workspace_id) {
+      router.replace({
+        pathname: "/(auth)/RequestAdmin",
+        params: { email: data.email },
+      });
+      return;
+    }
+
+    router.replace("/(employee)");
+  };
   const verifyOTP = async (code?: string) => {
     if (isVerifyingRef.current) return;
 
@@ -118,6 +158,8 @@ const OtpVerify = () => {
 
       const data = await response.json();
 
+      console.log("VERIFY OTP RESPONSE:", data);
+      console.log("ACCESS TOKEN:", data.token);
       if (!response.ok) {
         const elapsed = Date.now() - startTime;
         if (elapsed < MIN_VISIBLE_MS) {
@@ -150,10 +192,10 @@ const OtpVerify = () => {
         data.email,
         data.role,
         data.workspace_id,
-        data.refresh_token
+        data.refresh_token,
       );
-      registerPushToken().catch((err) =>
-        console.log("Push token registration failed:", err)
+      registerAndSavePushToken().catch((err) =>
+        console.log("Push token registration failed:", err),
       );
 
       const elapsed = Date.now() - startTime;
@@ -161,42 +203,24 @@ const OtpVerify = () => {
         await new Promise((res) => setTimeout(res, MIN_VISIBLE_MS - elapsed));
       }
 
-      if (mode === "signup") {
-        if (data.role === "admin") {
-          router.replace({
-            pathname: "/(onboarding)/profileSetup1",
-            params: { role: "admin", name },
-          });
-          return;
-        }
+      /*
+ * isVerifying becomes false in finally.
+ *
+ * That tells RadialOtpBoxes:
+ * "verification succeeded".
+ *
+ * Give it ~500ms to collapse into the center.
+ */
+      setTimeout(() => {
+        setShowSuccess(true);
+      }, 500);
 
-        if (data.role === "employee") {
-          router.replace({
-            pathname: "/(auth)/RequestAdmin",
-            params: { email: data.email, name },
-          });
-          return;
-        }
-      }
-
-      sendLoginNotification(data.email).catch((err) =>
-        console.log("Login notification failed:", err)
-      );
-
-      if (data.role === "admin") {
-        router.replace("/(admin)");
-        return;
-      }
-
-      if (data.role === "employee" && !data.workspace_id) {
-        router.replace({
-          pathname: "/(auth)/RequestAdmin",
-          params: { email: data.email },
-        });
-        return;
-      }
-
-      router.replace("/(employee)");
+      /*
+       * Then let VerifiedSuccess play before navigating.
+       */
+      setTimeout(() => {
+        proceedAfterVerification(data);
+      }, 2100);
     } catch (error: any) {
       console.log("FULL ERROR:", error);
       const elapsed = Date.now() - startTime;
@@ -269,36 +293,32 @@ const OtpVerify = () => {
                 style={styles.imageStyling}
               />
             </View>
+            {/* <View style={styles.trainAboveCard}>
+              <TrainLoadingAnimation active={isVerifying} />
+            </View> */}
             <Animated.View
               style={[
                 styles.divi,
-                (isOnCooldown || otpError || resendMessage) && styles.diviExpanded,
+                (isOnCooldown || otpError || resendMessage) &&
+                styles.diviExpanded,
               ]}
             >
-              <Text style={[styles.divtext]}>Login to your workspace</Text>
+              {showSuccess ? (
+                <VerifiedSuccess />
+              ) : (
+                <>
+                  <Text style={[styles.divtext]}>Login to your workspace</Text>
 
-              <View>
-                <View style={styles.otpContainer}>
-                  {otp.map((digit, index) => (
-                    <TextInput
-                      key={index}
-                      ref={(ref) => {
-                        inputRefs.current[index] = ref;
-                      }}
-                      style={[
-                        styles.otpInput,
-                        focusedIndex === index && styles.activeOtpBox,
-                        digit && styles.filledOtpBox,
-                        otpError && styles.otpError,
-                      ]}
-                      onFocus={() => setFocusedIndex(index)}
+                  <View style={styles.otpSection}>
+                    <RadialOtpBoxes
+                      otp={otp}
+                      focusedIndex={focusedIndex}
+                      otpError={otpError}
+                      isVerifying={isVerifying}
+                      inputRefs={inputRefs}
+                      onFocus={setFocusedIndex}
                       onBlur={() => setFocusedIndex(-1)}
-                      value={digit}
-                      cursorColor="#E8870A"
-                      selectionColor="#E8870A"
-                      keyboardType="number-pad"
-                      maxLength={1}
-                      onChangeText={(text) => {
+                      onChangeText={(text, index) => {
                         const number = text.replace(/[^0-9]/g, "");
 
                         const updated = [...otp];
@@ -322,60 +342,60 @@ const OtpVerify = () => {
                           }, 100);
                         }
                       }}
-                      onKeyPress={({ nativeEvent }) => {
-                        if (
-                          nativeEvent.key === "Backspace" &&
-                          !otp[index] &&
-                          index > 0
-                        ) {
+                      onKeyPress={(index, key) => {
+                        if (key === "Backspace" && !otp[index] && index > 0) {
                           setFocusedIndex(index - 1);
                           inputRefs.current[index - 1]?.focus();
                         }
                       }}
                     />
-                  ))}
-                </View>
-                {otpError ? (
-                  <Text style={styles.errorText}>{otpError}</Text>
-                ) : null}
-                {resendMessage ? (
-                  <Text style={styles.successText}>{resendMessage}</Text>
-                ) : null}
-              </View>
+                    {otpError ? (
+                      <Text style={styles.errorText}>{otpError}</Text>
+                    ) : null}
+                    {resendMessage ? (
+                      <Text style={styles.successText}>{resendMessage}</Text>
+                    ) : null}
+                  </View>
 
-              <View style={{ width: "100%" }}>
-                <TouchableOpacity
-                  style={[
-                    styles.LoginStyle,
-                    (otp.join("").length < 6 || isVerifying) && { opacity: 0.5 },
-                  ]}
-                  disabled={otp.join("").length < 6 || isVerifying}
-                  onPress={() => verifyOTP(otp.join(""))}
-                >
-                  {isVerifying ? (
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Text style={styles.LoginText}>Verifying</Text>
-                      <View style={{ width: 18, height: 18, marginLeft: 8 }}>
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      </View>
-                    </View>
-                  ) : (
-                    <Text style={styles.LoginText}>Verify OTP</Text>
+                  <View style={{ width: "100%" }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.LoginStyle,
+                        (otp.join("").length < 6 || isVerifying) && {
+                          opacity: 0.5,
+                        },
+                      ]}
+                      disabled={otp.join("").length < 6 || isVerifying}
+                      onPress={() => verifyOTP(otp.join(""))}
+                    >
+                      {isVerifying ? (
+                        <View
+                          style={{ flexDirection: "row", alignItems: "center" }}
+                        >
+                          <Text style={styles.LoginText}>Verifying</Text>
+                          <View style={{ width: 18, height: 18, marginLeft: 8 }}>
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          </View>
+                        </View>
+                      ) : (
+                        <Text style={styles.LoginText}>Verify OTP</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {isOnCooldown && (
+                    <Text style={styles.resendText}>Resend in : {cooldown}</Text>
                   )}
-                </TouchableOpacity>
-              </View>
 
-              {isOnCooldown && (
-                <Text style={styles.resendText}>Resend in : {cooldown}</Text>
-              )}
-
-              {!isOnCooldown && (
-                <TouchableOpacity
-                  style={styles.resendButton}
-                  onPress={resendOTP}
-                >
-                  <Text style={styles.LoginText}>Resend OTP</Text>
-                </TouchableOpacity>
+                  {!isOnCooldown && (
+                    <TouchableOpacity
+                      style={styles.resendButton}
+                      onPress={resendOTP}
+                    >
+                      <Text style={styles.LoginText}>Resend OTP</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
             </Animated.View>
           </View>
@@ -391,6 +411,10 @@ const ERROR = "#D32F2F";
 const SUCCESS = "#2E7D32";
 
 const styles = StyleSheet.create({
+  otpSection: {
+    width: "100%",
+    alignItems: "center",
+  },
   trainAboveCard: {
     width: "85%",
     marginTop: 30,
@@ -497,14 +521,16 @@ const styles = StyleSheet.create({
   maintext: {
     color: "white",
     fontSize: 18,
-    alignSelf: "center",
+    // alignSelf: "center",
+    marginLeft: 40,
+    marginBottom: 1,
   },
   imagestyle: {
     justifyContent: "center",
     alignItems: "center",
     height: moderateScale(120),
     width: moderateScale(120),
-    marginTop: 60,
+    marginTop: 50,
     borderRadius: moderateScale(96),
     backgroundColor: "#E8870A",
   },
@@ -521,10 +547,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
 
     paddingHorizontal: wp(5.3),
-    paddingTop: 22,
+    paddingTop: 24,
     paddingBottom: 18,
 
-    marginTop: 10,
+    marginTop: 42,
 
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
@@ -544,71 +570,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontFamily: "Poppins_400Regular",
   },
-  otpContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 14,
-    marginBottom: 14,
-  },
-  otpInput: {
-    width: moderateScale(42),
-    height: moderateScale(52),
-    marginHorizontal: 3.5,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: "#D8DEE9",
-    backgroundColor: "#FFFFFF",
-    fontSize: 22,
-    color: "#1A2744",
-    textAlign: "center",
-  },
-
   otpError: {
     borderColor: "#D32F2F",
-  },
-
-  otpBoxes: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  otpBox: {
-    width: moderateScale(40),
-    height: moderateScale(48),
-    borderRadius: 12,
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1.5,
-    borderColor: "#CBD5E1",
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: 3.5,
-  },
-
-  activeOtpBox: {
-    borderColor: "#E8870A",
-    backgroundColor: "#FFF8EF",
-    borderWidth: 2,
-
-    shadowColor: "#E8870A",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.22,
-    shadowRadius: 6,
-
-    elevation: 5,
-
-    transform: [{ scale: 1.04 }],
-  },
-  filledOtpBox: {
-    borderColor: "#E8870A",
-  },
-
-  errorOtpBox: {
-    borderColor: "#D32F2F",
-  },
-
-  otpDigit: {
-    fontSize: 22,
-    color: "#1A2744",
   },
 });

@@ -52,15 +52,10 @@ export default function RequestAdmin() {
 
       const trimmedAdminEmail = adminEmail.trim();
 
-      const { data: adminRow, error: adminLookupError } = await supabase
-        .from("users")
-        .select("email")
-        .eq("email", trimmedAdminEmail)
-        .maybeSingle();
+      const lookupRes = await authFetch(`/find-admin?email=${encodeURIComponent(trimmedAdminEmail)}`);
+      const lookupData = lookupRes.ok ? await lookupRes.json() : { found: false };
 
-      if (adminLookupError) throw adminLookupError;
-
-      if (!adminRow) {
+      if (!lookupData.found) {
         setError("No admin found with that email");
         hideLoading();
         return;
@@ -207,7 +202,9 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 22,
     fontFamily: "Poppins_600SemiBold",
-    alignSelf: "center",
+    // alignSelf: "center",
+     marginLeft:40,
+    marginBottom:1,
   },
 
   logoContainer: {

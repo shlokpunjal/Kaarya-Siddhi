@@ -13,9 +13,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
+import { AlertModal } from "../../components/AlertModal";
+import { authFetch } from "../../utils/authFetch";
+import TaskDetailSkeleton from "../../components/TaskDetailSkeleton";
 
 export default function TaskDetailAdmin() {
   const { colors } = useTheme();
@@ -31,12 +33,36 @@ export default function TaskDetailAdmin() {
     completed: colors.status.completed,
   };
 
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // ── Resolve logged-in admin's id (to confirm task ownership before
+  // showing edit/delete) ──────────────────────────────────────────────────
+  useEffect(() => {
+    const resolveUser = async () => {
+      const res = await authFetch("/me");
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUserId(data.id);
+      }
+    };
+
+    resolveUser();
+  }, []);
+
   const [task, setTask] = useState<any>(null);
   const [taskFiles, setTaskFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [hasPendingExtension, setHasPendingExtension] = useState(false);
   const [assignedName, setAssignedName] = useState<string>("—");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+
+  // Every task on this screen was created by an admin (the dashboard only
+  // fetches tasks where created_by = the logged-in admin), but we still
+  // confirm ownership before showing edit/delete, same pattern as the
+  // employee screen — guards against a stray deep link to someone else's task.
+  const isOwnTask =
+    !!task && !!currentUserId && task.created_by === currentUserId;
+  const canEditOrDelete = isOwnTask && task?.status !== "completed";
 
   // ── Fetch task + its files from Supabase ────────────────────────────────────
   useEffect(() => {
@@ -45,134 +71,56 @@ export default function TaskDetailAdmin() {
     const fetchTask = async () => {
       setLoading(true);
 
-      const { data: taskData, error: taskError } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("id", taskId)
-        .single();
-
-      if (taskError) {
-        console.error("Task fetch error:", taskError);
+      const res = await authFetch(`/tasks/${taskId}/detail`);
+      if (!res.ok) {
+        console.error("Task fetch error:", res.status);
         setLoading(false);
         return;
       }
 
-      const { data: files, error: filesError } = await supabase
-        .from("task_files")
-        .select("*")
-        .eq("task_id", taskId);
+      const { task: taskData, files, assigned_to_name } = await res.json();
 
-      if (filesError) console.error("Files fetch error:", filesError);
-
-      // Normalize DB's snake_case status to the camelCase convention used
-      // everywhere else in the app (see (admin)/index.tsx, (employee)/tasks.tsx, etc.)
       setTask({
         ...taskData,
         status: taskData.status === "in_review" ? "inReview" : taskData.status,
       });
       setTaskFiles(files ?? []);
+      setAssignedName(assigned_to_name || "—");
       setLoading(false);
     };
 
     fetchTask();
   }, [taskId]);
 
-  // ── Resolve assigned employee's name (task.assigned_to is a user id) ────────
-  useEffect(() => {
-    const resolveAssignee = async () => {
-      if (!task?.assigned_to) return;
+  // ── Delete task ───────────────────────────────────────────────────────────────
+  const handleDeleteTask = () => {
+    setDeleteConfirmVisible(true);
+  };
 
-      const { data, error } = await supabase
-        .from("users")
-        .select("name, email")
-        .eq("id", task.assigned_to)
-        .single();
-
-      if (!error && data) {
-        setAssignedName(data.name || data.email || task.assigned_to);
-      } else {
-        setAssignedName(task.assigned_to);
-      }
-    };
-
-    resolveAssignee();
-  }, [task]);
-
-  // ── Check for an existing pending extension request, refreshed on focus ─────
-  const checkPendingExtension = useCallback(async () => {
-    if (!taskId) return;
-    const { data, error } = await supabase
-      .from("extension_requests")
-      .select("id")
-      .eq("task_id", taskId)
-      .eq("status", "pending")
-      .maybeSingle();
-
-    if (error) {
-      console.error("Extension request check error:", error);
-      return;
-    }
-    setHasPendingExtension(!!data);
-  }, [taskId]);
-
-  useFocusEffect(
-    useCallback(() => {
-      checkPendingExtension();
-    }, [checkPendingExtension])
-  );
-
-  // ── Submit task → inserts into task_submissions + updates status ────────────
-  const handleSubmit = async () => {
+  const confirmDeleteTask = async () => {
     if (!task) return;
 
     try {
-      setSubmitting(true);
+      setDeleting(true);
 
-      const { error: submitError } = await supabase
-        .from("task_submissions")
-        .insert({
-          task_id: task.id,
-          submitted_by: task.assigned_to,
-          note: "Submitted via app",
-        });
+      const res = await authFetch(`/tasks/${task.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
 
-      if (submitError) throw submitError;
-
-      // Write back in the DB's snake_case convention, not the in-app camelCase one.
-      const { error: updateError } = await supabase
-        .from("tasks")
-        .update({ status: "in_review" })
-        .eq("id", task.id);
-
-      if (updateError) throw updateError;
-
-      setTask((prev: any) => ({ ...prev, status: "inReview" }));
-
-      showToast("Task submitted successfully!", "success");
+      setDeleteConfirmVisible(false);
+      showToast("Task has been deleted.", "success");
       setTimeout(() => router.back(), 900);
     } catch (error: any) {
-      showToast(error?.message || "Submit failed", "error");
+      setDeleteConfirmVisible(false);
+      showToast(error?.message || "Delete failed", "error");
     } finally {
-      setSubmitting(false);
+      setDeleting(false);
     }
   };
 
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <SafeAreaView
-        style={{
-          flex: 1,
-          backgroundColor: colors.base.background,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <ActivityIndicator size="large" color={colors.brand.accent} />
-        <Text style={{ ...typography.body, color: colors.text.secondary, marginTop: 12 }}>
-          Loading task...
-        </Text>
-      </SafeAreaView>
+      <TaskDetailSkeleton />
     );
   }
 
@@ -187,12 +135,27 @@ export default function TaskDetailAdmin() {
           alignItems: "center",
         }}
       >
-        <Ionicons name="alert-circle-outline" size={48} color={colors.status.overdue} />
-        <Text style={{ ...typography.body, color: colors.text.primary, marginTop: 12 }}>
+        <Ionicons
+          name="alert-circle-outline"
+          size={48}
+          color={colors.status.overdue}
+        />
+        <Text
+          style={{
+            ...typography.body,
+            color: colors.text.primary,
+            marginTop: 12,
+          }}
+        >
           Task not found.
         </Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <Text style={{ color: colors.brand.accent, ...typography.body }}>Go Back</Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginTop: 20 }}
+        >
+          <Text style={{ color: colors.brand.accent, ...typography.body }}>
+            Go Back
+          </Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -254,22 +217,98 @@ export default function TaskDetailAdmin() {
             }),
           }}
         >
-          {/* Task Title */}
-          <Text
+          {/* Task Title + Edit/Delete icons */}
+          <View
             style={{
-              ...typography.heading,
-              color: colors.text.primary,
-              textAlign: "center",
+              flexDirection: "row",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
               marginBottom: 20,
+              gap: 12,
             }}
           >
-            {task.title}
-          </Text>
+            <Text
+              style={{
+                ...typography.heading,
+                color: colors.text.primary,
+                flex: 1,
+              }}
+            >
+              {task.title}
+            </Text>
+
+            {canEditOrDelete && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  paddingTop: 2,
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(task)/newtask",
+                      params: { taskId: task.id },
+                    })
+                  }
+                  disabled={deleting}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={22}
+                    color={colors.brand.accent}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleDeleteTask}
+                  disabled={deleting}
+                >
+                  {deleting ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={colors.status.overdue}
+                    />
+                  ) : (
+                    <Ionicons
+                      name="trash-outline"
+                      size={20}
+                      color={colors.status.overdue}
+                    />
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          <View
+            style={{
+              height: 1,
+              backgroundColor: colors.base.border,
+              marginBottom: 16,
+            }}
+          />
 
           {/* Status */}
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
-            <Ionicons name="ellipse" size={12} color={statusColor} style={{ marginRight: 8 }} />
-            <Text style={{ ...typography.heading3, color: colors.text.primary }}>Status: </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <Ionicons
+              name="ellipse"
+              size={12}
+              color={statusColor}
+              style={{ marginRight: 8 }}
+            />
+            <Text
+              style={{ ...typography.heading3, color: colors.text.primary }}
+            >
+              Status:{" "}
+            </Text>
             <Text
               style={{
                 ...typography.heading3,
@@ -281,26 +320,87 @@ export default function TaskDetailAdmin() {
             </Text>
           </View>
 
+          {/* Auto-deletion notice — shown only when the task is completed */}
+          {task.status === "completed" && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 8,
+                backgroundColor: colors.base.surfaceL2,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: colors.status.overdue,
+                padding: 10,
+                marginBottom: 16,
+              }}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color={colors.status.overdue}
+                style={{ marginTop: 1 }}
+              />
+              <Text
+                style={{
+                  ...typography.label,
+                  color: colors.status.overdue,
+                  flex: 1,
+                }}
+              >
+                This will be deleted after 15 days.
+              </Text>
+            </View>
+          )}
+
           {/* Divider */}
-          <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
+          <View
+            style={{
+              height: 1,
+              backgroundColor: colors.base.border,
+              marginBottom: 16,
+            }}
+          />
 
           {/* Description */}
-          <Text style={{ ...typography.heading3, color: colors.text.primary, marginBottom: 6 }}>
+          <Text
+            style={{
+              ...typography.heading3,
+              color: colors.text.primary,
+              marginBottom: 6,
+            }}
+          >
             Description
           </Text>
-          <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 20 }}>
+          <Text
+            style={{
+              ...typography.body,
+              color: colors.text.secondary,
+              marginBottom: 20,
+            }}
+          >
             {task.description ?? "No description provided."}
           </Text>
 
-          {/* Deadline */}
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
+          {/* Deadline — no longer has a separate "Extend Deadline" flow here;
+              admin edits the deadline directly via the edit icon above,
+              which routes to /newtask in edit mode. */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 20,
+            }}
+          >
             <Ionicons
               name="calendar-outline"
               size={18}
               color={colors.text.secondary}
               style={{ marginRight: 8 }}
             />
-            <Text style={{ ...typography.heading3, color: colors.text.primary }}>
+            <Text
+              style={{ ...typography.heading3, color: colors.text.primary }}
+            >
               Deadline:{" "}
             </Text>
             <Text style={{ ...typography.body, color: statusColor }}>
@@ -315,26 +415,44 @@ export default function TaskDetailAdmin() {
           </View>
 
           {/* Assigned To */}
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 20,
+            }}
+          >
             <Ionicons
               name="person-outline"
               size={18}
               color={colors.text.secondary}
               style={{ marginRight: 8 }}
             />
-            <Text style={{ ...typography.heading3, color: colors.text.primary }}>
+            <Text
+              style={{ ...typography.heading3, color: colors.text.primary }}
+            >
               Assigned To:{" "}
             </Text>
             <Text
               numberOfLines={1}
-              style={{ ...typography.body, color: colors.text.secondary, flex: 1 }}
+              style={{
+                ...typography.body,
+                color: colors.text.secondary,
+                flex: 1,
+              }}
             >
               {assignedName}
             </Text>
           </View>
 
           {/* Divider */}
-          <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
+          <View
+            style={{
+              height: 1,
+              backgroundColor: colors.base.border,
+              marginBottom: 16,
+            }}
+          />
 
           {/* Files Attached — fetched from task_files table (Cloudinary URLs) */}
           <Text
@@ -374,25 +492,46 @@ export default function TaskDetailAdmin() {
                   gap: 10,
                 }}
               >
-                <Ionicons name="document" size={22} color={colors.brand.accent} />
+                <Ionicons
+                  name="document"
+                  size={22}
+                  color={colors.brand.accent}
+                />
                 <Text
                   numberOfLines={1}
-                  style={{ flex: 1, ...typography.body, color: colors.text.primary }}
+                  style={{
+                    flex: 1,
+                    ...typography.body,
+                    color: colors.text.primary,
+                  }}
                 >
                   {file.file_name ?? "Unnamed file"}
                 </Text>
-                <Ionicons name="open-outline" size={18} color={colors.text.secondary} />
+                <Ionicons
+                  name="open-outline"
+                  size={18}
+                  color={colors.text.secondary}
+                />
               </TouchableOpacity>
             ))
           )}
 
-          {/* Submit Task Button */}
+          {/* Review or Complete Button — replaces the old "Submit Task"
+              button. Admin doesn't "submit" their own task; they review
+              what the employee submitted (or complete it directly) on
+              complete.tsx, same screen the employee's self-created-task
+              flow uses. */}
           <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={submitting || task.status === "completed" || task.status === "inReview"}
+            onPress={() =>
+              router.push({
+                pathname: "/(task)/complete",
+                params: { taskId: task.id },
+              })
+            }
+            disabled={task.status === "completed"}
             style={{
               backgroundColor:
-                task.status === "completed" || task.status === "inReview"
+                task.status === "completed"
                   ? colors.base.border
                   : colors.brand.accent,
               height: moderateScale(50),
@@ -400,59 +539,32 @@ export default function TaskDetailAdmin() {
               justifyContent: "center",
               alignItems: "center",
               marginTop: 24,
-              opacity: submitting ? 0.7 : 1,
-            }}
-          >
-            {submitting ? (
-              <ActivityIndicator color={colors.base.surfaceL1} />
-            ) : (
-              <Text
-                style={{
-                  color: colors.brand.onPrimary,
-                  ...typography.subheading,
-                }}
-              >
-                {task.status === "completed"
-                  ? "Already Completed"
-                  : task.status === "inReview"
-                  ? "Under Review"
-                  : "Submit Task"}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Extend Deadline Button */}
-          <TouchableOpacity
-            disabled={hasPendingExtension || task.status === "completed"}
-            onPress={() =>
-              router.push({
-                pathname: "/(task)/extend-deadline",
-                params: { taskId: task.id },
-              })
-            }
-            style={{
-              height: 50,
-              borderRadius: 12,
-              backgroundColor:
-                hasPendingExtension || task.status === "completed"
-                  ? colors.base.border
-                  : colors.brand.secprimary,
-              alignItems: "center",
-              justifyContent: "center",
-              marginTop: 12,
             }}
           >
             <Text
               style={{
-                ...typography.subheading,
                 color: colors.brand.onPrimary,
+                ...typography.subheading,
               }}
             >
-              {hasPendingExtension ? "Extension Requested" : "Extend Deadline"}
+              {task.status === "completed"
+                ? "Already Completed"
+                : "Review or Complete"}
             </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <AlertModal
+        visible={deleteConfirmVisible}
+        type="warning"
+        title="Delete Task"
+        message="Are you sure you want to delete this task? This action cannot be undone."
+        confirmText={deleting ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        onConfirm={confirmDeleteTask}
+        onCancel={() => setDeleteConfirmVisible(false)}
+      />
     </SafeAreaView>
   );
 }

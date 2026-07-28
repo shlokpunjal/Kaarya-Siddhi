@@ -1,32 +1,22 @@
-// app/notifications/employee.tsx
-//
-// Reads DECIDED notifications only (connection_accepted/rejected,
-// extension_accepted/rejected, task_assigned) — pending items never appear
-// here since the employee already sees pending status on the task-detail
-// screen itself. Clear All performs a real delete from the notifications
-// table. Must stay in sync with the bell-badge query in (employee)/index.tsx.
-
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
 import EmployeeNotificationsSkeleton from '../../components/EmployeeNotificationSkeleton';
+import { authFetch } from "../../utils/authFetch";
 
 type NotifRow = {
   id: string;
   type:
-  | "connection_accepted"
-  | "connection_rejected"
-  | "extension_accepted"
-  | "extension_rejected"
-  | "task_assigned";
+  | "connection_accepted" | "connection_rejected"
+  | "extension_accepted" | "extension_rejected"
+  | "task_assigned" | "task_in_review";
   message: string;
   created_at: string;
   metadata: any;
@@ -41,6 +31,12 @@ const notifMeta = (colors: any, type: NotifRow["type"]) => {
   return { color: colors.status.overdue, icon: "close-circle-outline" as const };
 };
 
+function getFreshChannel(name: string) {
+  const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
+  if (existing) supabase.removeChannel(existing);
+  return supabase.channel(name);
+}
+
 export default function EmployeeNotifications() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -51,35 +47,31 @@ export default function EmployeeNotifications() {
 
   useEffect(() => {
     (async () => {
-      const email = await AsyncStorage.getItem("userEmail");
-      if (!email) return;
-      const { data } = await supabase.from("users").select("id").eq("email", email).single();
-      if (data) setUserId(data.id);
+      const res = await authFetch("/me");
+      if (res.ok) {
+        const data = await res.json();
+        setUserId(data.id);
+      }
     })();
   }, []);
 
   const fetchNotifications = useCallback(async (id: string) => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("id, type, message, created_at, metadata, task_id")
-      .eq("user_id", id)
-      .in("type", [
-        "connection_accepted",
-        "connection_rejected",
-        "extension_accepted",
-        "extension_rejected",
-        "task_assigned",
-      ])
-      .order("created_at", { ascending: false });
+    try {
+      const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review";
+      const res = await authFetch(`/notifications?types=${types}`);
 
-    if (error) {
-      console.error("Error fetching notifications:", error.message);
+      if (!res.ok) {
+        console.error("Error fetching notifications:", res.status);
+        return;
+      }
+      const data = await res.json();
+      setNotifications((data as NotifRow[]) ?? []);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    } finally {
       setLoading(false);
-      return;
     }
-    setNotifications((data as NotifRow[]) ?? []);
-    setLoading(false);
   }, []);
 
   useFocusEffect(
@@ -90,8 +82,7 @@ export default function EmployeeNotifications() {
 
   useEffect(() => {
     if (!userId) return;
-    const channel = supabase
-      .channel(`employee_notifs_${userId}`)
+    const channel = getFreshChannel(`employee_notifs_${userId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
@@ -109,13 +100,17 @@ export default function EmployeeNotifications() {
 
   const clearAll = async () => {
     if (!userId || notifications.length === 0) return;
-    const ids = notifications.map((n) => n.id);
-    const { error } = await supabase.from("notifications").delete().in("id", ids);
-    if (error) {
-      console.error("Failed to clear notifications:", error.message);
-      return;
+    try {
+      const ids = notifications.map((n) => n.id).join(",");
+      const res = await authFetch(`/notifications?ids=${ids}`, { method: "DELETE" });
+      if (!res.ok) {
+        console.error("Failed to clear notifications:", res.status);
+        return;
+      }
+      setNotifications([]);
+    } catch (err) {
+      console.error("Failed to clear notifications:", err);
     }
-    setNotifications([]);
   };
 
   const handlePress = (n: NotifRow) => {
