@@ -85,10 +85,15 @@ type TaskRow = {
   workspace_id: string;
 };
 
-function mapStatusToCategory(status: TaskRow["status"]): TaskCategory {
-  return status === "in_review" ? "inReview" : status;
-}
+function mapStatusToCategory(status: TaskRow["status"], deadline: string): TaskCategory {
+  if (status === "completed") return "completed";
+  if (status === "in_review") return "inReview";
 
+  const deadlineDate = deadline ? deadline.slice(0, 10) : null;
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const isPastDeadline = deadlineDate ? deadlineDate < todayDate : false;
+  return isPastDeadline ? "overdue" : "pending";
+}
 function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
   const map: Record<string, Task[]> = {};
   rows.forEach((row) => {
@@ -98,7 +103,7 @@ function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
       id: row.id,
       title: row.title,
       descp: row.description ?? "",
-      category: mapStatusToCategory(row.status),
+      category: mapStatusToCategory(row.status, row.deadline),
     };
     if (!map[dateKey]) map[dateKey] = [];
     map[dateKey].push(task);
