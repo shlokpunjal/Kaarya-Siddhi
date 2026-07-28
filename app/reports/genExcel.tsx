@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { File, Paths } from 'expo-file-system';
@@ -13,13 +13,44 @@ import * as SecureStore from 'expo-secure-store';
 import { useToast } from '../../context/ToastContext';
 import { Platform } from 'react-native';
 import * as IntentLauncher from 'expo-intent-launcher';
+import { authFetch } from '../../utils/authFetch';
 
-type FilterMode = 'status' | 'priority';
-
+type FilterMode = 'status' | 'priority' | 'employee';
 const STATUSES: TaskStatus[] = ['overdue', 'pending', 'inReview', 'completed'];
 const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high'];
+type PickerTarget = 'start' | 'end' | null;
+type RangePreset = 'last_week' | 'last_fortnight' | 'last_month' | 'custom';
 
 const sanitizeDate = (value: string) => value.replace(/[–—−]/g, '-').trim();
+const toLocalDateString = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const toDisplayDateString = (date: Date) =>
+  date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+const daysAgo = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d;
+};
+
+const rangeForPreset = (preset: RangePreset): { start: Date; end: Date } | null => {
+  const end = new Date();
+  switch (preset) {
+    case 'last_week':
+      return { start: daysAgo(7), end };
+    case 'last_fortnight':
+      return { start: daysAgo(14), end };
+    case 'last_month':
+      return { start: daysAgo(30), end };
+    default:
+      return null;
+  }
+};
 
 export default function GenExcel() {
   const { colors } = useTheme();
@@ -32,14 +63,23 @@ export default function GenExcel() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [reportFileUri, setReportFileUri] = useState<string | null>(null);
+  const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const res = await authFetch('/employees-directory');
+      if (res.ok) setEmployees(await res.json());
+    })();
+  }, []);
 
   const buildQuery = () => {
     const params = new URLSearchParams();
-    params.append('start_date', sanitizeDate(startDate));
-    params.append('end_date', sanitizeDate(endDate));
+    params.append('start_date', toLocalDateString(startDate as unknown as Date));
+    params.append('end_date', toLocalDateString(endDate as unknown as Date));
     if (selectedValue) {
       if (filterMode === 'status') params.append('status', selectedValue);
       if (filterMode === 'priority') params.append('priority', selectedValue);
+      if (filterMode === 'employee') params.append('employee_id', selectedValue);
     }
     return params.toString();
   };
@@ -190,25 +230,45 @@ export default function GenExcel() {
           Select value
         </Text>
         <View style={styles.row}>
-          {optionsForMode().map((value) => (
-            <Pressable
-              key={value}
-              onPress={() => setSelectedValue(value === selectedValue ? '' : value)}
-              style={[
-                styles.chip,
-                { backgroundColor: selectedValue === value ? colors.brand.primary : colors.base.surfaceL2 },
-              ]}
-            >
-              <Text
-                style={[
-                  typography.label,
-                  { color: selectedValue === value ? '#FFFFFF' : colors.text.primary },
-                ]}
-              >
-                {value}
-              </Text>
-            </Pressable>
-          ))}
+          {filterMode === 'employee'
+            ? employees.map((emp) => (
+                <Pressable
+                  key={emp.id}
+                  onPress={() => setSelectedValue(emp.id === selectedValue ? '' : emp.id)}
+                  style={[
+                    styles.chip,
+                    { backgroundColor: selectedValue === emp.id ? colors.brand.primary : colors.base.surfaceL2 },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.label,
+                      { color: selectedValue === emp.id ? '#FFFFFF' : colors.text.primary },
+                    ]}
+                  >
+                    {emp.name}
+                  </Text>
+                </Pressable>
+              ))
+            : optionsForMode().map((value) => (
+                <Pressable
+                  key={value}
+                  onPress={() => setSelectedValue(value === selectedValue ? '' : value)}
+                  style={[
+                    styles.chip,
+                    { backgroundColor: selectedValue === value ? colors.brand.primary : colors.base.surfaceL2 },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.label,
+                      { color: selectedValue === value ? '#FFFFFF' : colors.text.primary },
+                    ]}
+                  >
+                    {value}
+                  </Text>
+                </Pressable>
+              ))}
         </View>
 
         <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 20, marginBottom: 10 }]}>

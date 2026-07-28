@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { File, Paths } from 'expo-file-system';
@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useToast } from '../../context/ToastContext';
 import { authFetch } from '../../utils/authFetch';
 
-type FilterMode = 'status' | 'priority';
+type FilterMode = 'status' | 'priority' | 'employee';
 type PickerTarget = 'start' | 'end' | null;
 type RangePreset = 'last_week' | 'last_fortnight' | 'last_month' | 'custom';
 
@@ -70,6 +70,7 @@ export default function GenPdf() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [reportFileUri, setReportFileUri] = useState<string | null>(null);
+  const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
 
   const buildQuery = () => {
     const params = new URLSearchParams();
@@ -78,9 +79,17 @@ export default function GenPdf() {
     if (selectedValue) {
       if (filterMode === 'status') params.append('status', selectedValue);
       if (filterMode === 'priority') params.append('priority', selectedValue);
+      if (filterMode === 'employee') params.append('employee_id', selectedValue);
     }
     return params.toString();
   };
+
+  useEffect(() => {
+    (async () => {
+      const res = await authFetch('/employees-directory');
+      if (res.ok) setEmployees(await res.json());
+    })();
+  }, []);
 
   const handleRangePresetChange = (preset: RangePreset) => {
     setRangePreset(preset);
@@ -175,9 +184,10 @@ export default function GenPdf() {
     setSelectedValue('');
   };
 
-  const FILTER_TABS: { key: FilterMode; label: string }[] = [
+ const FILTER_TABS: { key: FilterMode; label: string }[] = [
     { key: 'status', label: 'Status' },
     { key: 'priority', label: 'Priority' },
+    { key: 'employee', label: 'Employee' },
   ];
 
   return (
@@ -220,29 +230,49 @@ export default function GenPdf() {
           ))}
         </View>
 
-        <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 20, marginBottom: 10 }]}>
+       <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 20, marginBottom: 10 }]}>
           Select value
         </Text>
         <View style={styles.row}>
-          {optionsForMode().map((value) => (
-            <Pressable
-              key={value}
-              onPress={() => setSelectedValue(value === selectedValue ? '' : value)}
-              style={[
-                styles.chip,
-                { backgroundColor: selectedValue === value ? colors.brand.primary : colors.base.surfaceL2 },
-              ]}
-            >
-              <Text
-                style={[
-                  typography.label,
-                  { color: selectedValue === value ? '#FFFFFF' : colors.text.primary },
-                ]}
-              >
-                {value}
-              </Text>
-            </Pressable>
-          ))}
+          {filterMode === 'employee'
+            ? employees.map((emp) => (
+                <Pressable
+                  key={emp.id}
+                  onPress={() => setSelectedValue(emp.id === selectedValue ? '' : emp.id)}
+                  style={[
+                    styles.chip,
+                    { backgroundColor: selectedValue === emp.id ? colors.brand.primary : colors.base.surfaceL2 },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.label,
+                      { color: selectedValue === emp.id ? '#FFFFFF' : colors.text.primary },
+                    ]}
+                  >
+                    {emp.name}
+                  </Text>
+                </Pressable>
+              ))
+            : optionsForMode().map((value) => (
+                <Pressable
+                  key={value}
+                  onPress={() => setSelectedValue(value === selectedValue ? '' : value)}
+                  style={[
+                    styles.chip,
+                    { backgroundColor: selectedValue === value ? colors.brand.primary : colors.base.surfaceL2 },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.label,
+                      { color: selectedValue === value ? '#FFFFFF' : colors.text.primary },
+                    ]}
+                  >
+                    {value}
+                  </Text>
+                </Pressable>
+              ))}
         </View>
 
         <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 20, marginBottom: 10 }]}>
