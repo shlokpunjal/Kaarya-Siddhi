@@ -658,35 +658,40 @@ export default function TaskDetail() {
           )}
 
           {/* Extend Deadline Button */}
-          <TouchableOpacity
-            disabled={hasPendingExtension || task.status === "completed"}
-            onPress={() =>
-              router.push({
-                pathname: "/(task)/extend-deadline",
-                params: { taskId: task.id },
-              })
-            }
+        {/* Extend Deadline Button — only for admin-created tasks. Employees can
+    edit the deadline directly (via the edit icon above) on tasks they
+    created themselves, so this request-based flow doesn't apply there. */}
+      {!isSelfAssigned && (
+        <TouchableOpacity
+          disabled={hasPendingExtension || task.status === "completed"}
+          onPress={() =>
+            router.push({
+              pathname: "/(task)/extend-deadline",
+              params: { taskId: task.id },
+            })
+          }
+          style={{
+            height: 50,
+            borderRadius: 12,
+            backgroundColor:
+              hasPendingExtension || task.status === "completed"
+                ? colors.base.border
+                : colors.brand.secprimary,
+            alignItems: "center",
+            justifyContent: "center",
+            marginTop: 12,
+          }}
+        >
+          <Text
             style={{
-              height: 50,
-              borderRadius: 12,
-              backgroundColor:
-                hasPendingExtension || task.status === "completed"
-                  ? colors.base.border
-                  : colors.brand.secprimary,
-              alignItems: "center",
-              justifyContent: "center",
-              marginTop: 12,
+              ...typography.subheading,
+              color: colors.brand.onPrimary,
             }}
           >
-            <Text
-              style={{
-                ...typography.subheading,
-                color: colors.brand.onPrimary,
-              }}
-            >
-              {hasPendingExtension ? "Extension Requested" : "Extend Deadline"}
-            </Text>
-          </TouchableOpacity>
+            {hasPendingExtension ? "Extension Requested" : "Extend Deadline"}
+          </Text>
+        </TouchableOpacity>
+      )}
 
           {/* Ask to Review Button — new: moves task into the review queue and
               notifies both the assignee and the creator */}
