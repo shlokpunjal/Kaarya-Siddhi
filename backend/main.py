@@ -17,7 +17,7 @@ from routes.tasks import router as tasks_router
 from routes.employee_tasks import router as employee_tasks_router
 from routes.eoffice import router as eoffice_router
 from routes.notify import router as notify_router
-from routes.extension import router as extensions_router
+from routes.extensions import router as extensions_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("kaarya_siddhi")
 
