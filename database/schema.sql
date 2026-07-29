@@ -321,3 +321,22 @@ create table public.admins (
   constraint admins_pkey primary key (id),
   constraint admins_email_key unique (email)
 ) TABLESPACE pg_default;
+
+CREATE TABLE extension_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id UUID NOT NULL REFERENCES tasks(id),
+
+    -- NOTE: no FK to users(id) live, even though this is a user id.
+    -- Consider adding: REFERENCES users(id)
+    requested_by UUID NOT NULL,
+
+    current_deadline DATE NOT NULL,
+    requested_deadline DATE NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'accepted', 'rejected')),
+    admin_note TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    decided_at TIMESTAMPTZ,
+    workspace_id UUID REFERENCES workspaces(id)
+);
