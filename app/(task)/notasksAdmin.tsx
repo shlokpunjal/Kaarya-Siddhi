@@ -53,7 +53,7 @@ export default function NoTasksAdmin({ pendingRequestCount = 0 }: NoTasksAdminPr
         </Text>
 
         <TouchableOpacity
-          onPress={() => router.push("/newtaskemp")}
+          onPress={() => router.push("/newtask")}
           style={[styles.newTaskButton, { backgroundColor: colors.brand.accent }]}
         >
           <Ionicons name="add" size={22} color={colors.base.surfaceL1} />
