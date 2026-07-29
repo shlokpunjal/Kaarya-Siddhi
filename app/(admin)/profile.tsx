@@ -1,56 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
-  Image,
-  Modal,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { typography } from "../../theme/theme";
-import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../context/AuthContext";
-import { useTheme, useThemeMode, ThemeMode } from "../../context/ThemeContext";
-import CollapsibleSection from "../../components/CollapsibleSection";
-import ConfirmModal from "../../components/confirmModal";
-import AdminProfileSkeleton from "../../components/AdminProfileSkeleton";
+import { typography } from "../../theme/theme";
+import { useTheme, useThemeMode } from "../../context/ThemeContext";
 import { router } from "expo-router";
 import { authFetch } from "../../utils/authFetch";
-import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
-import { wp, moderateScale } from "../../utils/responsive";
+import AdminProfileSkeleton from "../../components/AdminProfileSkeleton";
 import { useToast } from "../../context/ToastContext";
-
-type UserRow = {
-  id: string;
-  name: string;
-  email: string;
-  mobile_number: string | null;
-  department: string | null;
-  designation: string | null;
-  profile_pic_url: string | null;
-};
+import { useCurrentUser } from "../../hooks/profile/useCurrentUser";
+import { useAvatarUpload } from "../../hooks/profile/useAvatarUpload";
+import { profileStyles } from "../../styles/profileStyles";
+import ProfileAvatar from "../../components/profile/ProfileAvatar";
+import ProfileFieldsCard, { ProfileField } from "../../components/profile/ProfileFieldsCard";
+import AppearanceCard from "../../components/profile/AppearanceCard";
+import AccountModals from "../../components/profile/AccountModals";
+import AvatarPreviewModal from "../../components/profile/AvatarPreviewModal";
 
 type ManagedEmployee = { email: string; name: string };
-
-const THEME_OPTIONS: {
-  value: ThemeMode;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}[] = [
-    { value: "light", label: "Light", icon: "sunny-outline" },
-    { value: "dark", label: "Dark", icon: "moon-outline" },
-    { value: "system", label: "System", icon: "phone-portrait-outline" },
-  ];
-
-const AVATAR_SIZE = moderateScale(84);
-const RING_SIZE = AVATAR_SIZE + 12;
 
 export default function AdminProfile() {
   const { colors } = useTheme();
@@ -58,78 +26,42 @@ export default function AdminProfile() {
   const { logout } = useAuth();
   const { showToast } = useToast();
 
-  const [currentUser, setCurrentUser] = useState<UserRow | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
-  const [email, setemail] = useState("");
+  const [email, setEmail] = useState("");
   const [designation, setDesignation] = useState("");
+  const [department, setDepartment] = useState("");
 
-  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [managedEmployees, setManagedEmployees] = useState<ManagedEmployee[]>(
-    [],
-  );
+
+  const [managedEmployees, setManagedEmployees] = useState<ManagedEmployee[]>([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
 
-  useEffect(() => {
-    fetchCurrentUser();
-    fetchTeam();
-  }, []);
+  const { currentUser, setCurrentUser, loading, fetchCurrentUser } =
+    useCurrentUser((msg) => showToast(msg, "error"));
 
-  // ── Fetch the logged-in admin's own row via the verified /me endpoint ────
-  // Deliberately NOT reading AsyncStorage("userEmail") and querying Supabase
-  // directly with it: that trusted whatever email happened to be cached on
-  // the device rather than the token's own identity, so two people sharing
-  // a device (or a stale cache) could pull up the wrong profile. /me derives
-  // the user strictly from the Bearer token via authFetch.
-  const fetchCurrentUser = async () => {
-    setLoading(true);
+  const { avatarUri, uploading, pickAvatar } = useAvatarUpload(
+    currentUser?.id,
+    currentUser?.profile_pic_url ?? null,
+    (url) => setCurrentUser((prev) => (prev ? { ...prev, profile_pic_url: url } : prev)),
+    (msg) => showToast(msg, "error"),
+  );
 
-    try {
-      const res = await authFetch("/me");
-      if (!res.ok) {
-        showToast("Could not load your profile. Please try again.", "error");
-        return;
-      }
-
-      const data: UserRow = await res.json();
-
-      setCurrentUser(data);
-      setName(data.name ?? "");
-      setContact(data.mobile_number ?? "");
-      setemail(data.email ?? "");
-      setDesignation(data.designation ?? "");
-      setAvatarUri(data.profile_pic_url ?? null);
-    } catch (error: any) {
-      console.error("Profile fetch error:", error?.message ?? error);
-      showToast("Could not load your profile. Please try again.", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-  // ── Fetch this admin's connected employees from the connections table ────
-  // Still keyed off the verified user's email (from /me), not the cached one.
   const fetchTeam = async () => {
     setLoadingTeam(true);
-
     try {
       const res = await authFetch("/team");
       if (!res.ok) {
         showToast("Could not load your team. Please try again.", "error");
         return;
       }
-
-      const team = await res.json();
-      setManagedEmployees(team);
+      setManagedEmployees(await res.json());
     } catch (error: any) {
       console.error("Team fetch error:", error?.message ?? error);
       showToast("Could not load your team. Please try again.", "error");
@@ -137,39 +69,51 @@ export default function AdminProfile() {
       setLoadingTeam(false);
     }
   };
-  // ── Pull-to-refresh handler: re-run both fetches together ─────────────────
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setName(currentUser.name ?? "");
+    setContact(currentUser.mobile_number ?? "");
+    setEmail(currentUser.email ?? "");
+    setDesignation(currentUser.designation ?? "");
+    setDepartment(currentUser.department ?? "");
+  }, [currentUser]);
+
+  useEffect(() => {
+    fetchCurrentUser();
+    fetchTeam();
+  }, []);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([fetchCurrentUser(), fetchTeam()]);
     setRefreshing(false);
   }, []);
 
-  // ── Save edited fields. Email is identity, never sent here — read-only. ──
   const handleSave = async () => {
     if (!currentUser) {
       setEditing(false);
       return;
     }
-
     try {
       setSaving(true);
-
-      const res = await authFetch('/profile', {
-        method: 'PATCH',
+      const res = await authFetch("/profile", {
+        method: "PATCH",
         body: JSON.stringify({
           name: name.trim(),
           mobile_number: contact.trim(),
           designation: designation.trim(),
+          department: department.trim(),
         }),
       });
-      if (!res.ok) throw new Error('Could not save changes');
+      if (!res.ok) throw new Error("Could not save changes");
 
-      const updated: UserRow = await res.json();
-
+      const updated = await res.json();
       setCurrentUser(updated);
       setName(updated.name);
       setContact(updated.mobile_number ?? "");
       setDesignation(updated.designation ?? "");
+      setDepartment(updated.department ?? "");
       setEditing(false);
       showToast("Profile updated", "success");
     } catch (error: any) {
@@ -179,69 +123,10 @@ export default function AdminProfile() {
     }
   };
 
-  const handleLogout = () => {
-    setLogoutVisible(true);
-  };
-
   async function deleteAccount() {
-    const res = await authFetch(`/delete-account`, {
-      method: "DELETE",
-    });
-    if (!res.ok) {
-      throw new Error("Failed to delete account");
-    }
+    const res = await authFetch("/delete-account", { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete account");
   }
-
-  const pickAvatar = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      showToast(
-        "Please allow photo library access to set a profile picture.",
-        "warning",
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (result.canceled || !result.assets?.[0]?.uri) return;
-
-    const localUri = result.assets[0].uri;
-    setAvatarUri(localUri); // optimistic preview
-    setUploading(true);
-
-    try {
-      const secureUrl = await uploadToCloudinary(
-        {
-          uri: localUri,
-          type: "image/jpeg",
-          name: `avatar_${currentUser!.id}.jpg`,
-        },
-        { folder: "profile_pics", resourceType: "image" },
-      );
-
-      const res = await authFetch('/profile', {
-        method: 'PATCH',
-        body: JSON.stringify({ profile_pic_url: secureUrl }),
-      });
-      if (!res.ok) throw new Error('Could not update photo');
-
-      setAvatarUri(secureUrl);
-      setCurrentUser((prev) =>
-        prev ? { ...prev, profile_pic_url: secureUrl } : prev,
-      );
-    } catch (err: any) {
-      showToast(err.message || "Could not upload photo.", "error");
-      setAvatarUri(currentUser?.profile_pic_url ?? null); // revert preview
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const initials = (name || currentUser?.name || "")
     .split(" ")
@@ -251,15 +136,13 @@ export default function AdminProfile() {
     .slice(0, 2)
     .toUpperCase();
 
-  if (loading) {
-    return <AdminProfileSkeleton />;
-  }
+  if (loading) return <AdminProfileSkeleton />;
 
   if (!currentUser) {
     return (
       <SafeAreaView
         style={[
-          styles.safeArea,
+          profileStyles.safeArea,
           {
             backgroundColor: colors.base.background,
             alignItems: "center",
@@ -268,27 +151,27 @@ export default function AdminProfile() {
           },
         ]}
       >
-        <Text style={[typography.body, { color: colors.text.primary }]}>
-          Could not load your profile.
-        </Text>
+        <Text style={[typography.body, { color: colors.text.primary }]}>Could not load your profile.</Text>
         <Pressable
-          style={[styles.editPill, { borderColor: colors.brand.accent }]}
+          style={[profileStyles.editPill, { borderColor: colors.brand.accent }]}
           onPress={fetchCurrentUser}
         >
-          <Text style={[typography.label, { color: colors.brand.accent }]}>
-            Retry
-          </Text>
+          <Text style={[typography.label, { color: colors.brand.accent }]}>Retry</Text>
         </Pressable>
       </SafeAreaView>
     );
   }
 
+  const fields: ProfileField[] = [
+    { key: "email", label: "Email id", value: email },
+    { key: "contact", label: "Contact", value: contact, editable: true, onChange: setContact },
+    { key: "department", label: "Department", value: department, editable: true, onChange: setDepartment },
+  ];
+
   return (
-    <SafeAreaView
-      style={[styles.safeArea, { backgroundColor: colors.base.background }]}
-    >
+    <SafeAreaView style={[profileStyles.safeArea, { backgroundColor: colors.base.background }]}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={profileStyles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -299,53 +182,35 @@ export default function AdminProfile() {
           />
         }
       >
-        <View style={styles.headerRow}>
-          <Text style={[typography.heading, { color: colors.text.primary }]}>
-            Profile
-          </Text>
+        <View style={profileStyles.headerRow}>
+          <Text style={[typography.heading, { color: colors.text.primary }]}>Profile</Text>
           <View
             style={[
-              styles.roleBadge,
-              {
-                backgroundColor: colors.base.surfaceL2,
-                borderColor: colors.base.border,
-              },
+              profileStyles.roleBadge,
+              { backgroundColor: colors.base.surfaceL2, borderColor: colors.base.border },
             ]}
           >
-            <Text style={[typography.label, { color: colors.brand.accent }]}>
-              Admin
-            </Text>
+            <Text style={[typography.label, { color: colors.brand.accent }]}>Admin</Text>
           </View>
         </View>
 
         <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.base.surfaceL1,
-              borderColor: colors.base.border,
-            },
-          ]}
+          style={[profileStyles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}
         >
-          <View style={styles.cardTopRow}>
+          <View style={profileStyles.cardTopRow}>
             <Pressable
               style={[
-                styles.editPill,
+                profileStyles.editPill,
                 {
                   borderColor: colors.brand.accent,
-                  backgroundColor: editing
-                    ? colors.brand.accent
-                    : "transparent",
+                  backgroundColor: editing ? colors.brand.accent : "transparent",
                 },
               ]}
               onPress={editing ? handleSave : () => setEditing(true)}
               disabled={saving}
             >
               {saving ? (
-                <ActivityIndicator
-                  size="small"
-                  color={editing ? "#FFFFFF" : colors.brand.accent}
-                />
+                <ActivityIndicator size="small" color={editing ? "#FFFFFF" : colors.brand.accent} />
               ) : (
                 <>
                   <Ionicons
@@ -356,10 +221,7 @@ export default function AdminProfile() {
                   <Text
                     style={[
                       typography.label,
-                      {
-                        color: editing ? "#FFFFFF" : colors.brand.accent,
-                        marginLeft: 4,
-                      },
+                      { color: editing ? "#FFFFFF" : colors.brand.accent, marginLeft: 4 },
                     ]}
                   >
                     {editing ? "Save" : "Edit Profile"}
@@ -369,250 +231,45 @@ export default function AdminProfile() {
             </Pressable>
           </View>
 
-          <View style={styles.avatarSection}>
-            <View style={styles.avatarWrap}>
-              <Pressable
-                onPress={() => {
-                  if (editing) {
-                    pickAvatar();
-                  } else if (avatarUri) {
-                    setShowImage(true);
-                  }
-                }}
-              >
-                <View
-                  style={[
-                    styles.avatarRing,
-                    { borderColor: colors.brand.accent },
-                  ]}
-                >
-                  {avatarUri ? (
-                    <Image
-                      source={{ uri: avatarUri }}
-                      style={styles.avatarImage}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.avatarImage,
-                        styles.avatarFallback,
-                        { backgroundColor: colors.brand.accent },
-                      ]}
-                    >
-                      <Text style={[typography.heading, { color: "#FFFFFF" }]}>
-                        {initials}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </Pressable>
+          <ProfileAvatar
+            colors={colors}
+            avatarUri={avatarUri}
+            uploading={uploading}
+            editing={editing}
+            initials={initials}
+            name={name}
+            designation={designation}
+            onChangeName={setName}
+            onChangeDesignation={setDesignation}
+            onPickAvatar={pickAvatar}
+            onPressAvatar={() => avatarUri && setShowImage(true)}
+          />
 
-              {uploading && (
-                <View
-                  style={[
-                    StyleSheet.absoluteFill,
-                    {
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderRadius: RING_SIZE / 2,
-                      backgroundColor: "rgba(0,0,0,0.35)",
-                    },
-                  ]}
-                >
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                </View>
-              )}
-
-              {editing && (
-                <Pressable
-                  style={[
-                    styles.cameraBadge,
-                    {
-                      backgroundColor: colors.brand.primary,
-                      borderColor: colors.base.surfaceL1,
-                    },
-                  ]}
-                  onPress={pickAvatar}
-                  hitSlop={8}
-                >
-                  <Ionicons name="camera" size={13} color="#FFFFFF" />
-                </Pressable>
-              )}
-            </View>
-
-            {editing ? (
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="Full name"
-                placeholderTextColor={colors.text.secondary}
-                style={[
-                  typography.subheading,
-                  styles.avatarNameInput,
-                  {
-                    borderColor: colors.base.border,
-                    color: colors.text.primary,
-                  },
-                ]}
-              />
-            ) : (
-              <Text
-                style={[
-                  typography.subheading,
-                  { color: colors.text.primary, marginTop: 12 },
-                ]}
-                numberOfLines={1}
-              >
-                {name}
-              </Text>
-            )}
-
-            {editing ? (
-              <TextInput
-                value={designation}
-                onChangeText={setDesignation}
-                placeholder="Designation"
-                placeholderTextColor={colors.text.secondary}
-                style={[
-                  typography.body,
-                  styles.avatarDesignationInput,
-                  {
-                    borderColor: colors.base.border,
-                    color: colors.text.primary,
-                  },
-                ]}
-              />
-            ) : (
-              <Text
-                style={[
-                  typography.body,
-                  { color: colors.text.secondary, marginTop: 2 },
-                ]}
-              >
-                {designation || "—"}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.fieldsGroup}>
-            <View
-              style={[
-                styles.fieldRow,
-                { borderBottomColor: colors.base.border },
-              ]}
-            >
-              <Text
-                style={[typography.label, { color: colors.text.secondary }]}
-              >
-                Email id
-              </Text>
-              <Text
-                style={[
-                  typography.body,
-                  { color: colors.text.primary, marginTop: 4 },
-                ]}
-              >
-                {email}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.fieldRow,
-                { borderBottomColor: colors.base.border },
-              ]}
-            >
-              <Text
-                style={[typography.label, { color: colors.text.secondary }]}
-              >
-                Contact
-              </Text>
-              {editing ? (
-                <TextInput
-                  value={contact}
-                  onChangeText={setContact}
-                  style={[
-                    styles.input,
-                    typography.body,
-                    {
-                      borderColor: colors.base.border,
-                      color: colors.text.primary,
-                    },
-                  ]}
-                />
-              ) : (
-                <Text
-                  style={[
-                    typography.body,
-                    { color: colors.text.primary, marginTop: 4 },
-                  ]}
-                >
-                  {contact}
-                </Text>
-              )}
-            </View>
-
-            <View style={[styles.fieldRow, { borderBottomWidth: 0 }]}>
-              <Text
-                style={[typography.label, { color: colors.text.secondary }]}
-              >
-                Department
-              </Text>
-              <Text
-                style={[
-                  typography.body,
-                  { color: colors.text.primary, marginTop: 4 },
-                ]}
-              >
-                {currentUser.department ?? "—"}
-              </Text>
-            </View>
-          </View>
+          <ProfileFieldsCard colors={colors} editing={editing} fields={fields} />
         </View>
 
         <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.base.surfaceL1,
-              borderColor: colors.base.border,
-            },
-          ]}
+          style={[profileStyles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}
         >
-          <View style={styles.teamHeaderRow}>
-            <Text
-              style={[typography.subheading, { color: colors.text.primary }]}
-            >
-              Team
-            </Text>
-            <View
-              style={[
-                styles.countChip,
-                { backgroundColor: colors.base.surfaceL2 },
-              ]}
-            >
+          <View style={profileStyles.teamHeaderRow}>
+            <Text style={[typography.subheading, { color: colors.text.primary }]}>Team</Text>
+            <View style={[profileStyles.countChip, { backgroundColor: colors.base.surfaceL2 }]}>
               {loadingTeam ? (
                 <ActivityIndicator size="small" color={colors.text.secondary} />
               ) : (
-                <Text
-                  style={[typography.label, { color: colors.text.secondary }]}
-                >
-                  {managedEmployees.length}{" "}
-                  {managedEmployees.length === 1 ? "employee" : "employees"}
+                <Text style={[typography.label, { color: colors.text.secondary }]}>
+                  {managedEmployees.length} {managedEmployees.length === 1 ? "employee" : "employees"}
                 </Text>
               )}
             </View>
           </View>
+
           {!loadingTeam && managedEmployees.length === 0 && (
-            <Text
-              style={[
-                typography.body,
-                { color: colors.text.secondary, marginTop: 8 },
-              ]}
-            >
+            <Text style={[typography.body, { color: colors.text.secondary, marginTop: 8 }]}>
               No connected employees yet.
             </Text>
           )}
+
           {managedEmployees.map((emp) => (
             <Pressable
               key={emp.email}
@@ -622,163 +279,43 @@ export default function AdminProfile() {
                   params: { employeeEmail: emp.email, employeeName: emp.name },
                 })
               }
-              style={({ pressed }) => [
-                styles.teamMemberRow,
-                { opacity: pressed ? 0.6 : 1 },
-              ]}
+              style={({ pressed }) => [profileStyles.teamMemberRow, { opacity: pressed ? 0.6 : 1 }]}
             >
-              <Text
-                style={[
-                  typography.body,
-                  { color: colors.text.primary, flex: 1 },
-                ]}
-              >
-                · {emp.name}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={16}
-                color={colors.text.secondary}
-              />
+              <Text style={[typography.body, { color: colors.text.primary, flex: 1 }]}>· {emp.name}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
             </Pressable>
           ))}
         </View>
 
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.base.surfaceL1,
-              borderColor: colors.base.border,
-              paddingVertical: 4,
-            },
-          ]}
-        >
-          <CollapsibleSection
-            icon="color-palette-outline"
-            title="Appearance"
-            summary={THEME_OPTIONS.find((o) => o.value === mode)?.label}
-            colors={colors}
-            last
-          >
-            <View style={styles.themeRow}>
-              {THEME_OPTIONS.map((option) => {
-                const selected = mode === option.value;
-                return (
-                  <Pressable
-                    key={option.value}
-                    onPress={() => setMode(option.value)}
-                    style={[
-                      styles.themeOption,
-                      {
-                        backgroundColor: selected
-                          ? colors.brand.accent
-                          : colors.base.surfaceL2,
-                        borderColor: selected
-                          ? colors.brand.accent
-                          : colors.base.border,
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={option.icon}
-                      size={22}
-                      color={selected ? "#FFFFFF" : colors.text.primary}
-                    />
-                    <Text
-                      style={[
-                        typography.label,
-                        {
-                          color: selected ? "#FFFFFF" : colors.text.primary,
-                          marginTop: 4,
-                        },
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </CollapsibleSection>
-        </View>
+        <AppearanceCard colors={colors} mode={mode} setMode={setMode} />
 
         <Pressable
-          style={[styles.logoutRow, { backgroundColor: colors.brand.primary }]}
-          onPress={handleLogout}
+          style={[profileStyles.logoutRow, { backgroundColor: colors.brand.primary }]}
+          onPress={() => setLogoutVisible(true)}
         >
           <Ionicons name="log-out-outline" size={18} color="#ffffff" />
-          <Text
-            style={[typography.heading3, { color: "#ffffff", marginLeft: 8 }]}
-          >
-            Log Out
-          </Text>
+          <Text style={[typography.heading3, { color: "#ffffff", marginLeft: 8 }]}>Log Out</Text>
         </Pressable>
 
-        <Pressable
-          style={styles.deleteRow}
-          onPress={() => setDeleteVisible(true)}
-        >
+        <Pressable style={profileStyles.deleteRow} onPress={() => setDeleteVisible(true)}>
           <Ionicons name="trash-outline" size={18} color="#FFFFFF" />
-          <Text
-            style={[typography.heading3, { color: "#FFFFFF", marginLeft: 8 }]}
-          >
-            Delete Account
-          </Text>
+          <Text style={[typography.heading3, { color: "#FFFFFF", marginLeft: 8 }]}>Delete Account</Text>
         </Pressable>
       </ScrollView>
 
-      <Modal
-        visible={showImage}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowImage(false)}
-      >
-        <Pressable
-          style={styles.modalBackground}
-          onPress={() => setShowImage(false)}
-        >
-          <Ionicons
-            name="close"
-            size={30}
-            color="#FFFFFF"
-            style={styles.closeModalButton}
-          />
-          {avatarUri && (
-            <Image
-              source={{ uri: avatarUri }}
-              style={styles.fullscreenImage}
-              resizeMode="contain"
-            />
-          )}
-        </Pressable>
-      </Modal>
+      <AvatarPreviewModal visible={showImage} avatarUri={avatarUri} onClose={() => setShowImage(false)} />
 
-      <ConfirmModal
-        visible={logoutVisible}
-        title="Logout"
-        message="Are you sure you want to log out?"
-        confirmText="Logout"
-        cancelText="Cancel"
-        confirmColor="#E8870A"
-        destructive
-        onCancel={() => setLogoutVisible(false)}
-        onConfirm={() => {
+      <AccountModals
+        logoutVisible={logoutVisible}
+        onCancelLogout={() => setLogoutVisible(false)}
+        onConfirmLogout={() => {
           setLogoutVisible(false);
           logout();
         }}
-      />
-      <ConfirmModal
-        visible={deleteVisible}
-        title="Delete Account"
-        message="This will permanently delete your account and all associated data. This action cannot be undone."
-        confirmText={deleting ? "Deleting..." : "Delete"}
-        cancelText="Cancel"
-        confirmColor="#D64545"
-        destructive
-        confirmDisabled={deleting}
-        onCancel={() => setDeleteVisible(false)}
-        onConfirm={async () => {
+        deleteVisible={deleteVisible}
+        deleting={deleting}
+        onCancelDelete={() => setDeleteVisible(false)}
+        onConfirmDelete={async () => {
           if (deleting) return;
           setDeleting(true);
           try {
@@ -795,144 +332,3 @@ export default function AdminProfile() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  scrollContent: { padding: wp(5.3), paddingBottom: 40 },
-  roleBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  card: { borderRadius: 18, borderWidth: 2, padding: 18, marginBottom: 16 },
-  cardTopRow: { flexDirection: "row", justifyContent: "flex-end" },
-  editPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  avatarSection: { alignItems: "center", marginTop: 4, marginBottom: 18 },
-  avatarWrap: { position: "relative", width: RING_SIZE, height: RING_SIZE },
-  avatarRing: {
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderRadius: RING_SIZE / 2,
-    borderWidth: 2.5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarImage: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-  },
-  avatarFallback: { alignItems: "center", justifyContent: "center" },
-  cameraBadge: {
-    position: "absolute",
-    bottom: -2,
-    right: -2,
-    width: moderateScale(26),
-    height: moderateScale(26),
-    borderRadius: 13,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarNameInput: {
-    marginTop: 12,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    minWidth: 180,
-    textAlign: "center",
-  },
-  avatarDesignationInput: {
-    marginTop: 6,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    minWidth: 160,
-    textAlign: "center",
-  },
-  fieldsGroup: { marginTop: 4 },
-  fieldRow: { borderBottomWidth: 1, paddingVertical: 12 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginTop: 4,
-  },
-  teamHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  teamMemberRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  countChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    minWidth: 30,
-    minHeight: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  themeRow: { flexDirection: "row", gap: 10 },
-  themeOption: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  languageButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  logoutRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    marginTop: 4,
-    borderRadius: 14,
-  },
-  deleteRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#C53030",
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginTop: 12,
-  },
-  modalBackground: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeModalButton: { position: "absolute", top: 50, right: 20, zIndex: 10 },
-  fullscreenImage: { width: "90%", height: "70%" },
-});
