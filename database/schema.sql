@@ -1,232 +1,323 @@
---------------------------------------------------
--- WORKSPACES
---------------------------------------------------
+create table public.users (
+  id uuid not null default gen_random_uuid (),
+  workspace_id uuid null,
+  role character varying null,
+  name character varying not null,
+  email character varying not null,
+  mobile_number character varying null,
+  department character varying null,
+  designation character varying null,
+  profile_pic_url character varying null,
+  language character varying null default 'english'::character varying,
+  notifications_enabled boolean null default true,
+  theme character varying null default 'light'::character varying,
+  is_profile_setup boolean null default false,
+  created_at timestamp without time zone null default now(),
+  reporting_to text not null default ''::text,
+  "reportingTo" text null,
+  expo_push_token text null,
+  push_token_status text null,
+  constraint users_pkey primary key (id),
+  constraint users_email_key unique (email),
+  constraint users_reportingTo_fkey foreign KEY ("reportingTo") references admins (email),
+  constraint users_workspace_id_fkey foreign KEY (workspace_id) references workspaces (id),
+  constraint users_role_check check (
+    (
+      (role)::text = any (
+        (
+          array[
+            'admin'::character varying,
+            'employee'::character varying
+          ]
+        )::text[]
+      )
+    )
+  )
+) TABLESPACE pg_default;
 
-CREATE TABLE workspaces (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255),
-    owner_email VARCHAR(255),
-    created_at TIMESTAMP DEFAULT NOW()
-);
 
---------------------------------------------------
--- USERS
---------------------------------------------------
 
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID REFERENCES workspaces(id),
-    role VARCHAR(20) CHECK (role IN ('admin', 'employee')),
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    mobile_number VARCHAR(20),
-    department VARCHAR(100),
-    date_of_birth DATE,
-    designation VARCHAR(100),
-    profile_pic_url VARCHAR(500),
-    language VARCHAR(20) DEFAULT 'english',
-    notifications_enabled BOOLEAN DEFAULT true,
-    theme VARCHAR(20) DEFAULT 'light',
-    is_profile_setup BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT NOW(),
+create table public.tasks (
+  id uuid not null default gen_random_uuid (),
+  workspace_id uuid null,
+  assigned_to text null,
+  created_by text null,
+  title character varying not null,
+  description text null,
+  deadline timestamp without time zone null,
+  priority character varying null default 'medium'::character varying,
+  status character varying null default 'pending'::character varying,
+  created_at timestamp without time zone null default now(),
+  updated_at timestamp without time zone null default now(),
+  attachment_url text null,
+  label text null,
+  suggestion text null,
+  completed_at timestamp with time zone null,
+  sheet_row_id integer null,
+  source character varying null default 'app'::character varying,
+  deadline_reminder_sent boolean not null default false,
+  last_overdue_notified_date date null,
+  constraint tasks_pkey primary key (id),
+  constraint tasks_workspace_id_fkey foreign KEY (workspace_id) references workspaces (id),
+  constraint tasks_priority_check check (
+    (
+      (priority)::text = any (
+        (
+          array[
+            'low'::character varying,
+            'medium'::character varying,
+            'high'::character varying
+          ]
+        )::text[]
+      )
+    )
+  )
+) TABLESPACE pg_default;
 
-    -- NOTE: both of these exist live. reporting_to is unused/legacy;
-    -- "reportingTo" (camelCase, FK'd to admins.email) is the one actually
-    -- referenced by a foreign key. Worth consolidating into one column.
-    reporting_to TEXT NOT NULL DEFAULT '',
-    "reportingTo" TEXT,
+create unique INDEX IF not exists tasks_sheet_row_unique on public.tasks using btree (workspace_id, sheet_row_id) TABLESPACE pg_default
+where
+  (sheet_row_id is not null);
 
-    expo_push_token TEXT
-     -- Set whenever push registration fails on the client (no physical
-    -- device, permission denied, missing EAS projectId, etc). NULL means
-    -- either registration succeeded (expo_push_token is set) or the
-    -- client hasn't attempted registration yet this session. Lets you
-    -- query "which users have a null expo_push_token, and why" instead
-    -- of that only ever showing up in an individual device's console.
-    push_token_status TEXT
-);
 
---------------------------------------------------
--- TASKS
---------------------------------------------------
 
-CREATE TABLE tasks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID REFERENCES workspaces(id),
 
-    -- stored as email text, not a uuid FK to users
-    assigned_to TEXT,
-    created_by TEXT,
 
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    deadline TIMESTAMP,
-    priority VARCHAR(20) DEFAULT 'medium'
-        CHECK (priority IN ('low', 'medium', 'high')),
 
-    -- no CHECK constraint live; app-level values are:
-    -- 'overdue' | 'pending' | 'inReview' | 'completed'
-    status VARCHAR(20) DEFAULT 'pending',
+create table public.workspaces (
+  id uuid not null default gen_random_uuid (),
+  name character varying not null,
+  owner_email character varying not null,
+  created_at timestamp without time zone null default now(),
+  constraint workspaces_pkey primary key (id)
+) TABLESPACE pg_default;
 
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    attachment_url TEXT,
-    label TEXT,
-    suggestion TEXT,
 
-    -- Guards the daily "due tomorrow" reminder job (backend/deadline_
-    -- reminders.py) against re-notifying the same task for the same
-    -- deadline. Reset to false whenever the deadline actually changes
-    -- (see app/notifications/admin-request-review.tsx).
-    deadline_reminder_sent BOOLEAN NOT NULL DEFAULT false,
 
-    -- Guards the daily overdue-reminder job (backend/overdue_reminders.py).
-    -- Unlike deadline_reminder_sent this isn't a one-way flag: it's the
-    -- last date (IST) the admin was notified this task was overdue, so
-    -- the job can tell "already notified today" apart from "a new day,
-    -- notify again" without any reset step.
-    last_overdue_notified_date DATE
-);
 
---------------------------------------------------
--- TASK FILES
---------------------------------------------------
+create table public.task_submissions (
+  id uuid not null default gen_random_uuid (),
+  task_id uuid null,
+  submitted_by uuid null,
+  note text null,
+  submitted_at timestamp without time zone null default now(),
+  constraint task_submissions_pkey primary key (id),
+  constraint task_submissions_submitted_by_fkey foreign KEY (submitted_by) references users (id),
+  constraint task_submissions_task_id_fkey foreign KEY (task_id) references tasks (id)
+) TABLESPACE pg_default;
 
-CREATE TABLE task_files (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    task_id UUID REFERENCES tasks(id),
-    file_url VARCHAR(500) NOT NULL,
-    file_name VARCHAR(255),
-    file_type VARCHAR(50),
-    storage_service VARCHAR(30)
-        CHECK (storage_service IN ('backblaze', 'backblaze_b2', 'cloudinary')),
-    uploaded_at TIMESTAMP DEFAULT NOW()
-);
 
---------------------------------------------------
--- TASK SUBMISSIONS
---------------------------------------------------
 
-CREATE TABLE task_submissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    task_id UUID REFERENCES tasks(id),
-    submitted_by UUID REFERENCES users(id),
-    note TEXT,
-    submitted_at TIMESTAMP DEFAULT NOW()
-);
 
---------------------------------------------------
--- TASK REVIEWS
---------------------------------------------------
+create table public.task_reviews (
+  id uuid not null default gen_random_uuid (),
+  task_id uuid null,
+  reviewed_by uuid null,
+  feedback text null,
+  decision character varying null,
+  reviewed_at timestamp without time zone null default now(),
+  constraint task_reviews_pkey primary key (id),
+  constraint task_reviews_reviewed_by_fkey foreign KEY (reviewed_by) references users (id),
+  constraint task_reviews_task_id_fkey foreign KEY (task_id) references tasks (id),
+  constraint task_reviews_decision_check check (
+    (
+      (decision)::text = any (
+        (
+          array[
+            'approved'::character varying,
+            'add_suggestion'::character varying
+          ]
+        )::text[]
+      )
+    )
+  )
+) TABLESPACE pg_default;
 
-CREATE TABLE task_reviews (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    task_id UUID REFERENCES tasks(id),
-    reviewed_by UUID REFERENCES users(id),
-    feedback TEXT,
-    decision VARCHAR(20)
-        CHECK (decision IN ('approved', 'add_suggestion')),
-    reviewed_at TIMESTAMP DEFAULT NOW()
-);
 
---------------------------------------------------
--- CHAT MESSAGES
---------------------------------------------------
 
-CREATE TABLE chat_messages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID REFERENCES workspaces(id),
-    sender_id UUID REFERENCES users(id),
-    task_id UUID REFERENCES tasks(id),
-    message TEXT NOT NULL,
-    sent_at TIMESTAMP DEFAULT NOW()
-);
+create table public.task_files (
+  id uuid not null default gen_random_uuid (),
+  task_id uuid null,
+  file_url character varying not null,
+  file_name character varying null,
+  file_type character varying null,
+  storage_service character varying null,
+  uploaded_at timestamp without time zone null default now(),
+  constraint task_files_pkey primary key (id),
+  constraint task_files_task_id_fkey foreign KEY (task_id) references tasks (id),
+  constraint task_files_storage_service_check check (
+    (
+      (storage_service)::text = any (
+        (
+          array[
+            'backblaze'::character varying,
+            'backblaze_b2'::character varying,
+            'cloudinary'::character varying
+          ]
+        )::text[]
+      )
+    )
+  )
+) TABLESPACE pg_default;
 
---------------------------------------------------
--- NOTIFICATIONS
---------------------------------------------------
-CREATE TABLE notifications (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id),
-    task_id UUID REFERENCES tasks(id),
-    -- Full real set in use — see lib/notify.ts, backend/routes/connections.py,
-    -- backend/deadline_reminders.py, backend/overdue_reminders.py.
-    type VARCHAR(20)
-        CHECK (type IN (
-            'deadline', 'overdue', 'task_assigned', 'task_in_review', 'eoffice_pending',
-            'extension_accepted', 'extension_rejected',
-            'connection_request', 'connection_pending',
-            'connection_rejected', 'connection_accepted'
-        )),
-    message TEXT,
-    is_read BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT NOW(),
-    metadata JSONB
-);
 
---------------------------------------------------
--- CONNECTIONS  (employee <-> admin link requests)
---------------------------------------------------
 
-CREATE TABLE connections (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    employee_email TEXT NOT NULL,
-    admin_email TEXT NOT NULL,
-    status TEXT DEFAULT 'pending'
-        CHECK (status IN ('pending', 'accepted', 'rejected')),
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
 
---------------------------------------------------
--- EXTENSION REQUESTS
---------------------------------------------------
+create table public.synced_sheet_tasks (
+  id uuid not null default gen_random_uuid (),
+  workspace_id uuid not null,
+  sheet_row_id integer not null,
+  task_id uuid null,
+  first_synced_at timestamp without time zone null default now(),
+  constraint synced_sheet_tasks_pkey primary key (id),
+  constraint synced_sheet_tasks_workspace_id_sheet_row_id_key unique (workspace_id, sheet_row_id)
+) TABLESPACE pg_default;
 
-CREATE TABLE extension_requests (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    task_id UUID NOT NULL REFERENCES tasks(id),
 
-    -- NOTE: no FK to users(id) live, even though this is a user id.
-    -- Consider adding: REFERENCES users(id)
-    requested_by UUID NOT NULL,
 
-    current_deadline DATE NOT NULL,
-    requested_deadline DATE NOT NULL,
-    reason TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending'
-        CHECK (status IN ('pending', 'accepted', 'rejected')),
-    admin_note TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    decided_at TIMESTAMPTZ,
-    workspace_id UUID REFERENCES workspaces(id)
-);
 
---------------------------------------------------
--- OTP SESSIONS  (signup + login OTP flow)
---------------------------------------------------
+create table public.refresh_tokens (
+  id uuid not null default gen_random_uuid (),
+  user_email text not null,
+  token_hash text not null,
+  created_at timestamp with time zone not null default now(),
+  expires_at timestamp with time zone not null,
+  revoked boolean not null default false,
+  replaced_by uuid null,
+  constraint refresh_tokens_pkey primary key (id),
+  constraint refresh_tokens_replaced_by_fkey foreign KEY (replaced_by) references refresh_tokens (id)
+) TABLESPACE pg_default;
 
-CREATE TABLE otp_sessions (
-    email TEXT PRIMARY KEY,
-    otp TEXT NOT NULL,
-    role TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    verify_attempts INTEGER NOT NULL DEFAULT 0,
-    daily_count INTEGER NOT NULL DEFAULT 0,
-    first_attempt_at TIMESTAMPTZ,
-    last_sent_at TIMESTAMPTZ,
-    pending_signup JSONB
-);
 
---------------------------------------------------
--- REFRESH TOKENS
---------------------------------------------------
 
-CREATE TABLE refresh_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_email TEXT NOT NULL,
-    token_hash TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL,
-    revoked BOOLEAN NOT NULL DEFAULT false,
-    replaced_by UUID REFERENCES refresh_tokens(id)
-);
+
+
+create table public.otp_tokens (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid null,
+  otp_code character varying not null,
+  expires_at timestamp without time zone not null,
+  is_used boolean null default false,
+  constraint otp_tokens_pkey primary key (id),
+  constraint otp_tokens_user_id_fkey foreign KEY (user_id) references users (id)
+) TABLESPACE pg_default;
+
+
+
+create table public.otp_sessions (
+  email text not null,
+  otp text not null,
+  role text not null,
+  created_at timestamp with time zone not null default now(),
+  verify_attempts integer not null default 0,
+  daily_count integer not null default 0,
+  first_attempt_at timestamp with time zone null,
+  last_sent_at timestamp with time zone null,
+  pending_signup jsonb null,
+  constraint otp_sessions_pkey primary key (email)
+) TABLESPACE pg_default;
+
+
+
+
+create table public.notifications (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid null,
+  task_id uuid null,
+  type character varying(30) null,
+  message text null,
+  is_read boolean null default false,
+  created_at timestamp without time zone null default now(),
+  metadata jsonb null,
+  constraint notifications_pkey primary key (id),
+  constraint notifications_task_id_fkey foreign KEY (task_id) references tasks (id) on delete CASCADE,
+  constraint notifications_user_id_fkey foreign KEY (user_id) references users (id),
+  constraint notifications_type_check check (
+    (
+      (type)::text = any (
+        (
+          array[
+            'deadline'::character varying,
+            'overdue'::character varying,
+            'task_assigned'::character varying,
+            'task_in_review'::character varying,
+            'eoffice_pending'::character varying,
+            'extension_accepted'::character varying,
+            'extension_rejected'::character varying,
+            'connection_request'::character varying,
+            'connection_pending'::character varying,
+            'connection_rejected'::character varying,
+            'connection_accepted'::character varying
+          ]
+        )::text[]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+
+
+create table public.employees (
+  id uuid not null default gen_random_uuid (),
+  email text not null,
+  phone text null,
+  push_token text null,
+  created_at timestamp without time zone null default now(),
+  constraint employees_pkey primary key (id),
+  constraint employees_email_key unique (email)
+) TABLESPACE pg_default;
+
+
+
+
+create table public.e - office (
+  id bigint generated by default as identity not null,
+  sr_no bigint not null,
+  file_no text not null,
+  pending_office text null,
+  pending_with text null,
+  pending_since timestamp without time zone null,
+  no_of_days bigint null,
+  remark text null,
+  completed boolean null default false,
+  created_at timestamp with time zone not null default now(),
+  completed_at timestamp with time zone null,
+  created_by uuid null,
+  constraint e - office_pkey primary key (id, sr_no, file_no)
+) TABLESPACE pg_default;
+
+
+
+
+create table public.connections (
+  id uuid not null default gen_random_uuid (),
+  employee_email text not null,
+  admin_email text not null,
+  status text null default 'pending'::text,
+  created_at timestamp without time zone null default now(),
+  updated_at timestamp without time zone null default now(),
+  constraint connections_pkey primary key (id),
+  constraint connections_employee_email_admin_email_key unique (employee_email, admin_email),
+  constraint connections_status_check check (
+    (
+      status = any (
+        array[
+          'pending'::text,
+          'accepted'::text,
+          'rejected'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+
+
+create table public.admins (
+  id uuid not null default gen_random_uuid (),
+  email text not null,
+  phone text null,
+  push_token text null,
+  created_at timestamp without time zone null default now(),
+  constraint admins_pkey primary key (id),
+  constraint admins_email_key unique (email)
+) TABLESPACE pg_default;
