@@ -11,8 +11,10 @@ interface TrainLoadingAnimationProps {
    * "loading" -> fades in and eases toward `maxLoadingProgress` over `loadingDurationMs`.
    *              Never reaches the end on its own — it's meant to look like it's
    *              still working no matter how long the real request takes.
-   * "success" -> sprints the remaining distance to the end of the track, holds
-   *              briefly, fades out, then calls `onFinished`.
+   * "success" -> sprints the *remaining* distance to the end of the track
+   *              (duration scales with how far it's already traveled, so a
+   *              fast response doesn't cause a jarring teleport-style sprint),
+   *              holds briefly, fades out, then calls `onFinished`.
    * "error"   -> fades out in place (same as idle), no completion callback.
    */
   status: TrainStatus;
@@ -37,8 +39,12 @@ const TrainLoadingAnimation: React.FC<TrainLoadingAnimationProps> = ({
   darkColor = "#1A2744",
   trackColor = "#E5E7EB",
   trainWidth = moderateScale(62),
-  loadingDurationMs = 6000,
-  maxLoadingProgress = 0.92,
+  // Tuned down from 6000ms: most OTP verifications resolve well under a
+  // second, so a shorter, snappier "cruise" phase means the train is
+  // already close to the end by the time success fires, keeping the
+  // final sprint short and natural instead of a big catch-up jump.
+  loadingDurationMs = 2200,
+  maxLoadingProgress = 0.88,
 }) => {
   const [trackWidth, setTrackWidth] = useState(0);
   const [shouldRender, setShouldRender] = useState(false);
@@ -102,9 +108,8 @@ const TrainLoadingAnimation: React.FC<TrainLoadingAnimationProps> = ({
   useEffect(() => {
     if (!shouldRender || trackWidth <= 0) return;
 
-    animRef.current?.stop();
-
     if (status === "loading") {
+      animRef.current?.stop();
       animRef.current = Animated.timing(progress, {
         toValue: maxLoadingProgress,
         duration: loadingDurationMs,
@@ -115,26 +120,40 @@ const TrainLoadingAnimation: React.FC<TrainLoadingAnimationProps> = ({
     }
 
     if (status === "success") {
-      animRef.current = Animated.sequence([
-        Animated.timing(progress, {
-          toValue: 1,
-          duration: 350,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.delay(200),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ]);
-      animRef.current.start(({ finished }) => {
-        if (finished) {
-          setShouldRender(false);
-          progress.setValue(0);
-          onFinished?.();
-        }
+      animRef.current?.stop();
+
+      // Capture however far the train has actually traveled so far, so the
+      // final sprint's duration scales with the remaining distance instead
+      // of always being a fixed length. This is what prevents the
+      // "teleport" look when verification finishes quickly and the train
+      // has barely moved along the track.
+      progress.stopAnimation((currentValue) => {
+        const remaining = Math.max(1 - currentValue, 0);
+        const sprintDuration = Math.round(Math.max(250, remaining * 700));
+
+        const sequence = Animated.sequence([
+          Animated.timing(progress, {
+            toValue: 1,
+            duration: sprintDuration,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.delay(150),
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+        ]);
+
+        animRef.current = sequence;
+        sequence.start(({ finished }) => {
+          if (finished) {
+            setShouldRender(false);
+            progress.setValue(0);
+            onFinished?.();
+          }
+        });
       });
     }
 

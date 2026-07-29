@@ -223,8 +223,8 @@ async def verify_otp(request: Request, data: VerifyOTPRequest):
         raise HTTPException(status_code=404, detail="Account not found.")
     user = user.data[0]
 
-    access_token = create_access_token(email=user["email"], role=user["role"], workspace_id=user.get("workspace_id"))
-    refresh_token = create_refresh_token(user["email"])
+    access_token = create_access_token(email=user["email"], role=user["role"], workspace_id=user.get("workspace_id")) # for 30 sec
+    refresh_token = create_refresh_token(user["email"]) # for 30 days 
     
     return {
         "success": True,
