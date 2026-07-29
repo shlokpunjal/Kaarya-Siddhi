@@ -37,6 +37,13 @@ CREATE TABLE users (
     "reportingTo" TEXT,
 
     expo_push_token TEXT
+     -- Set whenever push registration fails on the client (no physical
+    -- device, permission denied, missing EAS projectId, etc). NULL means
+    -- either registration succeeded (expo_push_token is set) or the
+    -- client hasn't attempted registration yet this session. Lets you
+    -- query "which users have a null expo_push_token, and why" instead
+    -- of that only ever showing up in an individual device's console.
+    push_token_status TEXT
 );
 
 --------------------------------------------------

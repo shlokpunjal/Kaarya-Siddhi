@@ -44,7 +44,7 @@ export default function AdminNotifications() {
 
   const fetchOtherNotifications = useCallback(async () => {
     try {
-      const res = await authFetch("/notifications?types=task_in_review");
+      const res = await authFetch("/notifications?types=task_in_review,overdue,eoffice_pending");
       if (!res.ok) {
         console.error("Error fetching other notifications:", res.status);
         return;
@@ -387,15 +387,18 @@ export default function AdminNotifications() {
         ) : (
             otherNotifications.map((n) => {
               const taskId = n.task_id ?? n.metadata?.taskId;
+              const isEoffice = n.type === "eoffice_pending";
               return (
                 <TouchableOpacity
                   key={n.id}
-                  disabled={!taskId}
+                  disabled={!isEoffice && !taskId}
                   onPress={() =>
-                    router.push({
-                      pathname: "/(task)/taskDetailAdmin",
-                      params: { taskId },
-                    })
+                    isEoffice
+                      ? router.push("/reports/eoffice")
+                      : router.push({
+                          pathname: "/(task)/taskDetailAdmin",
+                          params: { taskId },
+                        })
                   }
                   style={{
                     flexDirection: "row",
