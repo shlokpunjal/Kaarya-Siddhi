@@ -22,7 +22,6 @@ import { registerAndSavePushToken } from "../../lib/pushNotifications";
 import { sendLoginNotification } from "../../utils/notifications";
 import { wp, moderateScale } from "../../utils/responsive";
 import TrainLoadingAnimation from "../../components/TrainLoadingAnimation";
-import VerifiedSuccess from "../../components/VerifiedSuccess";
 
 type TrainStatus = "idle" | "loading" | "success" | "error";
 
@@ -48,7 +47,6 @@ const OtpVerify = () => {
     name?: string;
   }>();
   const { saveSession } = useAuth();
-  const [showSuccess, setShowSuccess] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [resendMessage, setResendMessage] = useState("");
 
@@ -141,14 +139,15 @@ const OtpVerify = () => {
   };
 
   // Fired once the train has visibly arrived at the end of the track and
-  // faded out — only then do we swap in VerifiedSuccess and navigate.
+  // faded out — then we navigate. The train is already invisible by the
+  // time this fires (its own fade-out already ran), so this only needs a
+  // short beat rather than a long fixed pause before handing off.
   const handleTrainFinished = () => {
-    setShowSuccess(true);
     const data = pendingVerifiedDataRef.current;
     pendingVerifiedDataRef.current = null;
     setTimeout(() => {
       if (data) proceedAfterVerification(data);
-    }, 1100);
+    }, 150);
   };
 
   const verifyOTP = async (code?: string) => {
@@ -162,7 +161,11 @@ const OtpVerify = () => {
 
     isVerifyingRef.current = true;
 
-    const MIN_VISIBLE_MS = 900;
+    // Just enough to keep the loading animation from flashing on very fast
+    // responses — trimmed down from 900ms since it was stacking with the
+    // train animation and the post-finish delay to make verification feel
+    // stuck for ~2.8s even on quick networks.
+    const MIN_VISIBLE_MS = 500;
     const startTime = Date.now();
 
     try {
@@ -230,8 +233,8 @@ const OtpVerify = () => {
         await new Promise((res) => setTimeout(res, MIN_VISIBLE_MS - elapsed));
       }
 
-      // Don't show success or navigate yet — wait for the train to
-      // finish its arrival animation first (see handleTrainFinished).
+      // Don't navigate yet — wait for the train to finish its arrival
+      // animation first (see handleTrainFinished).
       pendingVerifiedDataRef.current = data;
       setTrainStatus("success");
     } catch (error: any) {
@@ -320,121 +323,115 @@ const OtpVerify = () => {
                 styles.diviExpanded,
               ]}
             >
-              {showSuccess ? (
-                <VerifiedSuccess />
-              ) : (
-                <>
-                  <Text style={[styles.divtext]}>Login to your workspace</Text>
+              <Text style={[styles.divtext]}>Login to your workspace</Text>
 
-                  <Animated.View
-                    style={{ width: "100%", alignItems: "center", opacity: inputsFade }}
-                    pointerEvents={isVerifying ? "none" : "auto"}
-                  >
-                    <View style={styles.otpContainer}>
-                      {otp.map((digit, index) => (
-                        <TextInput
-                          key={index}
-                          ref={(ref) => {
-                            inputRefs.current[index] = ref;
-                          }}
-                          style={[
-                            styles.otpInput,
-                            focusedIndex === index && styles.activeOtpBox,
-                            digit && styles.filledOtpBox,
-                            otpError && styles.otpError,
-                          ]}
-                          onFocus={() => setFocusedIndex(index)}
-                          onBlur={() => setFocusedIndex(-1)}
-                          value={digit}
-                          cursorColor="#E8870A"
-                          selectionColor="#E8870A"
-                          keyboardType="number-pad"
-                          maxLength={1}
-                          editable={!isVerifying}
-                          onChangeText={(text) => {
-                            const number = text.replace(/[^0-9]/g, "");
-
-                            const updated = [...otp];
-                            updated[index] = number;
-
-                            setOtp(updated);
-
-                            if (otpError) setOtpError("");
-                            if (resendMessage) setResendMessage("");
-
-                            if (number && index < 5) {
-                              setFocusedIndex(index + 1);
-                              inputRefs.current[index + 1]?.focus();
-                            }
-
-                            const otpCode = updated.join("");
-
-                            if (otpCode.length === 6) {
-                              setTimeout(() => {
-                                verifyOTP(otpCode);
-                              }, 100);
-                            }
-                          }}
-                          onKeyPress={({ nativeEvent }) => {
-                            if (
-                              nativeEvent.key === "Backspace" &&
-                              !otp[index] &&
-                              index > 0
-                            ) {
-                              setFocusedIndex(index - 1);
-                              inputRefs.current[index - 1]?.focus();
-                            }
-                          }}
-                        />
-                      ))}
-                    </View>
-                    {otpError ? (
-                      <Text style={styles.errorText}>{otpError}</Text>
-                    ) : null}
-                    {resendMessage ? (
-                      <Text style={styles.successText}>{resendMessage}</Text>
-                    ) : null}
-                  </Animated.View>
-
-                  <View style={{ width: "100%" }}>
-                    <TouchableOpacity
+              <Animated.View
+                style={{ width: "100%", alignItems: "center", opacity: inputsFade }}
+                pointerEvents={isVerifying ? "none" : "auto"}
+              >
+                <View style={styles.otpContainer}>
+                  {otp.map((digit, index) => (
+                    <TextInput
+                      key={index}
+                      ref={(ref) => {
+                        inputRefs.current[index] = ref;
+                      }}
                       style={[
-                        styles.LoginStyle,
-                        (otp.join("").length < 6 || isVerifying) && {
-                          opacity: 0.5,
-                        },
+                        styles.otpInput,
+                        focusedIndex === index && styles.activeOtpBox,
+                        digit && styles.filledOtpBox,
+                        otpError && styles.otpError,
                       ]}
-                      disabled={otp.join("").length < 6 || isVerifying}
-                      onPress={() => verifyOTP(otp.join(""))}
-                    >
-                      {isVerifying ? (
-                        <View
-                          style={{ flexDirection: "row", alignItems: "center" }}
-                        >
-                          <Text style={styles.LoginText}>Verifying</Text>
-                          <View style={{ width: 18, height: 18, marginLeft: 8 }}>
-                            <ActivityIndicator size="small" color="#FFFFFF" />
-                          </View>
-                        </View>
-                      ) : (
-                        <Text style={styles.LoginText}>Verify OTP</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
+                      onFocus={() => setFocusedIndex(index)}
+                      onBlur={() => setFocusedIndex(-1)}
+                      value={digit}
+                      cursorColor="#E8870A"
+                      selectionColor="#E8870A"
+                      keyboardType="number-pad"
+                      maxLength={1}
+                      editable={!isVerifying}
+                      onChangeText={(text) => {
+                        const number = text.replace(/[^0-9]/g, "");
 
-                  {isOnCooldown && (
-                    <Text style={styles.resendText}>Resend in : {cooldown}</Text>
-                  )}
+                        const updated = [...otp];
+                        updated[index] = number;
 
-                  {!isOnCooldown && (
-                    <TouchableOpacity
-                      style={styles.resendButton}
-                      onPress={resendOTP}
+                        setOtp(updated);
+
+                        if (otpError) setOtpError("");
+                        if (resendMessage) setResendMessage("");
+
+                        if (number && index < 5) {
+                          setFocusedIndex(index + 1);
+                          inputRefs.current[index + 1]?.focus();
+                        }
+
+                        const otpCode = updated.join("");
+
+                        if (otpCode.length === 6) {
+                          setTimeout(() => {
+                            verifyOTP(otpCode);
+                          }, 100);
+                        }
+                      }}
+                      onKeyPress={({ nativeEvent }) => {
+                        if (
+                          nativeEvent.key === "Backspace" &&
+                          !otp[index] &&
+                          index > 0
+                        ) {
+                          setFocusedIndex(index - 1);
+                          inputRefs.current[index - 1]?.focus();
+                        }
+                      }}
+                    />
+                  ))}
+                </View>
+                {otpError ? (
+                  <Text style={styles.errorText}>{otpError}</Text>
+                ) : null}
+                {resendMessage ? (
+                  <Text style={styles.successText}>{resendMessage}</Text>
+                ) : null}
+              </Animated.View>
+
+              <View style={{ width: "100%" }}>
+                <TouchableOpacity
+                  style={[
+                    styles.LoginStyle,
+                    (otp.join("").length < 6 || isVerifying) && {
+                      opacity: 0.5,
+                    },
+                  ]}
+                  disabled={otp.join("").length < 6 || isVerifying}
+                  onPress={() => verifyOTP(otp.join(""))}
+                >
+                  {isVerifying ? (
+                    <View
+                      style={{ flexDirection: "row", alignItems: "center" }}
                     >
-                      <Text style={styles.LoginText}>Resend OTP</Text>
-                    </TouchableOpacity>
+                      <Text style={styles.LoginText}>Verifying</Text>
+                      <View style={{ width: 18, height: 18, marginLeft: 8 }}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.LoginText}>Verify OTP</Text>
                   )}
-                </>
+                </TouchableOpacity>
+              </View>
+
+              {isOnCooldown && (
+                <Text style={styles.resendText}>Resend in : {cooldown}</Text>
+              )}
+
+              {!isOnCooldown && (
+                <TouchableOpacity
+                  style={styles.resendButton}
+                  onPress={resendOTP}
+                >
+                  <Text style={styles.LoginText}>Resend OTP</Text>
+                </TouchableOpacity>
               )}
             </Animated.View>
           </View>
