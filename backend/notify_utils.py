@@ -77,11 +77,28 @@ def send_push_notification(push_token: str | None, title: str, body: str, data: 
 
 
 def _get_push_token(user_id: str | None) -> str | None:
+    """Returns the user's push token, or None if there isn't one OR the
+    user has notifications_enabled = false. Callers never need to check
+    notifications_enabled themselves — this is the one gate. The
+    `notifications` table row is written regardless (see
+    create_notification below) so it still shows up on their
+    in-app notifications page; this only controls whether a push
+    (and therefore an OS tray banner) goes out."""
     if not user_id:
         return None
     try:
-        result = supabase.table("users").select("expo_push_token").eq("id", user_id).execute()
-        return result.data[0]["expo_push_token"] if result.data else None
+        result = (
+            supabase.table("users")
+            .select("expo_push_token, notifications_enabled")
+            .eq("id", user_id)
+            .execute()
+        )
+        if not result.data:
+            return None
+        row = result.data[0]
+        if row.get("notifications_enabled") is False:
+            return None
+        return row.get("expo_push_token")
     except Exception as e:
         print(f"Failed to look up push token for user {user_id}: {e}")
         return None

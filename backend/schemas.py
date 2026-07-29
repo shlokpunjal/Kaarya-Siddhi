@@ -45,10 +45,12 @@ class ConnectionRespond(BaseModel):
     admin_email: str
     accept: bool
 
-
 class SavePushTokenRequest(BaseModel):
-    push_token: str = Field(min_length=1, max_length=512)
-
+    # Exactly one of these should be set: a real token on success, or a
+    # short machine-readable reason string when the client couldn't
+    # register (e.g. "not_a_device", "permission_denied", "no_project_id").
+    push_token: str | None = Field(default=None, max_length=512)
+    push_token_status: str | None = Field(default=None, max_length=100)
 
 class CheckNameRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
