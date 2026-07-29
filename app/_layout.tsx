@@ -109,18 +109,21 @@ function navigateFromNotificationData(
       });
       break;
     case "task_in_review":
-      // Sent to both the assignee and the task's creator — the creator is
-      // often an admin, who needs taskDetailAdmin, not the employee-facing
-      // task-detail screen (which the in-app "Other Notifications" tap in
-      // admin.tsx already routes to for the same notification type).
+    case "deadline":
+    case "overdue":
+      // deadline: only ever sent to the employee (assignee), so no
+      // role branch needed — always the employee-facing screen.
+      // overdue / task_in_review: sent to both the assignee and the
+      // task's creator — the creator is often an admin, who needs
+      // taskDetailAdmin, not the employee-facing task-detail screen
+      // (which the in-app "Other Notifications" tap in admin.tsx
+      // already routes to for task_in_review).
       router.push({
         pathname: userRole === "admin" ? "/(task)/taskDetailAdmin" : "/(task)/task-detail",
         params: { taskId: data.taskId },
       });
       break;
     case "eoffice_pending":
-      router.push("/reports/eoffice");
-      break;
   }
 }
 
@@ -172,6 +175,12 @@ function NotificationBridge() {
           userRow.role,
         );
 
+        // notifications_enabled === false means: still write the row (so
+        // it shows on the in-app notifications page), just don't buzz
+        // the tray. false is the only value that suppresses it — missing/
+        // null defaults to enabled, matching the DB column's default.
+        const notificationsEnabled = userRow.notifications_enabled !== false;
+
         // ---------------------------------------------------
         // Register push token
         // Failure here should NOT stop the app/realtime setup.
@@ -213,6 +222,14 @@ function NotificationBridge() {
                     return;
                   }
 
+                  if (!notificationsEnabled) {
+                    // Row already exists in the DB (written server-side
+                    // before this realtime event fires) — it'll show up
+                    // next time they open the notifications page. Just
+                    // skip the tray banner.
+                    return;
+                  }
+
                   const title = notifTitle(notification.type);
 
                   const message =
@@ -223,6 +240,7 @@ function NotificationBridge() {
                     taskId: notification.task_id,
                     ...(notification.metadata ?? {}),
                   });
+
                 } catch (notificationError) {
                   console.error(
                     "[NotificationBridge] Failed to show local notification:",

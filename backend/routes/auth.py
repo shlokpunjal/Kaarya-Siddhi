@@ -29,7 +29,17 @@ def _generate_otp() -> str:
 @router.post("/save-push-token")
 async def save_push_token(data: SavePushTokenRequest, user: dict = Depends(get_current_user)):
     email = user.get("sub")
-    supabase.table("users").update({"expo_push_token": data.push_token}).eq("email", email).execute()
+    if data.push_token:
+        # Successful registration: store the token, clear any stale
+        # failure reason from a previous attempt.
+        update = {"expo_push_token": data.push_token, "push_token_status": None}
+    elif data.push_token_status:
+        # Failed registration: record why, and clear any old token so a
+        # stale/expired one doesn't linger and get pushed to silently.
+        update = {"expo_push_token": None, "push_token_status": data.push_token_status}
+    else:
+        return {"success": False}
+    supabase.table("users").update(update).eq("email", email).execute()
     return {"success": True}
 
 
