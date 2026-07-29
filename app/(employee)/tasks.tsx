@@ -62,6 +62,7 @@ function mapRowToTask(row: TaskRow): Task {
 }
 
 export default function EmployeeTasks() {
+  const { colors } = useTheme();
   const router = useRouter();
 
   const [tasks, setTasks] = useState<Task[]>([]);
