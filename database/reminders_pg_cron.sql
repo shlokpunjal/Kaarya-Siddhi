@@ -27,6 +27,10 @@
 --   3. Chunked pushes — Expo's push API rejects a single request with
 --      more than 100 messages. The Python version already chunks; this
 --      SQL now does too, so a big batch can't silently fail outright.
+--   4. notifications_enabled — every job writes the `notifications` row
+--      for EVERY eligible user regardless of this setting (so it still
+--      shows on their in-app notifications page). It only gates whether
+--      a push (and therefore an OS tray banner) actually goes out.
 --
 -- SETUP (run once, in Supabase SQL Editor):
 --   1. create extension if not exists pg_net with schema extensions;
@@ -79,7 +83,7 @@ declare
 begin
   with eligible as (
     select t.id as task_id, t.title, t.deadline,
-           u.id as user_id, u.expo_push_token
+           u.id as user_id, u.expo_push_token, u.notifications_enabled
     from tasks t
     join users u on u.id = safe_uuid(t.assigned_to)
     where t.deadline::date = target_date
@@ -107,7 +111,10 @@ begin
   into msgs
   from inserted i
   join eligible e on e.task_id = i.task_id and e.user_id = i.user_id
-  where e.expo_push_token is not null;
+  -- notifications row above is written for every eligible user
+  -- regardless; this only gates whether a push goes out.
+  where e.expo_push_token is not null
+    and coalesce(e.notifications_enabled, true) = true;
 
   if msgs is not null then
     for i in 1 .. array_length(msgs, 1) by 100 loop
@@ -138,6 +145,11 @@ select cron.schedule(
 
 -- ============================================================
 -- 2. OVERDUE REMINDERS — daily 9:20 AM IST (03:50 UTC)
+--    Notifies BOTH the task creator (admin) and the assignee
+--    (employee). For self-created tasks (creator == assignee, e.g.
+--    via /tasks/self) this sends exactly ONE notification, not two —
+--    that's why the "assigned employee" branch below is excluded
+--    whenever assigned_to = created_by.
 -- ============================================================
 create or replace function send_overdue_reminders() returns void
 language plpgsql
@@ -148,28 +160,45 @@ declare
   i int;
 begin
   with eligible as (
-    select t.id as task_id, t.title, t.deadline,
-           admin_row.id as admin_id, admin_row.expo_push_token as admin_token,
-           coalesce(emp.name, 'An employee') as employee_name
+    select t.id as task_id, t.title, t.deadline, t.created_by, t.assigned_to
     from tasks t
-    join users admin_row on admin_row.id = safe_uuid(t.created_by)
-    left join users emp on emp.id = safe_uuid(t.assigned_to)
     where t.deadline::date < today
       and t.status not in ('completed', 'in_review')
       and (t.last_overdue_notified_date is null or t.last_overdue_notified_date <> today)
   ),
+  recipients as (
+    -- Admin / creator: "<employee>'s task is overdue"
+    select e.task_id, e.deadline,
+           admin_row.id as user_id, admin_row.expo_push_token as push_token,
+           admin_row.notifications_enabled as notifications_enabled,
+           coalesce(emp.name, 'An employee') || '''s task "' || e.title ||
+             '" is overdue (was due ' || (e.deadline::date)::text || ').' as message
+    from eligible e
+    join users admin_row on admin_row.id = safe_uuid(e.created_by)
+    left join users emp on emp.id = safe_uuid(e.assigned_to)
+
+    union all
+
+    -- Assigned employee: "Your task is overdue" — skipped when the
+    -- employee IS the creator (self-task), so they only get the one
+    -- notification above instead of two identical-looking ones.
+    select e.task_id, e.deadline,
+           emp2.id as user_id, emp2.expo_push_token as push_token,
+           emp2.notifications_enabled as notifications_enabled,
+           'Your task "' || e.title || '" is overdue (was due ' || (e.deadline::date)::text || ').' as message
+    from eligible e
+    join users emp2 on emp2.id = safe_uuid(e.assigned_to)
+    where safe_uuid(e.assigned_to) is distinct from safe_uuid(e.created_by)
+  ),
   inserted as (
     insert into notifications (user_id, task_id, type, message, is_read, metadata)
-    select admin_id, task_id, 'overdue',
-           employee_name || '''s task "' || title || '" is overdue (was due ' || (deadline::date)::text || ').',
-           false,
-           jsonb_build_object('deadline', deadline)
-    from eligible
+    select user_id, task_id, 'overdue', message, false, jsonb_build_object('deadline', deadline)
+    from recipients
     returning user_id, task_id, message
   )
   select array_agg(
     jsonb_build_object(
-      'to', e.admin_token,
+      'to', r.push_token,
       'title', 'Task overdue',
       'body', i.message,
       'sound', 'default',
@@ -178,8 +207,11 @@ begin
   )
   into msgs
   from inserted i
-  join eligible e on e.task_id = i.task_id and e.admin_id = i.user_id
-  where e.admin_token is not null;
+  join recipients r on r.task_id = i.task_id and r.user_id = i.user_id
+  -- notifications row above is written for every recipient regardless;
+  -- this only gates whether a push goes out.
+  where r.push_token is not null
+    and coalesce(r.notifications_enabled, true) = true;
 
   if msgs is not null then
     for i in 1 .. array_length(msgs, 1) by 100 loop
@@ -251,7 +283,10 @@ begin
   into msgs
   from inserted i
   join users u on u.id = i.user_id
-  where u.expo_push_token is not null;
+  -- notifications row above is written for every creator regardless;
+  -- this only gates whether a push goes out.
+  where u.expo_push_token is not null
+    and coalesce(u.notifications_enabled, true) = true;
 
   if msgs is not null then
     for i in 1 .. array_length(msgs, 1) by 100 loop

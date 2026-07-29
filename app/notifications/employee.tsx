@@ -16,7 +16,8 @@ type NotifRow = {
   type:
   | "connection_accepted" | "connection_rejected"
   | "extension_accepted" | "extension_rejected"
-  | "task_assigned" | "task_in_review";
+  | "task_assigned" | "task_in_review"
+  | "deadline" | "overdue" | "eoffice_pending";
   message: string;
   created_at: string;
   metadata: any;
@@ -26,8 +27,12 @@ type NotifRow = {
 const notifMeta = (colors: any, type: NotifRow["type"]) => {
   if (type === "connection_accepted" || type === "extension_accepted")
     return { color: colors.status.completed, icon: "checkmark-circle-outline" as const };
-  if (type === "task_assigned")
+  if (type === "task_assigned" || type === "eoffice_pending")
     return { color: colors.brand.accent, icon: "briefcase-outline" as const };
+  if (type === "deadline")
+    return { color: colors.status.pending, icon: "time-outline" as const };
+  if (type === "overdue")
+    return { color: colors.status.overdue, icon: "alert-circle-outline" as const };
   return { color: colors.status.overdue, icon: "close-circle-outline" as const };
 };
 
@@ -58,7 +63,7 @@ export default function EmployeeNotifications() {
   const fetchNotifications = useCallback(async (id: string) => {
     setLoading(true);
     try {
-        const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review,deadline,overdue";
+      const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review,deadline,overdue,eoffice_pending";
       const res = await authFetch(`/notifications?types=${types}`);
 
       if (!res.ok) {
@@ -113,17 +118,25 @@ export default function EmployeeNotifications() {
     }
   };
 
-  const handlePress = (n: NotifRow) => {
+    const handlePress = (n: NotifRow) => {
     if (n.type === "extension_accepted" || n.type === "extension_rejected") {
       router.push({
         pathname: "/notifications/employee-request-detail",
         params: { requestId: n.metadata?.extension_request_id },
       });
-    } else if (n.type === "task_assigned" || n.type === "task_in_review") {
+    } else if (
+      n.type === "task_assigned" ||
+      n.type === "task_in_review" ||
+      n.type === "deadline" ||
+      n.type === "overdue"
+    ) {
       router.push({
         pathname: "/(task)/task-detail",
         params: { taskId: n.task_id ?? n.metadata?.taskId },
       });
+    } else if (n.type === "eoffice_pending") {
+      // No task_id on this type — it's per e-office file, not per task.
+      router.push("/reports/eoffice");
     }
     // Connection notifications have no dedicated detail screen — just informational.
   };
@@ -220,7 +233,13 @@ export default function EmployeeNotifications() {
         {notifications.map((n) => {
           const meta = notifMeta(colors, n.type);
           const isExtension = n.type.startsWith("extension");
-          const isTappable = isExtension || n.type === "task_assigned" || n.type === "task_in_review";
+          const isTappable =
+            isExtension ||
+            n.type === "task_assigned" ||
+            n.type === "task_in_review" ||
+            n.type === "deadline" ||
+            n.type === "overdue" ||
+            n.type === "eoffice_pending";
           return (
             <TouchableOpacity
               key={n.id}
