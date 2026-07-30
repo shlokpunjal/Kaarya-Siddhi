@@ -13,7 +13,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
-import AdminConnectionReviewSkeleton from "../../components/AdminConnectionReviewSkeleton";
+import AdminConnectionReviewSkeleton from "../../components/skeletonScreens/AdminConnectionReviewSkeleton";
 import { authFetch } from "../../utils/authFetch";
 
 type Status = "pending" | "accepted" | "rejected";

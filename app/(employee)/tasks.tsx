@@ -7,7 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { TaskStatus, TaskPriority, Task } from "../../types/task";
 import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
-import AdminTasksSkeleton from "../../components/AdminTasksSkeleton";
+import AdminTasksSkeleton from "../../components/skeletonScreens/AdminTasksSkeleton";
 import { authFetch } from "../../utils/authFetch";
 import { taskListStyles } from "../../styles/taskListStyles";
 import { useTaskFilters } from "../../hooks/tasks/useTasksFilter";
@@ -63,6 +63,7 @@ function mapRowToTask(row: TaskRow): Task {
 
 export default function EmployeeTasks() {
   const router = useRouter();
+  const { colors } = useTheme();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);

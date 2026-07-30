@@ -13,7 +13,11 @@
         "buildType": "apk"
       }
     },
-    "production": {}
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://kaarya-siddhi-0w7j.onrender.com"
+      }
+    }
   },
   "submit": {
     "production": {}

@@ -15,8 +15,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
-import BackButton from "../../components/backButton";
-import ValidatedInput from "../../components/ValidatedInput";
+import BackButton from "./backButton";
+import ValidatedInput from "./ValidatedInput";
 import { isValidEmail, isValidPhone } from "../../constants/validators";
 import { wp, moderateScale } from "../../utils/responsive";
 
