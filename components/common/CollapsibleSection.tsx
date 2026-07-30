@@ -1,9 +1,9 @@
 import { useState, ReactNode } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { typography } from '../theme/theme';
-import { Theme } from '../theme/theme';
-import { moderateScale } from '../utils/responsive';
+import { typography } from '../../theme/theme';
+import { Theme } from '../../theme/theme';
+import { moderateScale } from '../../utils/responsive';
 
 type Props = {
   icon: keyof typeof Ionicons.glyphMap;

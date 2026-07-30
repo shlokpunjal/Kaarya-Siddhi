@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, NativeSyntheticEvent, NativeScrollEvent, LayoutChangeEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import ProgressDots from "../../components/progressDots";
+import ProgressDots from "../../components/onboarding/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
 import { PRIVACY_POLICY_TEXT } from "../../constants/privacyPolicyText";
 import { wp, moderateScale } from "../../utils/responsive";

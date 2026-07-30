@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { TaskStatus, TaskPriority, Task } from "../../types/task";
 import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
-import AdminTasksSkeleton from "../../components/AdminTasksSkeleton";
+import AdminTasksSkeleton from "../../components/skeletonScreens/AdminTasksSkeleton";
 import { authFetch } from "../../utils/authFetch";
 import { taskListStyles } from "../../styles/taskListStyles";
 import { useTaskFilters } from "../../hooks/tasks/useTasksFilter";

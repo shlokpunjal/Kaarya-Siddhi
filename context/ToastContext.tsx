@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ToastItem, ToastData, ToastType } from "../components/Toast";
+import { ToastItem, ToastData, ToastType } from "../components/common/Toast";
 
 interface ToastContextValue {
   showToast: (message: string, type?: ToastType, duration?: number) => void;

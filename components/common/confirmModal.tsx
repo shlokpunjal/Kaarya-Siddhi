@@ -1,8 +1,8 @@
 import React from 'react';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
-import { typography } from '../theme/theme';
-import { useTheme } from '../context/ThemeContext';
-import { moderateScale } from '../utils/responsive';
+import { typography } from '../../theme/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { moderateScale } from '../../utils/responsive';
 
 type ConfirmModalProps = {
   visible: boolean;

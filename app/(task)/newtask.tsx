@@ -22,10 +22,10 @@ import { createNotification } from "../../lib/notify";
 import { sendLocalNotification } from "../../utils/notifications";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
-import { AlertModal } from "../../components/AlertModal";
+import { AlertModal } from "../../components/common/AlertModal";
 import { toLocalDateString } from "../../utils/dateFormat";
 import { authFetch } from "../../utils/authFetch";
-import TaskFormSkeleton from "../../components/TaskFormSkeleton";
+import TaskFormSkeleton from "../../components/skeletonScreens/TaskFormSkeleton";
 
 type Priority = "low" | "medium" | "high";
 

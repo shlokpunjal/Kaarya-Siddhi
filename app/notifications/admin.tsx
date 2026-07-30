@@ -8,7 +8,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
-import AdminNotificationsSkeleton from "../../components/AdminNotificationSkeleton";
+import AdminNotificationsSkeleton from "../../components/skeletonScreens/AdminNotificationSkeleton";
 import { authFetch } from "../../utils/authFetch";
 
 function getFreshChannel(name: string) {

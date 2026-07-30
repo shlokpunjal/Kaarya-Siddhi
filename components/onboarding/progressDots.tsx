@@ -1,6 +1,6 @@
 import { View, StyleSheet } from "react-native";
-import { lightTheme } from "../theme/theme";
-import { moderateScale } from "../utils/responsive";
+import { lightTheme } from "../../theme/theme";
+import { moderateScale } from "../../utils/responsive";
 
 const { colors } = lightTheme;
 

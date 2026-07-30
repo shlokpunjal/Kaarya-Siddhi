@@ -39,7 +39,10 @@ DEFAULT_TITLES = {
     "extension_rejected": "Extension Rejected",
     "task_assigned": "New Task Assigned",
     "task_in_review": "Task Submitted for Review",
+<<<<<<< HEAD
+=======
     "task_suggestion": "Changes Requested",
+>>>>>>> 628a6d3e52a4bd4a724aeac4969ed7da631e3ba9
     "deadline": "Task due tomorrow",
     "overdue": "Task overdue",
     "eoffice_pending": "Track your eOffice files",

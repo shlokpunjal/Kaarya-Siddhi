@@ -18,7 +18,7 @@ import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
-import AdminRequestReviewSkeleton from "../../components/AdminRequestReviewSkeleton";
+import AdminRequestReviewSkeleton from "../../components/skeletonScreens/AdminRequestReviewSkeleton";
 import { authFetch } from "../../utils/authFetch";
 
 const statusMeta = (colors: any, status: string) => {

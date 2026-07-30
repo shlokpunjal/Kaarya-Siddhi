@@ -1,5 +1,5 @@
 // app/(admin)/calendar.tsx
-import CalendarView from "../../components/CalendarView";
+import CalendarView from "../../components/calendar/CalendarView";
 
 export default function CalendarScreen() {
   return (

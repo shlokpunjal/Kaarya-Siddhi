@@ -5,7 +5,7 @@ import React, {
   useState,
 } from "react";
 
-import LoadingOverlay from "../components/LoadingOverlay";
+import LoadingOverlay from "../components/animation/LoadingOverlay";
 
 interface LoadingContextType {
   showLoading: (message?: string) => void;

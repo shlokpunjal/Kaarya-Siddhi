@@ -1,13 +1,82 @@
+from typing import Annotated, Literal, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict, Field
 from supabase_client import supabase
 from auth_utils import get_current_user, validate_cloudinary_url
 from notify_utils import create_notification
 
-# Truncated in the notification message so a very long suggestion doesn't
-# blow up the push banner / notifications-list row.
-SUGGESTION_PREVIEW_LEN = 120
-
 router = APIRouter()
+
+
+# --- Request models ----------------------------------------------------
+# `extra="forbid"` on every model so an unexpected field in the request
+# body is a 422 instead of being silently ignored (or, worse, silently
+# accepted somewhere a raw dict would have let it through).
+#
+# NOTE on `priority`/`status` value sets: inferred from where they're
+# read elsewhere in the backend (pdf_report.py's STATUS_COLORS, the
+# "medium" default here). Confirm these match the frontend's actual enum
+# before relying on this as the source of truth.
+#
+# Every string field has an explicit max_length so a malicious or buggy
+# client can't send multi-megabyte text into a title, remark, etc. and
+# waste DB/server resources. Reasonable, generous ceilings chosen per
+# field's purpose — short for IDs/dates, longer for free text.
+
+Priority = Literal["low", "medium", "high"]
+TaskStatus = Literal["pending", "in_review", "completed", "overdue"]
+
+# Supabase/Postgres UUIDs are 36 chars; this leaves headroom without
+# allowing arbitrarily long junk in an id-shaped field.
+IdStr = Annotated[str, Field(min_length=1, max_length=100)]
+# ISO date or datetime string, generous enough for any timezone suffix.
+DateStr = Annotated[str, Field(min_length=1, max_length=40)]
+# Typical practical URL length ceiling (browsers cap around 2000-8000).
+UrlStr = Annotated[str, Field(min_length=1, max_length=2048)]
+
+# Max number of file records accepted in a single /task-files request —
+# guards against someone submitting an enormous batch in one call.
+MAX_TASK_FILES_PER_REQUEST = 20
+
+
+class SelfTaskCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str = Field(..., min_length=1, max_length=300)
+    deadline: Optional[DateStr] = None
+    description: Optional[str] = Field(None, max_length=5000)
+    attachment_url: Optional[UrlStr] = None
+    priority: Priority = "medium"
+
+
+class AssignedTaskCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str = Field(..., min_length=1, max_length=300)
+    assigned_to: IdStr
+    deadline: Optional[DateStr] = None
+    description: Optional[str] = Field(None, max_length=5000)
+    attachment_url: Optional[UrlStr] = None
+    priority: Priority = "medium"
+
+
+class TaskUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: Optional[str] = Field(None, min_length=1, max_length=300)
+    deadline: Optional[DateStr] = None
+    description: Optional[str] = Field(None, max_length=5000)
+    attachment_url: Optional[UrlStr] = None
+    priority: Optional[Priority] = None
+    assigned_to: Optional[IdStr] = None
+    status: Optional[TaskStatus] = None
+    suggestion: Optional[str] = Field(None, max_length=2000)
+    completed_at: Optional[DateStr] = None
+
+
+class TaskFileIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    task_id: IdStr
+    file_url: UrlStr
+    file_name: Optional[str] = Field(None, max_length=300)
 
 
 def _get_own_id(email: str) -> str:
@@ -25,6 +94,20 @@ def _check_ownership(task_id: str, own_id: str):
         raise HTTPException(status_code=403, detail="Not your task.")
 
 
+def _check_task_access_in_workspace(task_id: str, own_id: str, workspace_id: str | None):
+    """Stricter than _check_ownership: also requires the task to belong to
+    the caller's own workspace, not just that the caller is the creator or
+    assignee. Used anywhere a client-supplied task_id drives a write."""
+    task = supabase.table("tasks").select("created_by, assigned_to, workspace_id").eq("id", task_id).execute()
+    if not task.data:
+        raise HTTPException(status_code=404, detail="Task not found.")
+    row = task.data[0]
+    if own_id not in (row["created_by"], row["assigned_to"]):
+        raise HTTPException(status_code=403, detail="Not your task.")
+    if not workspace_id or row.get("workspace_id") != workspace_id:
+        raise HTTPException(status_code=403, detail="Task does not belong to your workspace.")
+
+
 @router.get("/tasks/{task_id}")
 async def get_task(task_id: str, current_user: dict = Depends(get_current_user)):
     own_id = _get_own_id(current_user["sub"])
@@ -34,7 +117,7 @@ async def get_task(task_id: str, current_user: dict = Depends(get_current_user))
 
 
 @router.post("/tasks/self")
-async def create_self_task(payload: dict, current_user: dict = Depends(get_current_user)):
+async def create_self_task(payload: SelfTaskCreate, current_user: dict = Depends(get_current_user)):
     user = supabase.table("users").select("id, workspace_id").eq("email", current_user["sub"]).execute()
     if not user.data or not user.data[0].get("workspace_id"):
         raise HTTPException(status_code=400, detail="Could not find your workspace.")
@@ -43,13 +126,13 @@ async def create_self_task(payload: dict, current_user: dict = Depends(get_curre
     result = (
         supabase.table("tasks")
         .insert({
-            "title": payload.get("title"),
+            "title": payload.title,
             "assigned_to": row["id"],
-            "deadline": payload.get("deadline"),
-            "description": payload.get("description"),
-            "attachment_url": validate_cloudinary_url(payload.get("attachment_url")),
+            "deadline": payload.deadline,
+            "description": payload.description,
+            "attachment_url": validate_cloudinary_url(payload.attachment_url),
             "status": "pending",
-            "priority": payload.get("priority", "medium"),
+            "priority": payload.priority,
             "created_by": row["id"],
             "workspace_id": row["workspace_id"],
         })
@@ -60,77 +143,61 @@ async def create_self_task(payload: dict, current_user: dict = Depends(get_curre
 
 
 @router.patch("/tasks/{task_id}")
-async def update_task(task_id: str, payload: dict, current_user: dict = Depends(get_current_user)):
+async def update_task(task_id: str, payload: TaskUpdate, current_user: dict = Depends(get_current_user)):
     own_id = _get_own_id(current_user["sub"])
-    _check_ownership(task_id, own_id)
+    task = supabase.table("tasks").select("created_by, assigned_to").eq("id", task_id).execute()
+    if not task.data:
+        raise HTTPException(status_code=404, detail="Task not found.")
+    row = task.data[0]
 
-    # Needed (title, created_by, assigned_to) below to notify the employee
-    # if this update turns out to be an admin "suggest changes" — fetched
-    # before the update so we still have the pre-update assigned_to even
-    # if the payload happens to also change it.
-    before = (
-        supabase.table("tasks")
-        .select("title, created_by, assigned_to")
-        .eq("id", task_id)
-        .execute()
-    )
-    task_before = before.data[0] if before.data else {}
+    if own_id == row["created_by"]:
+        # Creator (admin assigning, or an employee editing their own self-task)
+        # can edit everything, including admin feedback.
+        allowed = {"title", "deadline", "description", "attachment_url", "priority", "assigned_to", "status", "suggestion", "completed_at"}
+    elif own_id == row["assigned_to"]:
+        # Pure assignee can only report progress on the task, not rewrite it.
+        allowed = {"status", "completed_at"}
+    else:
+        raise HTTPException(status_code=403, detail="Not your task.")
 
-    allowed = {"title", "deadline", "description", "attachment_url", "priority", "assigned_to", "status", "suggestion", "completed_at"}
-    updates = {k: v for k, v in payload.items() if k in allowed}
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if k in allowed}
     if not updates:
         raise HTTPException(status_code=400, detail="No valid fields to update.")
 
-    # Reassignment is an admin-only action. Previously any owner/assignee
-    # (i.e. any employee who owned or was assigned the task) could hand
-    # their own task off to an arbitrary user_id via this same field.
-    if "assigned_to" in updates and current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can reassign a task.")
+    if "assigned_to" in updates:
+        # Reassignment is an admin action, same rules as POST /tasks/assign —
+        # a creator editing their own self-task can't use this field to hand
+        # it to a coworker or another workspace's employee.
+        if current_user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Only admins can reassign tasks.")
+        admin = supabase.table("users").select("workspace_id").eq("id", own_id).execute()
+        admin_workspace_id = admin.data[0].get("workspace_id") if admin.data else None
+        employee = (
+            supabase.table("users")
+            .select("id, role, workspace_id")
+            .eq("id", updates["assigned_to"])
+            .execute()
+        )
+        if (
+            not employee.data
+            or employee.data[0].get("role") != "employee"
+            or employee.data[0].get("workspace_id") != admin_workspace_id
+        ):
+            raise HTTPException(status_code=403, detail="That employee is not part of your workspace.")
 
     result = supabase.table("tasks").update(updates).eq("id", task_id).select().execute()
-    updated_task = result.data[0]
-
-    # ── Notify the employee when the admin sends the task back with
-    # feedback (the "Suggest Changes" / "Add Suggestion" flow) ─────────
-    # THE single place this fires from — both admin screens that can send
-    # a suggestion (taskDetailAdmin.tsx and complete.tsx) go through this
-    # same PATCH endpoint, so putting it here (instead of each screen
-    # calling a notify endpoint itself) guarantees it always fires with
-    # the right payload shape, writes the notifications-page row, and
-    # triggers the realtime tray push — regardless of which screen was
-    # used. Only fires when: a non-empty suggestion was actually attached,
-    # and the person making the change is the task's creator (the admin)
-    # notifying someone other than themselves.
-    suggestion_text = updates.get("suggestion")
-    assigned_to = task_before.get("assigned_to")
-    if (
-        suggestion_text
-        and own_id == task_before.get("created_by")
-        and assigned_to
-        and assigned_to != own_id
-    ):
-        preview = suggestion_text.strip()
-        if len(preview) > SUGGESTION_PREVIEW_LEN:
-            preview = preview[:SUGGESTION_PREVIEW_LEN].rstrip() + "…"
-        title = task_before.get("title") or "your task"
-        try:
-            create_notification(
-                assigned_to,
-                "task_suggestion",
-                f'Your admin requested changes on "{title}": {preview}',
-                task_id=task_id,
-                title="Changes Requested",
-            )
-        except Exception as e:
-            print(f"Failed to notify employee of suggestion on task {task_id}: {e}")
-
-    return updated_task
-
+    return result.data[0]
 
 @router.delete("/tasks/{task_id}")
 async def delete_task(task_id: str, current_user: dict = Depends(get_current_user)):
     own_id = _get_own_id(current_user["sub"])
-    _check_ownership(task_id, own_id)
+    task = supabase.table("tasks").select("created_by").eq("id", task_id).execute()
+    if not task.data:
+        raise HTTPException(status_code=404, detail="Task not found.")
+    if task.data[0]["created_by"] != own_id:
+        # Only the person who created the task (admin, or the employee on
+        # their own self-task) can delete it — being the assignee isn't enough.
+        raise HTTPException(status_code=403, detail="Only the task creator can delete this task.")
 
     supabase.table("task_files").delete().eq("task_id", task_id).execute()
     supabase.table("task_submissions").delete().eq("task_id", task_id).execute()
@@ -142,38 +209,67 @@ async def delete_task(task_id: str, current_user: dict = Depends(get_current_use
 
 
 @router.post("/task-files")
-async def add_task_files(payload: list[dict], current_user: dict = Depends(get_current_user)):
-    # Previously had no check at all that the task belonged to the
-    # caller — any authenticated user could attach file records to any
-    # task_id. Verify ownership of every distinct task_id in the batch
-    # before inserting any of it.
-    own_id = _get_own_id(current_user["sub"])
-    task_ids = {row.get("task_id") for row in payload if row.get("task_id")}
-    if not task_ids:
-        raise HTTPException(status_code=400, detail="task_id is required for each file.")
-    for task_id in task_ids:
-        _check_ownership(task_id, own_id)
+async def add_task_files(payload: list[TaskFileIn], current_user: dict = Depends(get_current_user)):
+    if not payload:
+        raise HTTPException(status_code=400, detail="No file records provided.")
+    if len(payload) > MAX_TASK_FILES_PER_REQUEST:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many files in one request (max {MAX_TASK_FILES_PER_REQUEST}).",
+        )
 
-    result = supabase.table("task_files").insert(payload).execute()
+    user = supabase.table("users").select("id, workspace_id").eq("email", current_user["sub"]).execute()
+    if not user.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    own_id = user.data[0]["id"]
+    workspace_id = user.data[0].get("workspace_id")
+
+    # Every file record must name a task, and that task must be one the
+    # caller can access (creator or assignee) within their own workspace —
+    # otherwise a manipulated request could attach files to someone else's
+    # task.
+    task_ids = {f.task_id for f in payload}
+    for tid in task_ids:
+        _check_task_access_in_workspace(tid, own_id, workspace_id)
+
+    result = supabase.table("task_files").insert([f.model_dump() for f in payload]).execute()
     return result.data
 
 @router.post("/tasks/assign")
-async def create_assigned_task(payload: dict, current_user: dict = Depends(get_current_user)):
+async def create_assigned_task(payload: AssignedTaskCreate, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can assign tasks.")
+
     admin = supabase.table("users").select("id, workspace_id").eq("email", current_user["sub"]).execute()
     if not admin.data or not admin.data[0].get("workspace_id"):
         raise HTTPException(status_code=400, detail="Could not find your workspace.")
     row = admin.data[0]
 
+    employee = (
+        supabase.table("users")
+        .select("id, role, workspace_id")
+        .eq("id", payload.assigned_to)
+        .execute()
+    )
+    if (
+        not employee.data
+        or employee.data[0].get("role") != "employee"
+        or employee.data[0].get("workspace_id") != row["workspace_id"]
+    ):
+        # Covers both a manipulated request pointing at another workspace's
+        # employee, and one pointing at a non-employee (e.g. another admin).
+        raise HTTPException(status_code=403, detail="That employee is not part of your workspace.")
+
     result = (
         supabase.table("tasks")
         .insert({
-            "title": payload.get("title"),
-            "assigned_to": payload.get("assigned_to"),
-            "deadline": payload.get("deadline"),
-            "description": payload.get("description"),
-            "attachment_url": validate_cloudinary_url(payload.get("attachment_url")),
+            "title": payload.title,
+            "assigned_to": payload.assigned_to,
+            "deadline": payload.deadline,
+            "description": payload.description,
+            "attachment_url": validate_cloudinary_url(payload.attachment_url),
             "status": "pending",
-            "priority": payload.get("priority", "medium"),
+            "priority": payload.priority,
             "created_by": row["id"],
             "workspace_id": row["workspace_id"],
         })
@@ -221,8 +317,12 @@ async def get_task_detail(task_id: str, current_user: dict = Depends(get_current
         "assigned_to_name": _resolve_name(task.get("assigned_to")),
     }
 
+# AFTER — reuses the same _check_ownership() helper already used elsewhere in this file
 @router.get("/tasks/{task_id}/pending-extension")
 async def get_pending_extension(task_id: str, current_user: dict = Depends(get_current_user)):
+    own_id = _get_own_id(current_user["sub"])
+    _check_ownership(task_id, own_id)
+
     result = (
         supabase.table("extension_requests")
         .select("id")
@@ -231,7 +331,6 @@ async def get_pending_extension(task_id: str, current_user: dict = Depends(get_c
         .execute()
     )
     return {"pending": bool(result.data)}
-
 
 @router.post("/tasks/{task_id}/ask-review")
 async def ask_for_review(task_id: str, current_user: dict = Depends(get_current_user)):

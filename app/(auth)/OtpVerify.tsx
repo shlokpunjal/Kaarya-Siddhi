@@ -17,13 +17,58 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
-import BackButton from "../../components/backButton";
+import BackButton from "../../components/auth/backButton";
 import { registerAndSavePushToken } from "../../lib/pushNotifications";
 import { sendLoginNotification } from "../../utils/notifications";
 import { wp, moderateScale } from "../../utils/responsive";
-import TrainLoadingAnimation from "../../components/TrainLoadingAnimation";
+import TrainLoadingAnimation from "../../components/animation/TrainLoadingAnimation";
 
 type TrainStatus = "idle" | "loading" | "success" | "error";
+
+type VerifiedData = {
+  role: string;
+  email: string;
+  workspace_id?: string | null;
+  token: string;
+  refresh_token: string;
+};
+
+// Pulled out of the component so the routing rules can be reasoned about
+// (and tested) on their own, independent of animation/state concerns.
+function getPostVerificationRoute(
+  mode: string | undefined,
+  data: VerifiedData,
+  name?: string,
+) {
+  if (mode === "signup") {
+    if (data.role === "admin") {
+      return {
+        pathname: "/(onboarding)/profileSetup1" as const,
+        params: { role: "admin", name },
+      };
+    }
+
+    if (data.role === "employee") {
+      return {
+        pathname: "/(auth)/RequestAdmin" as const,
+        params: { email: data.email, name, mode: "signup" },
+      };
+    }
+  }
+
+  if (data.role === "admin") {
+    return { pathname: "/(admin)" as const };
+  }
+
+  if (data.role === "employee" && !data.workspace_id) {
+    return {
+      pathname: "/(auth)/RequestAdmin" as const,
+      params: { email: data.email, mode: "login" },
+    };
+  }
+
+  return { pathname: "/(employee)" as const };
+}
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -36,7 +81,7 @@ const OtpVerify = () => {
   const inputsFade = useRef(new Animated.Value(1)).current;
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const isVerifyingRef = useRef(false);
-  const pendingVerifiedDataRef = useRef<any>(null);
+  const pendingVerifiedDataRef = useRef<VerifiedData | null>(null);
   const [cooldown, setCooldown] = useState(30);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { email, ph, role, mode, name } = useLocalSearchParams<{
@@ -99,43 +144,15 @@ const OtpVerify = () => {
       });
     }, 1000);
   };
-  const proceedAfterVerification = (data: any) => {
-    if (mode === "signup") {
-      if (data.role === "admin") {
-        router.replace({
-          pathname: "/(onboarding)/profileSetup1",
-          params: { role: "admin", name },
-        });
-        return;
-      }
 
-      if (data.role === "employee") {
-        router.replace({
-          pathname: "/(auth)/RequestAdmin",
-          params: { email: data.email, name, mode: "signup" },
-        });
-        return;
-      }
-    }
-
-    sendLoginNotification(data.email).catch((err) =>
-      console.log("Login notification failed:", err),
-    );
-
-    if (data.role === "admin") {
-      router.replace("/(admin)");
-      return;
-    }
-
-    if (data.role === "employee" && !data.workspace_id) {
-      router.replace({
-        pathname: "/(auth)/RequestAdmin",
-        params: { email: data.email, mode: "login" },
+  const proceedAfterVerification = (data: VerifiedData) => {
+    if (mode !== "signup") {
+      sendLoginNotification(data.email).catch(() => {
+        // best-effort — a failed notification shouldn't block navigation
       });
-      return;
     }
 
-    router.replace("/(employee)");
+    router.replace(getPostVerificationRoute(mode, data, name));
   };
 
   // Fired once the train has visibly arrived at the end of the track and
@@ -216,6 +233,7 @@ const OtpVerify = () => {
         setOtpError(data.detail || "Invalid OTP");
         return;
       }
+
       await saveSession(
         data.token,
         ph?.toString() ?? "",
@@ -224,9 +242,9 @@ const OtpVerify = () => {
         data.workspace_id,
         data.refresh_token,
       );
-      registerAndSavePushToken().catch((err) =>
-        console.log("Push token registration failed:", err),
-      );
+      registerAndSavePushToken().catch(() => {
+        // best-effort — push registration failures shouldn't block login
+      });
 
       const elapsed = Date.now() - startTime;
       if (elapsed < MIN_VISIBLE_MS) {
@@ -237,8 +255,7 @@ const OtpVerify = () => {
       // animation first (see handleTrainFinished).
       pendingVerifiedDataRef.current = data;
       setTrainStatus("success");
-    } catch (error: any) {
-      console.log("FULL ERROR:", error);
+    } catch (error) {
       const elapsed = Date.now() - startTime;
       if (elapsed < MIN_VISIBLE_MS) {
         await new Promise((res) => setTimeout(res, MIN_VISIBLE_MS - elapsed));
@@ -277,7 +294,6 @@ const OtpVerify = () => {
       setResendMessage("OTP sent successfully");
       startCooldown();
     } catch (error) {
-      console.log(error);
       setOtpError("Unable to resend OTP.");
     }
   };
@@ -513,21 +529,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Poppins_400Regular",
   },
-  input: {
-    backgroundColor: "#E5E7EB",
-    height: moderateScale(48),
-    width: moderateScale(280),
-    justifyContent: "center",
-    paddingLeft: wp(5.3),
-    borderRadius: 10,
-    marginTop: 16,
-    borderColor: "#6B7280",
-    borderWidth: 1,
-  },
-  inputError: {
-    borderColor: ERROR,
-    backgroundColor: "#FDECEC",
-  },
   errorText: {
     color: ERROR,
     fontSize: 12,
@@ -553,7 +554,6 @@ const styles = StyleSheet.create({
   maintext: {
     color: "white",
     fontSize: 18,
-    // alignSelf: "center",
     marginLeft: 40,
     marginBottom: 1,
   },
@@ -626,23 +626,6 @@ const styles = StyleSheet.create({
     borderColor: "#D32F2F",
   },
 
-  otpBoxes: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  otpBox: {
-    width: moderateScale(40),
-    height: moderateScale(48),
-    borderRadius: 12,
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1.5,
-    borderColor: "#CBD5E1",
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: 3.5,
-  },
-
   activeOtpBox: {
     borderColor: "#E8870A",
     backgroundColor: "#FFF8EF",
@@ -659,14 +642,5 @@ const styles = StyleSheet.create({
   },
   filledOtpBox: {
     borderColor: "#E8870A",
-  },
-
-  errorOtpBox: {
-    borderColor: "#D32F2F",
-  },
-
-  otpDigit: {
-    fontSize: 22,
-    color: "#1A2744",
   },
 });

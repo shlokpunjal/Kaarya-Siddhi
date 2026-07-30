@@ -17,7 +17,7 @@ import { Task } from "../../types/task";
 import { getGreeting } from "../../utils/greeting";
 import NoTasksAdmin from "../(task)/notasksAdmin";
 import { wp, hp, moderateScale } from "../../utils/responsive";
-import DashboardSkeleton from "../../components/DashboardSkeleton";
+import DashboardSkeleton from "../../components/skeletonScreens/DashboardSkeleton";
 import { authFetch } from "../../utils/authFetch";
 
 type TaskRow = {

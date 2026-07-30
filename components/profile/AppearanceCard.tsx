@@ -2,7 +2,7 @@ import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { typography } from "../../theme/theme";
 import { ThemeMode } from "../../context/ThemeContext";
-import CollapsibleSection from "../CollapsibleSection";
+import CollapsibleSection from "../common/CollapsibleSection";
 import { profileStyles } from "../../styles/profileStyles";
 
 type ThemeColors = any;

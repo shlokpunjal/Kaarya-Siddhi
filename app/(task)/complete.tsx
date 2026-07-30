@@ -16,7 +16,7 @@ import { typography } from "../../theme/theme";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { authFetch } from "../../utils/authFetch";
-import TaskActionSkeleton from "../../components/TaskActionSkeleton";
+import TaskActionSkeleton from "../../components/skeletonScreens/TaskActionSkeleton";
 
 export default function Complete() {
   const { colors } = useTheme();

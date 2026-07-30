@@ -16,9 +16,10 @@ export async function fetchEofficeFileById(id: string): Promise<EofficeFile> {
 export async function createEofficeFile(input: {
   file_no: string;
   pending_office: string;
-  pending_with: string; // employee user id, required
+  pending_with: string | null;
   pending_since: string;
   remark: string | null;
+  created_by: string;
 }): Promise<EofficeFile> {
   const res = await authFetch('/eoffice', {
     method: 'POST',
