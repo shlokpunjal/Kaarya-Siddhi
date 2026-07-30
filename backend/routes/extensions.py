@@ -7,12 +7,26 @@ from notify_utils import create_notification, push_only, delete_notifications
 router = APIRouter()
 
 
+def _require_admin_for_request(row: dict, current_user: dict) -> None:
+    """Only an admin in the same workspace as the extension request may
+    view or decide it. Without this, any logged-in user could read or
+    act on any workspace's extension requests just by guessing/incrementing
+    request_id."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can do that.")
+
+    admin = supabase.table("users").select("workspace_id").eq("email", current_user["sub"]).execute()
+    if not admin.data or admin.data[0].get("workspace_id") != row.get("workspace_id"):
+        raise HTTPException(status_code=403, detail="Not your workspace.")
+
+
 @router.get("/extension-requests/{request_id}")
 async def get_extension_request(request_id: str, current_user: dict = Depends(get_current_user)):
     req = supabase.table("extension_requests").select("*").eq("id", request_id).execute()
     if not req.data:
         raise HTTPException(status_code=404, detail="Request not found.")
     row = req.data[0]
+    _require_admin_for_request(row, current_user)
 
     task = None
     if row.get("task_id"):
@@ -40,6 +54,7 @@ async def decide_extension_request(request_id: str, payload: dict, current_user:
     if not req.data:
         raise HTTPException(status_code=404, detail="Request not found.")
     row = req.data[0]
+    _require_admin_for_request(row, current_user)
 
     supabase.table("extension_requests").update({
         "status": decision, "admin_note": note, "decided_at": decided_at

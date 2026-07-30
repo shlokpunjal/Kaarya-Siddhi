@@ -6,6 +6,28 @@ from notify_utils import create_notification, push_only, delete_notifications
 router = APIRouter()
 
 
+def _require_same_workspace_target(target_user_id: str, current_user: dict) -> None:
+    """Only let a caller notify someone in their own workspace. Without
+    this, userId was taken straight from the request body with no
+    relationship check at all — any authenticated user (or a modified
+    client reusing a legitimate token) could push arbitrary text to any
+    other user in the system, including admins in other workspaces."""
+    caller = supabase.table("users").select("id, workspace_id").eq("email", current_user["sub"]).execute()
+    if not caller.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    caller_row = caller.data[0]
+
+    target = supabase.table("users").select("id, workspace_id").eq("id", target_user_id).execute()
+    if not target.data:
+        raise HTTPException(status_code=404, detail="Recipient not found.")
+
+    if (
+        not caller_row.get("workspace_id")
+        or target.data[0].get("workspace_id") != caller_row["workspace_id"]
+    ):
+        raise HTTPException(status_code=403, detail="Recipient is not in your workspace.")
+
+
 @router.post("/notify")
 async def create_notification_route(payload: dict, current_user: dict = Depends(get_current_user)):
     user_id = payload.get("userId")
@@ -13,6 +35,8 @@ async def create_notification_route(payload: dict, current_user: dict = Depends(
     message = payload.get("message")
     if not user_id or not type_ or not message:
         raise HTTPException(status_code=400, detail="userId, type and message are required.")
+
+    _require_same_workspace_target(user_id, current_user)
 
     task_id = payload.get("taskId")
     metadata = payload.get("metadata", {})
@@ -30,6 +54,8 @@ async def push_only_route(payload: dict, current_user: dict = Depends(get_curren
     if not user_id:
         raise HTTPException(status_code=400, detail="userId is required.")
 
+    _require_same_workspace_target(user_id, current_user)
+
     title = payload.get("title", "Notification")
     body = payload.get("body", "")
     data = payload.get("data", {})
@@ -39,6 +65,21 @@ async def push_only_route(payload: dict, current_user: dict = Depends(get_curren
 
 @router.delete("/notify-pending")
 async def delete_pending_notifications(task_id: str, type: str, current_user: dict = Depends(get_current_user)):
+    # Previously deleted by type/task_id with no user_id filter at all —
+    # any authenticated user could clear another user's pending
+    # notifications for a task they have no relationship to. Scope it to
+    # tasks the caller actually owns or is assigned.
+    caller = supabase.table("users").select("id").eq("email", current_user["sub"]).execute()
+    if not caller.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    own_id = caller.data[0]["id"]
+
+    task = supabase.table("tasks").select("created_by, assigned_to").eq("id", task_id).execute()
+    if not task.data:
+        raise HTTPException(status_code=404, detail="Task not found.")
+    if own_id not in (task.data[0]["created_by"], task.data[0]["assigned_to"]):
+        raise HTTPException(status_code=403, detail="Not your task.")
+
     delete_notifications(notif_type=type, task_id=task_id)
     return {"success": True}
 
