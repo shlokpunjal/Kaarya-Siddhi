@@ -3,6 +3,10 @@ from supabase_client import supabase
 from auth_utils import get_current_user, validate_cloudinary_url
 from notify_utils import create_notification
 
+# Truncated in the notification message so a very long suggestion doesn't
+# blow up the push banner / notifications-list row.
+SUGGESTION_PREVIEW_LEN = 120
+
 router = APIRouter()
 
 
@@ -60,6 +64,18 @@ async def update_task(task_id: str, payload: dict, current_user: dict = Depends(
     own_id = _get_own_id(current_user["sub"])
     _check_ownership(task_id, own_id)
 
+    # Needed (title, created_by, assigned_to) below to notify the employee
+    # if this update turns out to be an admin "suggest changes" — fetched
+    # before the update so we still have the pre-update assigned_to even
+    # if the payload happens to also change it.
+    before = (
+        supabase.table("tasks")
+        .select("title, created_by, assigned_to")
+        .eq("id", task_id)
+        .execute()
+    )
+    task_before = before.data[0] if before.data else {}
+
     allowed = {"title", "deadline", "description", "attachment_url", "priority", "assigned_to", "status", "suggestion", "completed_at"}
     updates = {k: v for k, v in payload.items() if k in allowed}
     if not updates:
@@ -72,7 +88,44 @@ async def update_task(task_id: str, payload: dict, current_user: dict = Depends(
         raise HTTPException(status_code=403, detail="Only admins can reassign a task.")
 
     result = supabase.table("tasks").update(updates).eq("id", task_id).select().execute()
-    return result.data[0]
+    updated_task = result.data[0]
+
+    # ── Notify the employee when the admin sends the task back with
+    # feedback (the "Suggest Changes" / "Add Suggestion" flow) ─────────
+    # THE single place this fires from — both admin screens that can send
+    # a suggestion (taskDetailAdmin.tsx and complete.tsx) go through this
+    # same PATCH endpoint, so putting it here (instead of each screen
+    # calling a notify endpoint itself) guarantees it always fires with
+    # the right payload shape, writes the notifications-page row, and
+    # triggers the realtime tray push — regardless of which screen was
+    # used. Only fires when: a non-empty suggestion was actually attached,
+    # and the person making the change is the task's creator (the admin)
+    # notifying someone other than themselves.
+    suggestion_text = updates.get("suggestion")
+    assigned_to = task_before.get("assigned_to")
+    if (
+        suggestion_text
+        and own_id == task_before.get("created_by")
+        and assigned_to
+        and assigned_to != own_id
+    ):
+        preview = suggestion_text.strip()
+        if len(preview) > SUGGESTION_PREVIEW_LEN:
+            preview = preview[:SUGGESTION_PREVIEW_LEN].rstrip() + "…"
+        title = task_before.get("title") or "your task"
+        try:
+            create_notification(
+                assigned_to,
+                "task_suggestion",
+                f'Your admin requested changes on "{title}": {preview}',
+                task_id=task_id,
+                title="Changes Requested",
+            )
+        except Exception as e:
+            print(f"Failed to notify employee of suggestion on task {task_id}: {e}")
+
+    return updated_task
+
 
 @router.delete("/tasks/{task_id}")
 async def delete_task(task_id: str, current_user: dict = Depends(get_current_user)):

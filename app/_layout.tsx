@@ -61,6 +61,8 @@ function notifTitle(type: string): string {
       return "New Task Assigned";
     case "task_in_review":
       return "Task Submitted for Review";
+    case "task_suggestion":
+      return "Changes Requested";
     case "eoffice_pending":
       return "Track your eOffice files";
     default:
@@ -103,6 +105,10 @@ function navigateFromNotificationData(
       });
       break;
     case "task_assigned":
+    case "task_suggestion":
+      // Only ever sent to the employee (assignee), so no role branch
+      // needed — always the employee-facing screen, where the admin's
+      // suggestion message is shown.
       router.push({
         pathname: "/(task)/task-detail",
         params: { taskId: data.taskId },
