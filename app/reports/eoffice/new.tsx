@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Platform } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Platform, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -7,7 +7,12 @@ import { useTheme } from '../../../context/ThemeContext';
 import { typography } from '../../../theme/theme';
 import { createEofficeFile } from '../../../lib/eoffice';
 import { Ionicons } from '@expo/vector-icons';
-import { getCurrentUser } from '../../../lib/currentUser';
+import { authFetch } from '../../../utils/authFetch';
+
+type EmployeeProfile = {
+    id: string;
+    name: string;
+};
 
 export default function NewEofficeFile() {
     const { colors } = useTheme();
@@ -15,39 +20,66 @@ export default function NewEofficeFile() {
 
     const [fileNo, setFileNo] = useState('');
     const [pendingOffice, setPendingOffice] = useState('');
-    const [pendingWith, setPendingWith] = useState('');
     const [remark, setRemark] = useState('');
     const [pendingSince, setPendingSince] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
 
+    // Employee autocomplete — same pattern as app/(task)/newtask.tsx.
+    // /employees-directory already scopes to the caller's own workspace,
+    // so this list only ever shows people the file could actually be
+    // handed to.
+    const [assignToName, setAssignToName] = useState('');
+    const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
+    const [employeesList, setEmployeesList] = useState<EmployeeProfile[]>([]);
+    const [filteredEmployees, setFilteredEmployees] = useState<EmployeeProfile[]>([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+
+    useEffect(() => {
+        (async () => {
+            const res = await authFetch('/employees-directory');
+            if (res.ok) setEmployeesList(await res.json());
+        })();
+    }, []);
+
+    const handleSearchEmployee = (text: string) => {
+        setAssignToName(text);
+        setSelectedEmployee(null);
+        if (text.trim() === '') {
+            setFilteredEmployees([]);
+            setShowDropdown(false);
+        } else {
+            setFilteredEmployees(
+                employeesList.filter((emp) => emp.name.toLowerCase().includes(text.toLowerCase())),
+            );
+            setShowDropdown(true);
+        }
+    };
+
+    const selectEmployee = (emp: EmployeeProfile) => {
+        setAssignToName(emp.name);
+        setSelectedEmployee(emp);
+        setShowDropdown(false);
+    };
 
     const handleSubmit = async () => {
         setErrorMessage('');
 
-        if (!fileNo.trim() || !pendingOffice.trim() || !pendingSince) {
-            setErrorMessage('File no., pending office, and pending since are required.');
+        if (!fileNo.trim() || !pendingOffice.trim() || !selectedEmployee) {
+            setErrorMessage('File no., pending office, and pending with are required.');
             return;
         }
 
         try {
             setSubmitting(true);
-
-            const user = await getCurrentUser();
-            if (!user) {
-                setErrorMessage('You must be logged in to create a file.');
-                setSubmitting(false);
-                return;
-            }
-
             await createEofficeFile({
                 file_no: fileNo.trim(),
                 pending_office: pendingOffice.trim(),
-                pending_with: pendingWith.trim() || null,
+                pending_with: selectedEmployee.id,
                 pending_since: pendingSince.toISOString(),
                 remark: remark.trim() || null,
-                created_by: user.id,
             });
             router.back();
         } catch (err) {
@@ -107,19 +139,32 @@ export default function NewEofficeFile() {
                 />
 
                 <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 18, marginBottom: 8 }]}>
-                    Pending With (optional)
+                    Pending With
                 </Text>
                 <TextInput
-                    placeholder="e.g. Rajesh Kumar"
+                    placeholder="Search employee by name"
                     placeholderTextColor={colors.text.secondary}
-                    value={pendingWith}
-                    onChangeText={setPendingWith}
+                    value={assignToName}
+                    onChangeText={handleSearchEmployee}
                     style={[
                         styles.input,
                         typography.body,
                         { borderColor: colors.base.border, color: colors.text.primary, backgroundColor: colors.base.surfaceL1 },
                     ]}
                 />
+                {showDropdown && filteredEmployees.length > 0 && (
+                    <View style={[styles.dropdown, { borderColor: colors.base.border, backgroundColor: colors.base.surfaceL1 }]}>
+                        <FlatList
+                            data={filteredEmployees}
+                            keyExtractor={(emp) => emp.id}
+                            renderItem={({ item }) => (
+                                <Pressable style={styles.dropdownItem} onPress={() => selectEmployee(item)}>
+                                    <Text style={[typography.body, { color: colors.text.primary }]}>{item.name}</Text>
+                                </Pressable>
+                            )}
+                        />
+                    </View>
+                )}
 
                 <Text style={[typography.heading3, { color: colors.text.secondary, marginTop: 18, marginBottom: 8 }]}>
                     Pending Since
@@ -186,5 +231,7 @@ export default function NewEofficeFile() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     input: { borderWidth: 1, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 13 },
+    dropdown: { borderWidth: 1, borderRadius: 10, marginTop: 4, maxHeight: 180 },
+    dropdownItem: { paddingVertical: 10, paddingHorizontal: 13 },
     submitButton: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 28 },
 });
