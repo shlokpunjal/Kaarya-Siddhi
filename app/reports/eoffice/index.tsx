@@ -93,7 +93,9 @@ export default function EofficeList() {
                   File #{item.file_no}
                 </Text>
                 <Text style={[typography.label, { color: colors.text.secondary, marginTop: 2 }]}>
-                  Sr. No. {item.sr_no} · Pending with {item.pending_with || 'Unassigned'}
+                  {item.completed
+                    ? `Sr. ${item.sr_no}, Completed`
+                    : `Sr. ${item.sr_no}, Pending with ${item.pending_with_name || 'Unassigned'}, ${item.pending_office}`}
                 </Text>
               </View>
               <View
