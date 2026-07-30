@@ -65,6 +65,12 @@ async def update_task(task_id: str, payload: dict, current_user: dict = Depends(
     if not updates:
         raise HTTPException(status_code=400, detail="No valid fields to update.")
 
+    # Reassignment is an admin-only action. Previously any owner/assignee
+    # (i.e. any employee who owned or was assigned the task) could hand
+    # their own task off to an arbitrary user_id via this same field.
+    if "assigned_to" in updates and current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can reassign a task.")
+
     result = supabase.table("tasks").update(updates).eq("id", task_id).select().execute()
     return result.data[0]
 
@@ -84,6 +90,17 @@ async def delete_task(task_id: str, current_user: dict = Depends(get_current_use
 
 @router.post("/task-files")
 async def add_task_files(payload: list[dict], current_user: dict = Depends(get_current_user)):
+    # Previously had no check at all that the task belonged to the
+    # caller — any authenticated user could attach file records to any
+    # task_id. Verify ownership of every distinct task_id in the batch
+    # before inserting any of it.
+    own_id = _get_own_id(current_user["sub"])
+    task_ids = {row.get("task_id") for row in payload if row.get("task_id")}
+    if not task_ids:
+        raise HTTPException(status_code=400, detail="task_id is required for each file.")
+    for task_id in task_ids:
+        _check_ownership(task_id, own_id)
+
     result = supabase.table("task_files").insert(payload).execute()
     return result.data
 
