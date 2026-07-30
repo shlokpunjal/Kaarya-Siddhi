@@ -1,4 +1,5 @@
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
-export const API_BASE_URL = "http://10.31.141.243:8000"; // Localhost for Android emulator
-
-// https://kaarya-siddhi-0w7j.onrender.com
+if (!API_BASE_URL) {
+  throw new Error("EXPO_PUBLIC_API_URL is not set. Check your .env file.");
+}

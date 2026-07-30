@@ -57,7 +57,6 @@ DECIDED_NOTIFICATION_TYPES = [
     "extension_rejected",
     "task_assigned",
     "task_in_review",
-    "task_suggestion",
 ]
 
 

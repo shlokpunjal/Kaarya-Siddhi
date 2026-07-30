@@ -9,8 +9,8 @@ import {
   ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { moderateScale } from "../utils/responsive";
-import { useTheme } from "../context/ThemeContext";
+import { moderateScale } from "../../utils/responsive";
+import { useTheme } from "../../context/ThemeContext";
 
 const SUCCESS = "#2E7D32";
 const ERROR = "#D32F2F";

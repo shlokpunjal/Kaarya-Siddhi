@@ -8,7 +8,7 @@ import { fetchEofficeFiles } from '../../../lib/eoffice';
 import type { EofficeFile } from '../../../types/eoffice';
 import { getCurrentUser } from '../../../lib/currentUser';
 import { Ionicons } from '@expo/vector-icons';
-import EofficeListSkeleton from '../../../components/EofficeListSkeleton';
+import EofficeListSkeleton from '../../../components/skeletonScreens/EofficeListSkeleton';
 
 export default function EofficeList() {
   const { colors } = useTheme();
@@ -93,9 +93,7 @@ export default function EofficeList() {
                   File #{item.file_no}
                 </Text>
                 <Text style={[typography.label, { color: colors.text.secondary, marginTop: 2 }]}>
-                  {item.completed
-                    ? `Sr. ${item.sr_no}, Completed`
-                    : `Sr. ${item.sr_no}, Pending with ${item.pending_with_name || 'Unassigned'}, ${item.pending_office}`}
+                  Sr. No. {item.sr_no} · Pending with {item.pending_with || 'Unassigned'}
                 </Text>
               </View>
               <View
