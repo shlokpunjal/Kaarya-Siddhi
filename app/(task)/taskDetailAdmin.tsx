@@ -130,9 +130,9 @@ export default function TaskDetailAdmin() {
     }
   };
 
-  // ── Suggest Changes: sends the message + pushes the task back to pending ────
-  // NOTE: assumes a PATCH /tasks/:id endpoint that accepts { status, suggestion }.
-  // Adjust the path/body shape to match your actual backend route.
+  // ── Suggest Changes: sends the message + pushes the task back to pending.
+  // PATCH /tasks/:id accepts { status, suggestion } and — server-side —
+  // notifies the assigned employee (notifications row + push/tray alert).
   const handleOpenSuggestion = () => {
     setSuggestionText("");
     setSuggestionModalVisible(true);
@@ -158,23 +158,9 @@ export default function TaskDetailAdmin() {
 
       if (!res.ok) throw new Error("Failed to send suggestion");
 
-      // Best-effort notification to the employee — remove this block if you
-      // don't have a /notifications endpoint, the task update above already
-      // carries the message via the `suggestion` field.
-      try {
-        await authFetch("/notifications", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: task.assigned_to,
-            type: "task_suggestion",
-            message: suggestionText.trim(),
-            task_id: task.id,
-          }),
-        });
-      } catch (notifyError) {
-        console.error("Notification send error:", notifyError);
-      }
+      // The employee is notified server-side by the PATCH above (writes a
+      // `notifications` row + sends the push/tray alert) — see
+      // backend/routes/employee_tasks.py:update_task.
 
       setTask((prev: any) => ({
         ...prev,

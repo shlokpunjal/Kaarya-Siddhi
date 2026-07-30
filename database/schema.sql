@@ -240,6 +240,7 @@ create table public.notifications (
             'overdue'::character varying,
             'task_assigned'::character varying,
             'task_in_review'::character varying,
+            'task_suggestion'::character varying,
             'eoffice_pending'::character varying,
             'extension_accepted'::character varying,
             'extension_rejected'::character varying,

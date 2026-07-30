@@ -203,6 +203,8 @@ const OtpVerify = () => {
 
       const data = await response.json();
 
+      console.log("VERIFY OTP RESPONSE:", data);
+      console.log("ACCESS TOKEN:", data.token);
       if (!response.ok) {
         const elapsed = Date.now() - startTime;
         if (elapsed < MIN_VISIBLE_MS) {
@@ -231,6 +233,7 @@ const OtpVerify = () => {
         setOtpError(data.detail || "Invalid OTP");
         return;
       }
+
       await saveSession(
         data.token,
         ph?.toString() ?? "",

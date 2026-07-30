@@ -16,7 +16,7 @@ type NotifRow = {
   type:
   | "connection_accepted" | "connection_rejected"
   | "extension_accepted" | "extension_rejected"
-  | "task_assigned" | "task_in_review"
+  | "task_assigned" | "task_in_review" | "task_suggestion"
   | "deadline" | "overdue" | "eoffice_pending";
   message: string;
   created_at: string;
@@ -29,6 +29,8 @@ const notifMeta = (colors: any, type: NotifRow["type"]) => {
     return { color: colors.status.completed, icon: "checkmark-circle-outline" as const };
   if (type === "task_assigned" || type === "eoffice_pending")
     return { color: colors.brand.accent, icon: "briefcase-outline" as const };
+  if (type === "task_suggestion")
+    return { color: colors.status.pending, icon: "create-outline" as const };
   if (type === "deadline")
     return { color: colors.status.pending, icon: "time-outline" as const };
   if (type === "overdue")
@@ -63,7 +65,7 @@ export default function EmployeeNotifications() {
   const fetchNotifications = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review,deadline,overdue,eoffice_pending";
+      const types = "connection_accepted,connection_rejected,extension_accepted,extension_rejected,task_assigned,task_in_review,task_suggestion,deadline,overdue,eoffice_pending";
       const res = await authFetch(`/notifications?types=${types}`);
 
       if (!res.ok) {
@@ -127,6 +129,7 @@ export default function EmployeeNotifications() {
     } else if (
       n.type === "task_assigned" ||
       n.type === "task_in_review" ||
+      n.type === "task_suggestion" ||
       n.type === "deadline" ||
       n.type === "overdue"
     ) {
@@ -237,6 +240,7 @@ export default function EmployeeNotifications() {
             isExtension ||
             n.type === "task_assigned" ||
             n.type === "task_in_review" ||
+            n.type === "task_suggestion" ||
             n.type === "deadline" ||
             n.type === "overdue" ||
             n.type === "eoffice_pending";

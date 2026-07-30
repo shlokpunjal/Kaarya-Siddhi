@@ -186,5 +186,7 @@ export default function NewEofficeFile() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     input: { borderWidth: 1, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 13 },
+    dropdown: { borderWidth: 1, borderRadius: 10, marginTop: 4, maxHeight: 180 },
+    dropdownItem: { paddingVertical: 10, paddingHorizontal: 13 },
     submitButton: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 28 },
 });

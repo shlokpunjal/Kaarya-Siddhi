@@ -74,16 +74,6 @@ export default function ExtendDeadline() {
     );
   }
 
-  if (!task.deadline) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
-        <Text style={{ ...typography.body, color: colors.text.primary, margin: 20 }}>
-          This task has no deadline set yet, so an extension can't be requested.
-        </Text>
-      </SafeAreaView>
-    );
-  }
-
   // New deadline must be after the task's *current* deadline, not just after
   // today — so the picker only lets people move the date forward from where
   // it already stands. Falls back to today if the task has no deadline set.
@@ -127,8 +117,7 @@ export default function ExtendDeadline() {
       if (res.status === 409) {
         showToast("A pending extension request already exists for this task.", "error");
       } else {
-        const body = await res.json().catch(() => null);
-        showToast(body?.detail || "Could not submit your request", "error");
+        showToast("Could not submit your request", "error");
       }
       return;
     }
