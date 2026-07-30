@@ -30,7 +30,7 @@ import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { toLocalDateString } from "../../utils/dateFormat";
 import { authFetch } from "../../utils/authFetch";
-import TaskActionSkeleton from "../../components/TaskActionSkeleton";
+import TaskActionSkeleton from "../../components/skeletonScreens/TaskActionSkeleton";
 
 export default function ExtendDeadline() {
   const { colors, isDark } = useTheme();
@@ -69,6 +69,16 @@ export default function ExtendDeadline() {
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
         <Text style={{ ...typography.body, color: colors.text.primary, margin: 20 }}>
           Task not found
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!task.deadline) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
+        <Text style={{ ...typography.body, color: colors.text.primary, margin: 20 }}>
+          This task has no deadline set yet, so an extension can't be requested.
         </Text>
       </SafeAreaView>
     );
@@ -117,7 +127,8 @@ export default function ExtendDeadline() {
       if (res.status === 409) {
         showToast("A pending extension request already exists for this task.", "error");
       } else {
-        showToast("Could not submit your request", "error");
+        const body = await res.json().catch(() => null);
+        showToast(body?.detail || "Could not submit your request", "error");
       }
       return;
     }

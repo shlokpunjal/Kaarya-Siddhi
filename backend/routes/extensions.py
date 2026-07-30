@@ -1,18 +1,49 @@
 from datetime import datetime, timezone
+from typing import Annotated, Literal, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict, Field
 from supabase_client import supabase
 from auth_utils import get_current_user
 from notify_utils import create_notification, push_only, delete_notifications
 
 router = APIRouter()
 
+# Same rationale as employee_tasks.py: explicit max_length on every
+# string field so a client can't send oversized text into the DB.
+IdStr = Annotated[str, Field(min_length=1, max_length=100)]
+DateStr = Annotated[str, Field(min_length=1, max_length=40)]
+
+
+class ExtensionDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["accepted", "rejected"]
+    admin_note: Optional[str] = Field(None, max_length=2000)
+
+
+class ExtensionRequestCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    task_id: IdStr
+    requested_deadline: DateStr
+    reason: Optional[str] = Field(None, max_length=2000)
+
 
 @router.get("/extension-requests/{request_id}")
 async def get_extension_request(request_id: str, current_user: dict = Depends(get_current_user)):
+    user = supabase.table("users").select("id, role, workspace_id").eq("email", current_user["sub"]).execute()
+    if not user.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    own = user.data[0]
+
     req = supabase.table("extension_requests").select("*").eq("id", request_id).execute()
     if not req.data:
         raise HTTPException(status_code=404, detail="Request not found.")
     row = req.data[0]
+
+    is_requester = row.get("requested_by") == own["id"]
+    is_workspace_admin = own.get("role") == "admin" and row.get("workspace_id") == own.get("workspace_id")
+    if not (is_requester or is_workspace_admin):
+        raise HTTPException(status_code=403, detail="Not authorized to view this request.")
 
     task = None
     if row.get("task_id"):
@@ -28,18 +59,27 @@ async def get_extension_request(request_id: str, current_user: dict = Depends(ge
 
 
 @router.post("/extension-requests/{request_id}/decide")
-async def decide_extension_request(request_id: str, payload: dict, current_user: dict = Depends(get_current_user)):
-    decision = payload.get("decision")
-    if decision not in ("accepted", "rejected"):
-        raise HTTPException(status_code=400, detail="Invalid decision.")
+async def decide_extension_request(request_id: str, payload: ExtensionDecision, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can decide extension requests.")
 
-    note = payload.get("admin_note")
+    decision = payload.decision
+
+    admin = supabase.table("users").select("id, workspace_id").eq("email", current_user["sub"]).execute()
+    if not admin.data or not admin.data[0].get("workspace_id"):
+        raise HTTPException(status_code=403, detail="No workspace.")
+    admin_workspace_id = admin.data[0]["workspace_id"]
+
+    note = payload.admin_note
     decided_at = datetime.now(timezone.utc).isoformat()
 
     req = supabase.table("extension_requests").select("*").eq("id", request_id).execute()
     if not req.data:
         raise HTTPException(status_code=404, detail="Request not found.")
     row = req.data[0]
+
+    if row.get("workspace_id") != admin_workspace_id:
+        raise HTTPException(status_code=403, detail="Not your workspace.")
 
     supabase.table("extension_requests").update({
         "status": decision, "admin_note": note, "decided_at": decided_at
@@ -85,13 +125,13 @@ async def decide_extension_request(request_id: str, payload: dict, current_user:
 
 
 @router.post("/extension-requests")
-async def create_extension_request(payload: dict, current_user: dict = Depends(get_current_user)):
+async def create_extension_request(payload: ExtensionRequestCreate, current_user: dict = Depends(get_current_user)):
     user = supabase.table("users").select("id").eq("email", current_user["sub"]).execute()
     if not user.data:
         raise HTTPException(status_code=401, detail="Account no longer exists.")
     own_id = user.data[0]["id"]
 
-    task_id = payload.get("task_id")
+    task_id = payload.task_id
     task = supabase.table("tasks").select("*").eq("id", task_id).execute()
     if not task.data:
         raise HTTPException(status_code=404, detail="Task not found.")
@@ -99,6 +139,12 @@ async def create_extension_request(payload: dict, current_user: dict = Depends(g
 
     if task_row.get("assigned_to") != own_id:
         raise HTTPException(status_code=403, detail="Not your task.")
+
+    if not task_row.get("deadline"):
+        raise HTTPException(
+            status_code=400,
+            detail="This task has no deadline set, so an extension can't be requested.",
+        )
 
     try:
         result = (
@@ -108,15 +154,18 @@ async def create_extension_request(payload: dict, current_user: dict = Depends(g
                 "requested_by": own_id,
                 "workspace_id": task_row["workspace_id"],
                 "current_deadline": task_row.get("deadline"),
-                "requested_deadline": payload.get("requested_deadline"),
-                "reason": payload.get("reason"),
+                "requested_deadline": payload.requested_deadline,
+                "reason": payload.reason,
             })
             .select()
             .execute()
         )
     except Exception as e:
+        print(f"[extension-requests] insert failed: {repr(e)}")
         if "23505" in str(e) or "duplicate" in str(e).lower():
             raise HTTPException(status_code=409, detail="A pending extension request already exists for this task.")
+        if "23502" in str(e):
+            raise HTTPException(status_code=400, detail="Missing required task information for this request.")
         raise HTTPException(status_code=500, detail="Could not submit your request.")
 
     inserted = result.data[0]

@@ -3,7 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import ProgressDots from "../../components/progressDots";
+import ProgressDots from "../../components/onboarding/progressDots";
 import { lightTheme, typography } from "../../theme/theme";
 import { moderateScale, wp, hp } from "../../utils/responsive";
 import { authFetch } from "../../utils/authFetch";

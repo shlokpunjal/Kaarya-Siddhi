@@ -18,7 +18,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
-import AdminRequestsListSkeleton from "../../components/AdminRequestListSkeleton";
+import AdminRequestsListSkeleton from "../../components/skeletonScreens/AdminRequestListSkeleton";
 import { authFetch } from "../../utils/authFetch";
 
 type ConnectionNotif = {

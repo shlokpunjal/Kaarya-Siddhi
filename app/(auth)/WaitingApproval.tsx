@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { typography } from '../../theme/theme';
-import BackButton from "../../components/backButton";
+import BackButton from "../../components/auth/backButton";
 import { authFetch } from "../../utils/authFetch";
 import { wp, moderateScale } from "../../utils/responsive";
 

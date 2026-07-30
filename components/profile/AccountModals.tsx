@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import ConfirmModal from "../confirmModal";
+import ConfirmModal from "../common/confirmModal";
 
 type Props = {
   logoutVisible: boolean;

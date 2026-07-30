@@ -17,7 +17,7 @@ import * as Notifications from "expo-notifications";
 import { sendLocalNotification } from "../utils/notifications";
 import { registerAndSavePushToken } from "../lib/pushNotifications";
 import { ToastProvider } from "../context/ToastContext";
-import OfflineScreen from "../components/OfflineScreen";
+import OfflineScreen from "../components/common/OfflineScreen";
 import { authFetch } from "../utils/authFetch";
 
 // enableScreens(false);
