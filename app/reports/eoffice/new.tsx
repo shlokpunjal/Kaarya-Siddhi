@@ -142,7 +142,7 @@ export default function NewEofficeFile() {
                     Pending With
                 </Text>
                 <TextInput
-                    placeholder="Search employee by name"
+                    placeholder="e.g. Rajesh Kumar"
                     placeholderTextColor={colors.text.secondary}
                     value={assignToName}
                     onChangeText={handleSearchEmployee}
