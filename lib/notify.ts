@@ -15,6 +15,7 @@ export type NotificationType =
   | "extension_rejected"
   | "task_assigned"
   | "task_in_review"
+  | "task_suggestion"
   | "deadline"
   | "overdue"
   | "eoffice_pending";
