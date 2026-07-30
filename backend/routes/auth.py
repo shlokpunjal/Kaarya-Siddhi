@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -17,6 +18,7 @@ from config import (
 from rate_limit import limiter
 
 router = APIRouter()
+logger = logging.getLogger("kaarya_siddhi")
 
 
 def _generate_otp() -> str:
@@ -103,10 +105,10 @@ async def login(request: Request, data: LoginRequest):
         .execute()
     )
 
-    if not user.data:
-        raise HTTPException(status_code=404, detail="We couldn't verify these details. Please check and try again.")
-
-    return {"success": True, "message": "Account Found"}
+    # Same response shape whether or not the account exists, so this
+    # endpoint can't be used as a user-enumeration side channel (checking
+    # an email/phone/role combo without ever touching the OTP flow).
+    return {"success": True}
 
 
 @router.post("/send-otp")
@@ -151,7 +153,7 @@ async def send_otp(request: Request, data: SendOTPRequest):
     try:
         send_email_otp(data.email, otp)
     except Exception as e:
-        print(f"OTP email failed for {data.email}: {e}")
+        logger.warning(f"OTP email failed for {data.email}: {e}")
         raise HTTPException(status_code=500, detail="Failed to send OTP email. Please check your email address and try again.")
 
     if daily_count == 0:
@@ -261,7 +263,7 @@ async def refresh_token_endpoint(data: RefreshRequest):
         # Reuse of a revoked token = possible theft. Nuke all sessions for
         # this user, and log it — this used to fail silently, which meant
         # you'd never actually find out if it happened.
-        print(f"SECURITY: revoked refresh token reused for {row['user_email']} — revoking all sessions.")
+        logger.warning(f"SECURITY: revoked refresh token reused for {row['user_email']} — revoking all sessions.")
         supabase.table("refresh_tokens").update({"revoked": True}).eq("user_email", row["user_email"]).execute()
         raise HTTPException(status_code=401, detail="Session invalid. Please login again.")
 
