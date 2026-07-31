@@ -50,6 +50,13 @@ async def get_tasks(
     result = query.order("created_at", desc=True).execute()
     return result.data
 
+# Keep this in sync with the `types=` list each notifications screen
+# fetches (app/notifications/employee.tsx and app/notifications/admin.tsx).
+# This used to omit "deadline", "overdue", "eoffice_pending" and
+# "task_suggestion" — so a deadline/overdue/eoffice reminder would show
+# up in the notifications list (correct) but never light up the bell
+# badge on the dashboard (bug), because the badge count query filtered
+# them out here.
 DECIDED_NOTIFICATION_TYPES = [
     "connection_accepted",
     "connection_rejected",
@@ -57,7 +64,19 @@ DECIDED_NOTIFICATION_TYPES = [
     "extension_rejected",
     "task_assigned",
     "task_in_review",
+    "task_suggestion",
+    "deadline",
+    "overdue",
+    "eoffice_pending",
 ]
+
+# Admin's dashboard bell also needs to reflect the "other" notifications
+# shown on app/notifications/admin.tsx (task submitted for review, task
+# overdue, eoffice files pending) in addition to connection requests and
+# pending extension requests. Keep in sync with the `types=` list in
+# fetchOtherNotifications() there.
+ADMIN_OTHER_NOTIFICATION_TYPES = ["task_in_review", "overdue", "eoffice_pending"]
+
 
 
 @router.get("/dashboard-counts")
@@ -104,7 +123,18 @@ async def get_dashboard_counts(current_user: dict = Depends(get_current_user)):
             .eq("status", "pending")
             .execute()
         )
-        return {"count": (conn_result.count or 0) + (ext_result.count or 0)}
+        other_result = (
+            supabase.table("notifications")
+            .select("id", count="exact")
+            .eq("user_id", user_row["id"])
+            .in_("type", ADMIN_OTHER_NOTIFICATION_TYPES)
+            .execute()
+        )
+        return {
+            "count": (conn_result.count or 0)
+            + (ext_result.count or 0)
+            + (other_result.count or 0)
+        }
 
     else:
         raise HTTPException(status_code=403, detail="Unrecognized role.")

@@ -118,6 +118,8 @@ function navigateFromNotificationData(
       });
       break;
     case "eoffice_pending":
+      router.push("/reports/eoffice");
+      break;
   }
 }
 
