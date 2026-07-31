@@ -1,11 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { View, StyleSheet, Animated, Easing, LayoutChangeEvent } from "react-native";
 import Svg, { Path, Rect, Circle, Line } from "react-native-svg";
-<<<<<<< HEAD:components/animation/TrainLoadingAnimation.tsx
 import { moderateScale } from "../../utils/responsive";
-=======
-import { moderateScale } from "../utils/responsive";
->>>>>>> 628a6d3e52a4bd4a724aeac4969ed7da631e3ba9:components/TrainLoadingAnimation.tsx
 
 type TrainStatus = "idle" | "loading" | "success" | "error";
 

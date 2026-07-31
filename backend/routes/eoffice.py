@@ -15,22 +15,31 @@ DateStr = Annotated[str, Field(min_length=1, max_length=40)]
 # Every record belongs to exactly one workspace via `workspace_id`, and every
 # read/write below is scoped to the caller's own workspace.
 #
-# Permission model (deliberately explicit): eOffice records are an
-# ADMIN-ONLY resource. Only an admin can list, view, create, or update
-# eOffice files, and only within their own workspace. Employees have no
-# access to this endpoint at all. If employees should be able to view (but
-# not modify) their workspace's eOffice files, relax the `_require_admin`
-# check on the two GET routes only — the write routes should stay
-# admin-restricted.
+# Permission model (deliberately explicit): eOffice records can be READ by
+# any signed-in member (admin or employee) of the owning workspace, but only
+# an ADMIN can create or update them. Every read/write below is scoped to
+# the caller's own workspace via `workspace_id`.
 # -----------------------------------------------------------------------
+
+
+def _require_workspace(current_user: dict) -> str:
+    """Returns the caller's workspace_id for any signed-in user (admin or
+    employee), otherwise raises. Used by the read (GET) eOffice routes."""
+    user = supabase.table("users").select("id, workspace_id").eq("email", current_user["sub"]).execute()
+    if not user.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    workspace_id = user.data[0].get("workspace_id")
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="Could not find your workspace.")
+    return workspace_id
 
 
 def _require_admin_with_workspace(current_user: dict) -> str:
     """Returns the caller's workspace_id if they're an admin with one set,
-    otherwise raises. Used by every eOffice route so access is always
-    scoped to a single, verified workspace."""
+    otherwise raises. Used by the write (POST/PATCH) eOffice routes so only
+    admins can create or modify records."""
     if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can access eOffice records.")
+        raise HTTPException(status_code=403, detail="Only admins can modify eOffice records.")
 
     admin = supabase.table("users").select("id, workspace_id").eq("email", current_user["sub"]).execute()
     if not admin.data:
@@ -60,7 +69,7 @@ class EofficeFileUpdate(BaseModel):
 
 @router.get("/eoffice")
 async def list_eoffice_files(current_user: dict = Depends(get_current_user)):
-    workspace_id = _require_admin_with_workspace(current_user)
+    workspace_id = _require_workspace(current_user)
 
     result = (
         supabase.table("e-office")
@@ -74,7 +83,7 @@ async def list_eoffice_files(current_user: dict = Depends(get_current_user)):
 
 @router.get("/eoffice/{file_id}")
 async def get_eoffice_file(file_id: str, current_user: dict = Depends(get_current_user)):
-    workspace_id = _require_admin_with_workspace(current_user)
+    workspace_id = _require_workspace(current_user)
 
     result = supabase.table("e-office").select("*").eq("id", file_id).execute()
     if not result.data:
