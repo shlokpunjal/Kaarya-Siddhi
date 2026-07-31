@@ -1,5 +1,4 @@
 // utils/calendarGrid.ts
-import { supabase } from "../lib/supabase";
 
 export type TaskCategory = "completed" | "inReview" | "pending" | "overdue";
 
@@ -72,10 +71,4 @@ export function groupTasksByDate(rows: TaskRow[]): Record<string, Task[]> {
     (map[dateKey] ??= []).push(task);
   });
   return map;
-}
-
-export function getFreshChannel(name: string) {
-  const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
-  if (existing) supabase.removeChannel(existing);
-  return supabase.channel(name);
 }

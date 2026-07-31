@@ -5,12 +5,12 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { useRouter } from "expo-router";
 import { wp, moderateScale } from "../../utils/responsive";
-import { supabase } from "../../lib/supabase";
+import { supabase, getFreshChannel } from "../../lib/supabase";
 import CalendarScreenSkeleton from "../skeletonScreens/CalendarScreenSkeleton";
 import { authFetch } from "../../utils/authFetch";
 import {
   DAYS, MONTH_NAMES, Task, TaskCategory, TaskRow,
-  toDateString, buildGrid, groupTasksByDate, getFreshChannel,
+  toDateString, buildGrid, groupTasksByDate,
 } from "../../utils/calendarGrid";
 
 interface ChannelConfig { name: string; table: string; filter: string }

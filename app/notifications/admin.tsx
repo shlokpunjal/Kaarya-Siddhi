@@ -6,18 +6,10 @@ import { useRouter, useFocusEffect } from "expo-router";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
+import { supabase, getFreshChannel } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
 import AdminNotificationsSkeleton from "../../components/skeletonScreens/AdminNotificationSkeleton";
 import { authFetch } from "../../utils/authFetch";
-
-function getFreshChannel(name: string) {
-  const existing = supabase
-    .getChannels()
-    .find((c) => c.topic === `realtime:${name}`);
-  if (existing) supabase.removeChannel(existing);
-  return supabase.channel(name);
-}
 
 export default function AdminNotifications() {
   const { colors } = useTheme();
@@ -40,8 +32,6 @@ export default function AdminNotifications() {
   const [otherNotifications, setOtherNotifications] = useState<OtherNotif[]>(
     [],
   );
-  const otherChannelRef = useRef<RealtimeChannel | null>(null);
-
   const fetchOtherNotifications = useCallback(async () => {
     try {
       const res = await authFetch("/notifications?types=task_in_review,overdue,eoffice_pending");
@@ -62,28 +52,7 @@ export default function AdminNotifications() {
     }, [fetchOtherNotifications]),
   );
 
-  useEffect(() => {
-    if (!adminUserId) return;
-   const channel = getFreshChannel(`admin_other_notifs_${adminUserId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${adminUserId}`,
-        },
-        () => fetchOtherNotifications(),
-      )
-      .subscribe();
-    otherChannelRef.current = channel;
-    return () => {
-      if (otherChannelRef.current) {
-        supabase.removeChannel(otherChannelRef.current);
-        otherChannelRef.current = null;
-      }
-    };
-  }, [adminUserId, fetchOtherNotifications]);
+
 
   const clearOtherNotifications = async () => {
     if (otherNotifications.length === 0) return;
@@ -130,8 +99,11 @@ export default function AdminNotifications() {
     }, [fetchPendingCount]),
   );
 
-  // Realtime: keep the badge accurate — connection requests via notifications,
-  // scoped to this admin's own user id.
+  // Realtime: this admin's own `notifications` rows drive both the pending
+  // badge count and the "Other Notifications" list. Previously these were
+  // two separate channels subscribed to the exact same table/filter/event —
+  // every insert/update/delete fired both callbacks through two redundant
+  // realtime connections. One channel, two effects of the same event.
   useEffect(() => {
     if (!adminUserId) return;
 
@@ -146,6 +118,7 @@ export default function AdminNotifications() {
         },
         () => {
           fetchPendingCount();
+          fetchOtherNotifications();
         },
       )
       .subscribe();
@@ -158,7 +131,7 @@ export default function AdminNotifications() {
         notifChannelRef.current = null;
       }
     };
-  }, [adminUserId, fetchPendingCount]);
+  }, [adminUserId, fetchPendingCount, fetchOtherNotifications]);
 
   // Realtime: extension requests via extension_requests, scoped to workspace.
   useEffect(() => {

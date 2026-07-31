@@ -99,7 +99,9 @@ Kaarya-Siddhi/
 │   ├── auth_utils.py         # JWT create/decode, get_current_user dependency
 │   ├── supabase_client.py    # Service-role Supabase client (bypasses RLS — backend-only)
 │   ├── rate_limit.py         # Shared slowapi Limiter instance
-│   ├── deadline_reminders.py / overdue_reminders.py   # Scheduled notification jobs
+│   ├── notify_utils.py       # Single source of truth for creating/pushing notifications
+│   │   # (deadline/overdue/eoffice reminders now run entirely in Postgres via
+│   │   # pg_cron — see database/reminders_pg_cron.sql — not as Python cron jobs)
 │   ├── sheets_sync.py        # Periodic sync job
 │   └── requirements.txt
 ├── lib/

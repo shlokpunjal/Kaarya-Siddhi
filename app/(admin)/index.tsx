@@ -10,7 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../../lib/supabase";
+import { supabase, getFreshChannel } from "../../lib/supabase";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { Task } from "../../types/task";
@@ -165,14 +165,6 @@ export default function Dashboard() {
       fetchPendingRequestCount();
     }, [fetchPendingRequestCount]),
   );
-
-  function getFreshChannel(name: string) {
-    const existing = supabase
-      .getChannels()
-      .find((c) => c.topic === `realtime:${name}`);
-    if (existing) supabase.removeChannel(existing);
-    return supabase.channel(name);
-  }
 
   // New: realtime, so the dot updates instantly instead of waiting for focus.
   useEffect(() => {
