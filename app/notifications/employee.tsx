@@ -6,7 +6,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
+import { supabase, getFreshChannel } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
 import EmployeeNotificationsSkeleton from '../../components/skeletonScreens/EmployeeNotificationSkeleton';
 import { authFetch } from "../../utils/authFetch";
@@ -38,11 +38,6 @@ const notifMeta = (colors: any, type: NotifRow["type"]) => {
   return { color: colors.status.overdue, icon: "close-circle-outline" as const };
 };
 
-function getFreshChannel(name: string) {
-  const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
-  if (existing) supabase.removeChannel(existing);
-  return supabase.channel(name);
-}
 
 export default function EmployeeNotifications() {
   const { colors } = useTheme();

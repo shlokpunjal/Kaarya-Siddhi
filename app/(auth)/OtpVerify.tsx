@@ -18,7 +18,6 @@ import { useAuth } from "../../context/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
 import BackButton from "../../components/auth/backButton";
-import { registerAndSavePushToken } from "../../lib/pushNotifications";
 import { sendLoginNotification } from "../../utils/notifications";
 import { wp, moderateScale } from "../../utils/responsive";
 import TrainLoadingAnimation from "../../components/animation/TrainLoadingAnimation";
@@ -242,9 +241,11 @@ const OtpVerify = () => {
         data.workspace_id,
         data.refresh_token,
       );
-      registerAndSavePushToken().catch(() => {
-        // best-effort — push registration failures shouldn't block login
-      });
+      // Push token registration is NOT triggered here — app/_layout.tsx's
+      // NotificationBridge already does it reactively whenever userEmail
+      // changes (which saveSession just did above). Calling it here too
+      // used to mean every login registered + saved the push token twice
+      // in a row.
 
       const elapsed = Date.now() - startTime;
       if (elapsed < MIN_VISIBLE_MS) {

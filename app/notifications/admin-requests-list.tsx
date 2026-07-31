@@ -16,7 +16,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
+import { supabase, getFreshChannel } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
 import AdminRequestsListSkeleton from "../../components/skeletonScreens/AdminRequestListSkeleton";
 import { authFetch } from "../../utils/authFetch";
@@ -36,14 +36,6 @@ type ExtensionRow = {
   created_at: string;
   tasks: { title: string; priority: "low" | "medium" | "high" } | null;
 };
-
-function getFreshChannel(name: string) {
-  const existing = supabase
-    .getChannels()
-    .find((c) => c.topic === `realtime:${name}`);
-  if (existing) supabase.removeChannel(existing);
-  return supabase.channel(name);
-}
 
 const priorityColor = (colors: any, priority?: string) => {
   if (priority === "high") return colors.status.overdue;

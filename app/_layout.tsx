@@ -9,7 +9,7 @@ import { Stack, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { View, Image, Text, Animated, StyleSheet } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
-import { supabase } from "../lib/supabase";
+import { supabase, getFreshChannel } from "../lib/supabase";
 import { ThemeProvider } from "../context/ThemeContext";
 import { typography } from "../theme/theme";
 import { AuthProvider, useAuth } from "../context/AuthContext";
@@ -38,12 +38,6 @@ const BRAND_SHADOW = "#815727";
 const TEXT_PRIMARY = "#F0EDE6";
 const TEXT_SECONDARY = "#8B95A1";
 const LOGO_SIZE = 114;
-
-function getFreshChannel(name: string) {
-  const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
-  if (existing) supabase.removeChannel(existing);
-  return supabase.channel(name);
-}
 
 function notifTitle(type: string): string {
   switch (type) {

@@ -10,7 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../../lib/supabase";
+import { supabase, getFreshChannel } from "../../lib/supabase";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { Task } from "../../types/task";
@@ -137,14 +137,6 @@ const syncOverdueStatuses = useCallback(async (fetchedTasks: Task[]) => {
   // Overdue/Pending/In Review/Completed buckets reflect the latest status
   // without requiring a manual pull-to-refresh. Skips the very first mount
   // since the effect above already handles that fetch + the loading state. ──
-  function getFreshChannel(name: string) {
-    const existing = supabase
-      .getChannels()
-      .find((c) => c.topic === `realtime:${name}`);
-    if (existing) supabase.removeChannel(existing);
-    return supabase.channel(name);
-  }
-
   const isFirstFocus = React.useRef(true);
   useFocusEffect(
     useCallback(() => {
