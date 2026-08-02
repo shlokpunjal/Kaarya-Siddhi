@@ -106,21 +106,19 @@ async def get_dashboard_counts(current_user: dict = Depends(get_current_user)):
         return {"count": result.count or 0}
 
     elif role == "admin":
-        if not user_row.get("workspace_id"):
-            return {"count": 0}
-
+        # NOTE: workspace_id is only assigned once the admin accepts their
+        # FIRST employee (see connection_respond in routes/connections.py) —
+        # so a brand-new admin with a pending connection_request sitting in
+        # their inbox has no workspace_id yet. Pending connection requests
+        # and "other" notifications are keyed off the admin's own user_id,
+        # not workspace_id, so they must always be counted regardless.
+        # Only the extension_requests lookup is workspace-scoped, and that's
+        # the only piece that needs to be skipped for a workspace-less admin.
         conn_result = (
             supabase.table("notifications")
             .select("id", count="exact")
             .eq("user_id", user_row["id"])
             .eq("type", "connection_request")
-            .execute()
-        )
-        ext_result = (
-            supabase.table("extension_requests")
-            .select("id", count="exact")
-            .eq("workspace_id", user_row["workspace_id"])
-            .eq("status", "pending")
             .execute()
         )
         other_result = (
@@ -130,10 +128,20 @@ async def get_dashboard_counts(current_user: dict = Depends(get_current_user)):
             .in_("type", ADMIN_OTHER_NOTIFICATION_TYPES)
             .execute()
         )
+
+        ext_count = 0
+        if user_row.get("workspace_id"):
+            ext_result = (
+                supabase.table("extension_requests")
+                .select("id", count="exact")
+                .eq("workspace_id", user_row["workspace_id"])
+                .eq("status", "pending")
+                .execute()
+            )
+            ext_count = ext_result.count or 0
+
         return {
-            "count": (conn_result.count or 0)
-            + (ext_result.count or 0)
-            + (other_result.count or 0)
+            "count": (conn_result.count or 0) + ext_count + (other_result.count or 0)
         }
 
     else:
