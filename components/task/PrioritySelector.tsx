@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { moderateScale } from "../../utils/responsive";
-import type { Priority } from "../../hooks/useTaskForm";
+import type { Priority } from "../../hooks/task/useTaskForm";
 
 export const PRIORITIES: {
   label: string;

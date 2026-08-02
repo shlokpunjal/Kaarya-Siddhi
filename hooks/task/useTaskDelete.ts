@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { authFetch } from "../utils/authFetch";
-import { useToast } from "../context/ToastContext";
+import { authFetch } from "../../utils/authFetch";
+import { useToast } from "../../context/ToastContext";
 
 /**
  * Shared "delete this task" flow: opens a confirm modal, calls
