@@ -9,7 +9,7 @@ import { Stack, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { View, Image, Text, Animated, StyleSheet } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
-import { supabase } from "../lib/supabase";
+import { supabase, getFreshChannel } from "../lib/supabase";
 import { ThemeProvider } from "../context/ThemeContext";
 import { typography } from "../theme/theme";
 import { AuthProvider, useAuth } from "../context/AuthContext";
@@ -38,12 +38,6 @@ const BRAND_SHADOW = "#815727";
 const TEXT_PRIMARY = "#F0EDE6";
 const TEXT_SECONDARY = "#8B95A1";
 const LOGO_SIZE = 114;
-
-function getFreshChannel(name: string) {
-  const existing = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
-  if (existing) supabase.removeChannel(existing);
-  return supabase.channel(name);
-}
 
 function notifTitle(type: string): string {
   switch (type) {
@@ -137,7 +131,7 @@ function NotificationBridge() {
   // ---------------------------------------------------------
   useEffect(() => {
     if (!userEmail) {
-      console.log("[NotificationBridge] No user logged in yet.");
+      // console.log("[NotificationBridge] No user logged in yet.");
       return;
     }
 
@@ -147,7 +141,7 @@ function NotificationBridge() {
 
     const setupNotifications = async () => {
       try {
-        console.log("[NotificationBridge] Starting setup...");
+        // console.log("[NotificationBridge] Starting setup...");
 
         // ---------------------------------------------------
         // Get current user
@@ -171,11 +165,11 @@ function NotificationBridge() {
           return;
         }
 
-        console.log(
-          "[NotificationBridge] User loaded:",
-          userRow.id,
-          userRow.role,
-        );
+        // console.log(
+        //   "[NotificationBridge] User loaded:",
+        //   userRow.id,
+        //   userRow.role,
+        // );
 
         // notifications_enabled === false means: still write the row (so
         // it shows on the in-app notifications page), just don't buzz
@@ -190,7 +184,7 @@ function NotificationBridge() {
         try {
           await registerAndSavePushToken();
 
-          console.log("[NotificationBridge] Push registration completed.");
+          // console.log("[NotificationBridge] Push registration completed.");
         } catch (pushError) {
           console.error(
             "[NotificationBridge] Push registration failed:",
@@ -252,7 +246,7 @@ function NotificationBridge() {
               },
             )
             .subscribe((status) => {
-              console.log("[NotificationBridge] Notification channel:", status);
+              // console.log("[NotificationBridge] Notification channel:", status);
             });
         } catch (channelError) {
           console.error(
@@ -298,7 +292,7 @@ function NotificationBridge() {
                 },
               )
               .subscribe((status) => {
-                console.log("[NotificationBridge] Extension channel:", status);
+                // console.log("[NotificationBridge] Extension channel:", status);
               });
           } catch (extensionError) {
             console.error(
@@ -308,7 +302,7 @@ function NotificationBridge() {
           }
         }
 
-        console.log("[NotificationBridge] Setup completed successfully.");
+        // console.log("[NotificationBridge] Setup completed successfully.");
       } catch (error) {
         // MOST IMPORTANT:
         // Don't allow NotificationBridge setup errors to become
@@ -327,7 +321,7 @@ function NotificationBridge() {
     return () => {
       cancelled = true;
 
-      console.log("[NotificationBridge] Cleaning up...");
+      // console.log("[NotificationBridge] Cleaning up...");
 
       if (notifChannel) {
         try {

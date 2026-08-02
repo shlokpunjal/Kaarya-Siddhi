@@ -93,7 +93,7 @@ export default function ProfileSetup1() {
 
       router.push({ pathname: "/(onboarding)/profileSetup2", params: { role, name } });
     } catch (error: any) {
-      console.log(error);
+      // console.log(error);
       setDesignationError(error.message || "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);

@@ -199,7 +199,7 @@ const SignupForm = ({ role }: SignupFormProps) => {
         params: { email, name, role, mode: "signup" },
       });
     } catch (error) {
-      console.log(error);
+      // console.log(error);
       setCardError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);

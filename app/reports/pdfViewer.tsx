@@ -37,7 +37,7 @@ export default function PdfViewer() {
         showToast(`Report saved to: ${uri}`, 'success');
       }
     } catch (error) {
-      console.log(error);
+      // console.log(error);
       showToast('Could not share the report.', 'error');
     }
   };
@@ -80,7 +80,7 @@ export default function PdfViewer() {
 
         showToast('Report downloaded successfully.', 'success');
       } catch (error) {
-        console.log(error);
+        // console.log(error);
         // Saved permission may have been revoked — clear it and let the
         // next tap re-prompt instead of failing silently forever.
         await AsyncStorage.removeItem(DOWNLOAD_DIR_KEY);
@@ -106,7 +106,7 @@ export default function PdfViewer() {
       await AsyncStorage.setItem(DOWNLOAD_DIR_KEY, permissions.directoryUri);
       showToast('Download folder updated.', 'success');
     } catch (error) {
-      console.log(error);
+      // console.log(error);
       showToast('Could not update the download folder.', 'error');
     }
   };
@@ -190,7 +190,7 @@ export default function PdfViewer() {
             }}
             onPageChanged={(page) => setCurrentPage(page)}
             onError={(error) => {
-              console.log(error);
+              // console.log(error);
               setLoading(false);
               setErrorMessage("Couldn't display this PDF here. You can still open it in another app.");
             }}

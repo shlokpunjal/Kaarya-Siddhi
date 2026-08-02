@@ -24,7 +24,7 @@ export default function LoginChoice() {
         router.replace("/(employee)");
       }
     } catch (error) {
-      console.log(error);
+      // console.log(error);
     }
   };
 

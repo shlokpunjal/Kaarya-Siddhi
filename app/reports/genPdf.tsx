@@ -156,7 +156,7 @@ export default function GenPdf() {
 
       setReportFileUri(file.uri);
     } catch (error) {
-      console.log(error);
+      // console.log(error);
       setErrorMessage('Something went wrong while generating the report.');
     } finally {
       setLoading(false);

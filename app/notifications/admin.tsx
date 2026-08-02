@@ -10,14 +10,7 @@ import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
 import AdminNotificationsSkeleton from "../../components/skeletonScreens/AdminNotificationSkeleton";
 import { authFetch } from "../../utils/authFetch";
-
-function getFreshChannel(name: string) {
-  const existing = supabase
-    .getChannels()
-    .find((c) => c.topic === `realtime:${name}`);
-  if (existing) supabase.removeChannel(existing);
-  return supabase.channel(name);
-}
+import { subscribeToTableChanges } from "../../services/realtimeService";
 
 export default function AdminNotifications() {
   const { colors } = useTheme();
@@ -40,7 +33,6 @@ export default function AdminNotifications() {
   const [otherNotifications, setOtherNotifications] = useState<OtherNotif[]>(
     [],
   );
-  const otherChannelRef = useRef<RealtimeChannel | null>(null);
 
   const fetchOtherNotifications = useCallback(async () => {
     try {
@@ -61,29 +53,6 @@ export default function AdminNotifications() {
       fetchOtherNotifications();
     }, [fetchOtherNotifications]),
   );
-
-  useEffect(() => {
-    if (!adminUserId) return;
-   const channel = getFreshChannel(`admin_other_notifs_${adminUserId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${adminUserId}`,
-        },
-        () => fetchOtherNotifications(),
-      )
-      .subscribe();
-    otherChannelRef.current = channel;
-    return () => {
-      if (otherChannelRef.current) {
-        supabase.removeChannel(otherChannelRef.current);
-        otherChannelRef.current = null;
-      }
-    };
-  }, [adminUserId, fetchOtherNotifications]);
 
   const clearOtherNotifications = async () => {
     if (otherNotifications.length === 0) return;
@@ -130,25 +99,24 @@ export default function AdminNotifications() {
     }, [fetchPendingCount]),
   );
 
-  // Realtime: keep the badge accurate — connection requests via notifications,
-  // scoped to this admin's own user id.
+  // Realtime — single subscription for the `notifications` table, scoped
+  // to this admin's own user id. Both the "Requests" pending-count badge
+  // and the "Other Notifications" list need to react to the same
+  // underlying event (a row changing for this user); previously these
+  // were two separate Realtime channels on the identical table+filter+
+  // event, each doing its own fetch. One subscription, two refetches.
   useEffect(() => {
     if (!adminUserId) return;
 
-    const channel = getFreshChannel(`notifications_admin_badge_${adminUserId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${adminUserId}`,
-        },
-        () => {
-          fetchPendingCount();
-        },
-      )
-      .subscribe();
+    const channel = subscribeToTableChanges(
+      `notifications_admin_${adminUserId}`,
+      "notifications",
+      `user_id=eq.${adminUserId}`,
+      () => {
+        fetchPendingCount();
+        fetchOtherNotifications();
+      },
+    );
 
     notifChannelRef.current = channel;
 
@@ -158,26 +126,18 @@ export default function AdminNotifications() {
         notifChannelRef.current = null;
       }
     };
-  }, [adminUserId, fetchPendingCount]);
+  }, [adminUserId, fetchPendingCount, fetchOtherNotifications]);
 
   // Realtime: extension requests via extension_requests, scoped to workspace.
   useEffect(() => {
     if (!workspaceId) return;
 
-    const channel = getFreshChannel(`extension_requests_admin_badge_${workspaceId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "extension_requests",
-          filter: `workspace_id=eq.${workspaceId}`,
-        },
-        () => {
-          fetchPendingCount();
-        },
-      )
-      .subscribe();
+    const channel = subscribeToTableChanges(
+      `extension_requests_admin_badge_${workspaceId}`,
+      "extension_requests",
+      `workspace_id=eq.${workspaceId}`,
+      () => fetchPendingCount(),
+    );
 
     extensionChannelRef.current = channel;
 

@@ -27,7 +27,7 @@ export default function ProfileSetup2() {
         body: JSON.stringify({ notifications_enabled: enabled }),
       });
     } catch (error) {
-      console.log('Could not save notification preference:', error);
+      // console.log('Could not save notification preference:', error);
     }
   };
 

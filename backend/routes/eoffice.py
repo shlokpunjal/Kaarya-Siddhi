@@ -15,10 +15,11 @@ DateStr = Annotated[str, Field(min_length=1, max_length=40)]
 # Every record belongs to exactly one workspace via `workspace_id`, and every
 # read/write below is scoped to the caller's own workspace.
 #
-# Permission model (deliberately explicit): eOffice records can be READ by
-# any signed-in member (admin or employee) of the owning workspace, but only
-# an ADMIN can create or update them. Every read/write below is scoped to
-# the caller's own workspace via `workspace_id`.
+# Permission model (deliberately explicit): eOffice records can be READ and
+# CREATED by any signed-in member (admin or employee) of the owning
+# workspace. Updating (PATCH) an existing record is still ADMIN-only. Every
+# read/write below is scoped to the caller's own workspace via
+# `workspace_id`.
 # -----------------------------------------------------------------------
 
 
@@ -96,7 +97,7 @@ async def get_eoffice_file(file_id: str, current_user: dict = Depends(get_curren
 
 @router.post("/eoffice")
 async def create_eoffice_file(payload: EofficeFileCreate, current_user: dict = Depends(get_current_user)):
-    workspace_id = _require_admin_with_workspace(current_user)
+    workspace_id = _require_workspace(current_user)
 
     user = supabase.table("users").select("id").eq("email", current_user["sub"]).execute()
     if not user.data:
@@ -136,13 +137,22 @@ async def create_eoffice_file(payload: EofficeFileCreate, current_user: dict = D
 
 @router.patch("/eoffice/{file_id}")
 async def update_eoffice_file(file_id: str, payload: EofficeFileUpdate, current_user: dict = Depends(get_current_user)):
-    workspace_id = _require_admin_with_workspace(current_user)
+    workspace_id = _require_workspace(current_user)
 
-    existing = supabase.table("e-office").select("workspace_id").eq("id", file_id).execute()
+    user = supabase.table("users").select("id").eq("email", current_user["sub"]).execute()
+    if not user.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    own_id = user.data[0]["id"]
+
+    existing = supabase.table("e-office").select("workspace_id, created_by").eq("id", file_id).execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="File not found.")
     if existing.data[0].get("workspace_id") != workspace_id:
         raise HTTPException(status_code=403, detail="Not your workspace.")
+    is_creator = existing.data[0].get("created_by") == own_id
+    is_admin = current_user.get("role") == "admin"
+    if not is_creator and not is_admin:
+        raise HTTPException(status_code=403, detail="Only the file's creator or an admin can update it.")
 
     updates = payload.model_dump(exclude_unset=True)
 
