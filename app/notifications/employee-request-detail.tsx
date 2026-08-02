@@ -1,29 +1,17 @@
-import React, { useState, useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-} from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
-import EmployeeRequestDetailSkeleton from '../../components/skeletonScreens/EmployeeRequestDetailSkeleton';
+import EmployeeRequestDetailSkeleton from "../../components/skeletonScreens/EmployeeRequestDetailSkeleton";
 import { authFetch } from "../../utils/authFetch";
-import { subscribeToTableChanges } from "../../services/realtimeService";
-
-const statusMeta = (colors: any, status: string) => {
-  if (status === "accepted")
-    return { color: colors.status.completed, label: "Accepted", icon: "checkmark-circle-outline" as const };
-  if (status === "rejected")
-    return { color: colors.status.overdue, label: "Rejected", icon: "close-circle-outline" as const };
-  return { color: colors.status.pending, label: "Pending", icon: "time-outline" as const };
-};
+import ScreenHeader from "../../components/notifications/ScreenHeader";
+import { useRealtimeTable } from "../../hooks/notifications/useRealtimeTable";
+import { formatDateIN } from "../../utils/notifications/formatDate";
+import { getStatusMeta } from "../../utils/notifications/notificationMeta";
 
 export default function EmployeeRequestDetail() {
   const { colors } = useTheme();
@@ -32,7 +20,6 @@ export default function EmployeeRequestDetail() {
 
   const [request, setRequest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const fetchRequest = async () => {
     const res = await authFetch(`/extension-requests/${requestId}`);
@@ -50,30 +37,17 @@ export default function EmployeeRequestDetail() {
     if (!requestId) return;
     setLoading(true);
     fetchRequest();
-
-    const channel = subscribeToTableChanges(
-      `extension_request_${requestId}_employee`,
-      "extension_requests",
-      `id=eq.${requestId}`,
-      () => {
-        fetchRequest();
-      },
-    );
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
   }, [requestId]);
 
+  useRealtimeTable(
+    requestId ? `extension_request_${requestId}_employee` : null,
+    "extension_requests",
+    requestId ? `id=eq.${requestId}` : null,
+    fetchRequest,
+  );
+
   if (loading) {
-    return (
-      <EmployeeRequestDetailSkeleton />
-    );
+    return <EmployeeRequestDetailSkeleton />;
   }
 
   if (!request) {
@@ -86,7 +60,10 @@ export default function EmployeeRequestDetail() {
     );
   }
 
-  const meta = statusMeta(colors, request.status);
+  // "outline" icon set + short "Pending" label match this screen's inline
+  // badge — the original had its own statusMeta that diverged slightly
+  // from the admin screens' (see notificationMeta.ts for details).
+  const meta = getStatusMeta(colors, request.status, "outline", true);
 
   const Row = ({
     icon,
@@ -112,26 +89,7 @@ export default function EmployeeRequestDetail() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
-      {/* Header */}
-      <View
-        style={{
-          backgroundColor: colors.brand.primary,
-          height: moderateScale(60),
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 15,
-        }}
-      >
-        <Ionicons
-          onPress={() => router.back()}
-          name="arrow-back"
-          size={moderateScale(26)}
-          color={colors.brand.onPrimary}
-        />
-        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: moderateScale(15) }}>
-          Request Details
-        </Text>
-      </View>
+      <ScreenHeader title="Request Details" />
 
       <ScrollView contentContainerStyle={{ padding: 25, paddingBottom: 40 }}>
         <View
@@ -178,20 +136,12 @@ export default function EmployeeRequestDetail() {
           <Row
             icon="calendar-outline"
             label="Current Deadline"
-            value={new Date(request.current_deadline).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
+            value={formatDateIN(request.current_deadline)}
           />
           <Row
             icon="calendar"
             label="Requested Deadline"
-            value={new Date(request.requested_deadline).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
+            value={formatDateIN(request.requested_deadline)}
             valueColor={colors.brand.accent}
           />
           <Row icon="chatbox-ellipses-outline" label="Your Reason" value={request.reason} />
@@ -228,12 +178,7 @@ export default function EmployeeRequestDetail() {
 
                 {request.decided_at && (
                   <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 8 }}>
-                    Decided on{" "}
-                    {new Date(request.decided_at).toLocaleDateString("en-IN", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    Decided on {formatDateIN(request.decided_at)}
                   </Text>
                 )}
               </View>
