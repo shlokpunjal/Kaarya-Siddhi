@@ -107,7 +107,7 @@ Kaarya-Siddhi/
 ├── utils/
 │   └── authFetch.ts          # Fetch wrapper: attaches JWT, handles refresh-on-401
 ├── constants/
-│   └── api.ts                # API_BASE_URL — currently a hardcoded LAN IP, see note below
+│   └── api.ts                # API_BASE_URL
 ├── context/
 │   └── ThemeContext.tsx      # Light / Dark / System theme provider with persistence
 ├── theme/
