@@ -10,8 +10,9 @@ import CalendarScreenSkeleton from "../skeletonScreens/CalendarScreenSkeleton";
 import { authFetch } from "../../utils/authFetch";
 import {
   DAYS, MONTH_NAMES, Task, TaskCategory, TaskRow,
-  toDateString, buildGrid, groupTasksByDate, getFreshChannel,
+  toDateString, buildGrid, groupTasksByDate,
 } from "../../utils/calendarGrid";
+import { getFreshChannel } from "../../services/realtimeService";
 
 interface ChannelConfig { name: string; table: string; filter: string }
 

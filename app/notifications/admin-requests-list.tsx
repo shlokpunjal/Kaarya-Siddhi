@@ -20,6 +20,7 @@ import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
 import AdminRequestsListSkeleton from "../../components/skeletonScreens/AdminRequestListSkeleton";
 import { authFetch } from "../../utils/authFetch";
+import { subscribeToTableChanges } from "../../services/realtimeService";
 
 type ConnectionNotif = {
   id: string;
@@ -36,14 +37,6 @@ type ExtensionRow = {
   created_at: string;
   tasks: { title: string; priority: "low" | "medium" | "high" } | null;
 };
-
-function getFreshChannel(name: string) {
-  const existing = supabase
-    .getChannels()
-    .find((c) => c.topic === `realtime:${name}`);
-  if (existing) supabase.removeChannel(existing);
-  return supabase.channel(name);
-}
 
 const priorityColor = (colors: any, priority?: string) => {
   if (priority === "high") return colors.status.overdue;
@@ -155,18 +148,12 @@ export default function AdminRequestsList() {
   // Realtime — connection requests (via notifications, scoped to this admin).
   useEffect(() => {
     if (!adminUserId) return;
-    const channel = getFreshChannel(`admin_requests_notifs_${adminUserId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${adminUserId}`,
-        },
-        () => fetchConnections(),
-      )
-      .subscribe();
+    const channel = subscribeToTableChanges(
+      `admin_requests_notifs_${adminUserId}`,
+      "notifications",
+      `user_id=eq.${adminUserId}`,
+      () => fetchConnections(),
+    );
     notifChannelRef.current = channel;
     return () => {
       if (notifChannelRef.current) {
@@ -179,18 +166,12 @@ export default function AdminRequestsList() {
   // Realtime — extension requests (direct table, scoped to workspace).
   useEffect(() => {
     if (!workspaceId) return;
-    const channel = getFreshChannel(`admin_extension_requests_${workspaceId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "extension_requests",
-          filter: `workspace_id=eq.${workspaceId}`,
-        },
-        () => fetchExtensions(),
-      )
-      .subscribe();
+    const channel = subscribeToTableChanges(
+      `admin_extension_requests_${workspaceId}`,
+      "extension_requests",
+      `workspace_id=eq.${workspaceId}`,
+      () => fetchExtensions(),
+    );
     extensionChannelRef.current = channel;
     return () => {
       if (extensionChannelRef.current) {
