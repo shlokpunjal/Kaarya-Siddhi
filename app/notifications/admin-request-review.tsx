@@ -15,7 +15,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
-import AdminRequestReviewSkeleton from "../../components/skeletonScreens/AdminRequestReviewSkeleton";
+import AdminRequestReviewSkeleton from "../../components/skeletonScreens/Admin/AdminRequestReviewSkeleton";
 import { authFetch } from "../../utils/authFetch";
 import ScreenHeader from "../../components/notifications/ScreenHeader";
 import StatusHero from "../../components/notifications/StatusHero";

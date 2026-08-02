@@ -16,7 +16,7 @@ import { fetchEofficeFileById, updateEofficeFile } from "../../../lib/eoffice";
 import { getCurrentUser, type CurrentUser } from "../../../lib/currentUser";
 import type { EofficeFile } from "../../../types/eoffice";
 import { Ionicons } from "@expo/vector-icons";
-import EofficeDetailSkeleton from "../../../components/skeletonScreens/EofficeDetailSkeleton";
+import EofficeDetailSkeleton from "../../../components/skeletonScreens/EOffice/EofficeDetailSkeleton";
 import { useToast } from "../../../context/ToastContext";
 import { AlertModal } from "../../../components/common/AlertModal";
 

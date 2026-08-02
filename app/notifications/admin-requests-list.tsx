@@ -16,7 +16,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { wp, moderateScale } from "../../utils/responsive";
-import AdminRequestsListSkeleton from "../../components/skeletonScreens/AdminRequestListSkeleton";
+import AdminRequestsListSkeleton from "../../components/skeletonScreens/Admin/AdminRequestListSkeleton";
 import { authFetch } from "../../utils/authFetch";
 import { useCurrentUser } from "../../hooks/notifications/useCurrentUser";
 import { useRealtimeTable } from "../../hooks/notifications/useRealtimeTable";

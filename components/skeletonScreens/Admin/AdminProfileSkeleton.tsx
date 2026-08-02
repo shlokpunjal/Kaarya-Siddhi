@@ -1,7 +1,7 @@
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../context/ThemeContext';
-import SkeletonBox from './SkeletonBox';
+import { useTheme } from '../../../context/ThemeContext';
+import SkeletonBox from '../SkeletonBox';
 
 const AVATAR_SIZE = 84;
 const RING_SIZE = AVATAR_SIZE + 12;

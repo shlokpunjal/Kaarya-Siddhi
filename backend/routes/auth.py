@@ -194,7 +194,11 @@ async def verify_otp(request: Request, data: VerifyOTPRequest):
         supabase.table("otp_sessions").delete().eq("email", data.email).execute()
         raise HTTPException(status_code=429, detail="Too many incorrect attempts. Please request a new OTP.")
 
-    if session_row["otp"] != data.otp:
+    # Constant-time compare — a plain `!=` leaks timing information about
+    # how many leading digits matched. The attempt/rate limits above make
+    # this hard to exploit in practice, but there's no reason to accept
+    # the risk for a one-line fix.
+    if not secrets.compare_digest(session_row["otp"], data.otp):
         new_attempts = session_row["verify_attempts"] + 1
         supabase.table("otp_sessions").update({"verify_attempts": new_attempts}).eq("email", data.email).execute()
         remaining = MAX_VERIFY_ATTEMPTS - new_attempts

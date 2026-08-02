@@ -1,10 +1,10 @@
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../context/ThemeContext';
-import { typography } from '../../theme/theme';
-import { moderateScale } from '../../utils/responsive';
-import SkeletonBox from './SkeletonBox';
-import HeaderTitleSkeleton from './HeaderTitleSkeleton';
+import { useTheme } from '../../../context/ThemeContext';
+import { typography } from '../../../theme/theme';
+import { moderateScale } from '../../../utils/responsive';
+import SkeletonBox from '../SkeletonBox';
+import HeaderTitleSkeleton from '../HeaderTitleSkeleton';
 
 export default function AdminNotificationsSkeleton() {
   const { colors } = useTheme();

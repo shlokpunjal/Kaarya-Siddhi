@@ -8,7 +8,7 @@ import { fetchEofficeFiles } from '../../../lib/eoffice';
 import type { EofficeFile } from '../../../types/eoffice';
 import { getCurrentUser } from '../../../lib/currentUser';
 import { Ionicons } from '@expo/vector-icons';
-import EofficeListSkeleton from '../../../components/skeletonScreens/EofficeListSkeleton';
+import EofficeListSkeleton from '../../../components/skeletonScreens/EOffice/EofficeListSkeleton';
 
 export default function EofficeList() {
   const { colors } = useTheme();

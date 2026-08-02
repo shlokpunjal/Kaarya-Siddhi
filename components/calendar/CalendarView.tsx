@@ -6,7 +6,7 @@ import { typography } from "../../theme/theme";
 import { useRouter } from "expo-router";
 import { wp, moderateScale } from "../../utils/responsive";
 import { supabase } from "../../lib/supabase";
-import CalendarScreenSkeleton from "../skeletonScreens/CalendarScreenSkeleton";
+import CalendarScreenSkeleton from "../skeletonScreens/Calendar/CalendarScreenSkeleton";
 import { authFetch } from "../../utils/authFetch";
 import {
   DAYS, MONTH_NAMES, Task, TaskCategory, TaskRow,

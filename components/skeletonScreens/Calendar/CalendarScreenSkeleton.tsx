@@ -1,7 +1,7 @@
 import { View, StyleSheet, Platform } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import SkeletonBox from './SkeletonBox';
-import { wp, moderateScale } from '../../utils/responsive';
+import { useTheme } from '../../../context/ThemeContext';
+import SkeletonBox from '../SkeletonBox';
+import { wp, moderateScale } from '../../../utils/responsive';
 
 export default function CalendarScreenSkeleton() {
   const { colors } = useTheme();

@@ -1,7 +1,7 @@
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../context/ThemeContext';
-import SkeletonBox from './SkeletonBox';
+import { useTheme } from '../../../context/ThemeContext';
+import SkeletonBox from '../SkeletonBox';
 
 export default function AdminTasksSkeleton() {
   const { colors } = useTheme();

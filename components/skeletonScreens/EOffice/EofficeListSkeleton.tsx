@@ -1,6 +1,6 @@
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import SkeletonBox from './SkeletonBox';
+import { useTheme } from '../../../context/ThemeContext';
+import SkeletonBox from '../SkeletonBox';
 
 export default function EofficeListSkeleton() {
   const { colors } = useTheme();

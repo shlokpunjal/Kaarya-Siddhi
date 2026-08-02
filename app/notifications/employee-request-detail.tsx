@@ -6,7 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { moderateScale } from "../../utils/responsive";
-import EmployeeRequestDetailSkeleton from "../../components/skeletonScreens/EmployeeRequestDetailSkeleton";
+import EmployeeRequestDetailSkeleton from '../../components/skeletonScreens/Employee/EmployeeRequestDetailSkeleton';
 import { authFetch } from "../../utils/authFetch";
 import ScreenHeader from "../../components/notifications/ScreenHeader";
 import { useRealtimeTable } from "../../hooks/notifications/useRealtimeTable";
