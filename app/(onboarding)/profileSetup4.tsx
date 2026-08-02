@@ -35,7 +35,7 @@ export default function ProfileSetup3() {
         router.replace("/(employee)");
       }
     } catch (error) {
-      console.log('Could not finalize profile setup:', error);
+      // console.log('Could not finalize profile setup:', error);
       // Still let the user in even if this write fails, so they're not stuck
       if (role === "admin") {
         router.replace("/(admin)");

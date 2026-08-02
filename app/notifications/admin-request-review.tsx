@@ -20,6 +20,7 @@ import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import AdminRequestReviewSkeleton from "../../components/skeletonScreens/AdminRequestReviewSkeleton";
 import { authFetch } from "../../utils/authFetch";
+import { subscribeToTableChanges } from "../../services/realtimeService";
 
 const statusMeta = (colors: any, status: string) => {
   if (status === "accepted")
@@ -84,21 +85,14 @@ export default function AdminRequestReview() {
     setLoading(true);
     fetchRequest();
 
-    const channel = supabase
-      .channel(`extension_request_${requestId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "extension_requests",
-          filter: `id=eq.${requestId}`,
-        },
-        () => {
-          fetchRequest();
-        },
-      )
-      .subscribe();
+    const channel = subscribeToTableChanges(
+      `extension_request_${requestId}`,
+      "extension_requests",
+      `id=eq.${requestId}`,
+      () => {
+        fetchRequest();
+      },
+    );
 
     channelRef.current = channel;
 

@@ -10,7 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase, getFreshChannel } from "../../lib/supabase";
+import { supabase } from "../../lib/supabase";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { Task } from "../../types/task";
@@ -19,6 +19,7 @@ import NoTaskEmp from "../(task)/notaskEmp";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import DashboardSkeleton from "../../components/skeletonScreens/DashboardSkeleton";
 import { authFetch } from "../../utils/authFetch";
+import { subscribeToTableChanges } from "../../services/realtimeService";
 
 type TaskRow = {
   id: string;
@@ -184,18 +185,12 @@ const syncOverdueStatuses = useCallback(async (fetchedTasks: Task[]) => {
 
   useEffect(() => {
     if (!userId) return;
-    const channel = getFreshChannel(`employee_badge_notifs_${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => fetchDecidedRequestCount(),
-      )
-      .subscribe();
+    const channel = subscribeToTableChanges(
+      `employee_badge_notifs_${userId}`,
+      "notifications",
+      `user_id=eq.${userId}`,
+      () => fetchDecidedRequestCount(),
+    );
 
     return () => {
       supabase.removeChannel(channel);

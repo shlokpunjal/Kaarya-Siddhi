@@ -10,7 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase, getFreshChannel } from "../../lib/supabase";
+import { supabase } from "../../lib/supabase";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { Task } from "../../types/task";
@@ -19,6 +19,7 @@ import NoTasksAdmin from "../(task)/notasksAdmin";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import DashboardSkeleton from "../../components/skeletonScreens/DashboardSkeleton";
 import { authFetch } from "../../utils/authFetch";
+import { subscribeToTableChanges } from "../../services/realtimeService";
 
 type TaskRow = {
   id: string;
@@ -178,34 +179,20 @@ export default function Dashboard() {
       if (!res.ok) return;
       const userRow = await res.json();
 
-      notifChannel = getFreshChannel(`dashboard_badge_notifs_${userRow.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${userRow.id}`,
-          },
-          () => fetchPendingRequestCount(),
-        )
-        .subscribe();
+      notifChannel = subscribeToTableChanges(
+        `dashboard_badge_notifs_${userRow.id}`,
+        "notifications",
+        `user_id=eq.${userRow.id}`,
+        () => fetchPendingRequestCount(),
+      );
 
       if (userRow.workspace_id) {
-        extensionChannel = getFreshChannel(
+        extensionChannel = subscribeToTableChanges(
           `dashboard_badge_ext_${userRow.workspace_id}`,
-        )
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "extension_requests",
-              filter: `workspace_id=eq.${userRow.workspace_id}`,
-            },
-            () => fetchPendingRequestCount(),
-          )
-          .subscribe();
+          "extension_requests",
+          `workspace_id=eq.${userRow.workspace_id}`,
+          () => fetchPendingRequestCount(),
+        );
       }
     })();
 

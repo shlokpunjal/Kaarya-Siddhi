@@ -37,7 +37,7 @@ export default function Index() {
         router.replace("/(employee)");
       }
     } catch (err) {
-      console.log(err);
+      // console.log(err);
       router.replace("/(auth)/LoginChoice");
     }
   }

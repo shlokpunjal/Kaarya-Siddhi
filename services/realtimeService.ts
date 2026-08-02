@@ -41,6 +41,44 @@ export function safeRemoveChannel(
 }
 
 /**
+ * Generic "something changed in this table, go refetch" subscription —
+ * for screen-level badge counts / list refreshes that don't need the
+ * changed row itself, just a signal to refetch. This is what used to be
+ * hand-rolled (with its own local getFreshChannel copy) in half a dozen
+ * screens; consolidating it here means duplicate-subscription protection
+ * (via getFreshChannel) and error handling are guaranteed everywhere,
+ * not just wherever someone remembered to copy it correctly.
+ */
+export function subscribeToTableChanges(
+  name: string,
+  table: string,
+  filter: string,
+  onChange: () => void | Promise<void>,
+  event: "INSERT" | "UPDATE" | "DELETE" | "*" = "*",
+): RealtimeChannel {
+  return getFreshChannel(name)
+    .on(
+      "postgres_changes",
+      { event, schema: "public", table, filter },
+      () => {
+        try {
+          const result = onChange();
+          if (result && typeof (result as Promise<void>).catch === "function") {
+            (result as Promise<void>).catch((error) =>
+              console.error(`[realtimeService] "${name}" change handler failed:`, error),
+            );
+          }
+        } catch (error) {
+          console.error(`[realtimeService] "${name}" change handler failed:`, error);
+        }
+      },
+    )
+    .subscribe((status) => {
+      console.log(`[realtimeService] "${name}":`, status);
+    });
+}
+
+/**
  * Subscribes to new rows in `notifications` for this user. `onInsert`
  * receives the raw inserted row; the caller decides what to do with it
  * (e.g. show a local notification), keeping this module free of any

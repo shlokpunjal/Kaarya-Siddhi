@@ -165,7 +165,7 @@ const LoginForm = ({ role }: LoginFormProps) => {
                 params: { email, ph, role, mode: "login" },
             });
         } catch (error) {
-            console.log(error);
+            // console.log(error);
             setErrors((prev) => ({ ...prev, email: "Could not connect to server." }));
         } finally {
             setIsSending(false);

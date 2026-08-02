@@ -87,7 +87,7 @@ export default function WaitingApproval() {
         }, 1500);
       }
     } catch (error) {
-      console.log(error);
+      // console.log(error);
     }
   };
   const handleSkip = () => {
