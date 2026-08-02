@@ -18,7 +18,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
-import AdminRequestsListSkeleton from "../../components/skeletonScreens/AdminRequestListSkeleton";
+import AdminRequestsListSkeleton from "../../components/skeletonScreens/Admin/AdminRequestListSkeleton";
 import { authFetch } from "../../utils/authFetch";
 import { subscribeToTableChanges } from "../../services/realtimeService";
 

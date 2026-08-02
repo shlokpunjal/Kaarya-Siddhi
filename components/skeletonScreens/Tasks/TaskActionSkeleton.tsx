@@ -1,9 +1,9 @@
 import { View, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../context/ThemeContext';
-import { wp, moderateScale } from '../../utils/responsive';
-import SkeletonBox from './SkeletonBox';
-import HeaderTitleSkeleton from './HeaderTitleSkeleton';
+import { useTheme } from '../../../context/ThemeContext';
+import { wp, moderateScale } from '../../../utils/responsive';
+import SkeletonBox from '../SkeletonBox';
+import HeaderTitleSkeleton from '../HeaderTitleSkeleton';
 
 // Matches app/(task)/complete.tsx and extend-deadline.tsx — header + one
 // centered card (title, a text/date field, and a submit button).

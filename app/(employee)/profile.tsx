@@ -9,7 +9,7 @@ import { useTheme, useThemeMode } from "../../context/ThemeContext";
 import ConfirmModal from "../../components/common/confirmModal";
 import { router } from "expo-router";
 import { authFetch } from "../../utils/authFetch";
-import EmployeeProfileSkeleton from "../../components/skeletonScreens/EmployeeProfileSkeleton";
+import EmployeeProfileSkeleton from "../../components/skeletonScreens/Employee/EmployeeProfileSkeleton";
 import { useToast } from "../../context/ToastContext";
 import { clearSession } from "../../lib/secureSession";
 import { useCurrentUser } from "../../hooks/profile/useCurrentUser";

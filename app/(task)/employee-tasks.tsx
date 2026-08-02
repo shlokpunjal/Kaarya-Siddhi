@@ -13,7 +13,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { Task } from "../../types/task";
 import { wp, hp, moderateScale } from "../../utils/responsive";
-import DashboardSkeleton from "../../components/skeletonScreens/DashboardSkeleton";
+import DashboardSkeleton from "../../components/skeletonScreens/Dashboard/DashboardSkeleton";
 import {authFetch} from "../../utils/authFetch";
 
 // Matches the actual `tasks` table columns

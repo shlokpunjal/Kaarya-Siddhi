@@ -1,8 +1,8 @@
 import { View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../context/ThemeContext';
-import { wp, hp, moderateScale } from '../../utils/responsive';
-import SkeletonBox from './SkeletonBox';
+import { useTheme } from '../../../context/ThemeContext';
+import { wp, hp, moderateScale } from '../../../utils/responsive';
+import SkeletonBox from '../SkeletonBox';
 
 export default function DashboardSkeleton() {
   const { colors } = useTheme();

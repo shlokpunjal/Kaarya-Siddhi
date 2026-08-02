@@ -1,6 +1,8 @@
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import { Image } from 'react-native';
+import { useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { moderateScale } from '../../utils/responsive';
 const icons = {
   home: {
@@ -37,6 +39,18 @@ function TabIcon({ source, focused }: { source: any; focused: boolean }) {
 
 export default function AdminTabsLayout() {
   const { colors } = useTheme();
+  const { userRole, isLoading } = useAuth();
+
+  // Defense-in-depth only: every admin-only action is already re-verified
+  // server-side against the caller's real (JWT-verified) role, so this
+  // can't be bypassed to gain access. This just avoids showing an
+  // employee session the admin tab chrome (e.g. after a stale deep link)
+  // instead of redirecting them somewhere that actually works.
+  useEffect(() => {
+    if (!isLoading && userRole && userRole !== 'admin') {
+      router.replace(userRole === 'employee' ? '/(employee)' : '/(auth)/LoginChoice');
+    }
+  }, [isLoading, userRole]);
 
   return (
     <Tabs

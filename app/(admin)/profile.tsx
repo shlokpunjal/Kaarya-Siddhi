@@ -7,7 +7,7 @@ import { typography } from "../../theme/theme";
 import { useTheme, useThemeMode } from "../../context/ThemeContext";
 import { router } from "expo-router";
 import { authFetch } from "../../utils/authFetch";
-import AdminProfileSkeleton from "../../components/skeletonScreens/AdminProfileSkeleton";
+import AdminProfileSkeleton from "../../components/skeletonScreens/Admin/AdminProfileSkeleton";
 import { useToast } from "../../context/ToastContext";
 import { useCurrentUser } from "../../hooks/profile/useCurrentUser";
 import { useAvatarUpload } from "../../hooks/profile/useAvatarUpload";
