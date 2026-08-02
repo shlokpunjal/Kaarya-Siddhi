@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { authFetch } from "../utils/authFetch";
+import { authFetch } from "../../utils/authFetch";
 
 export type EmployeeProfile = {
   id: string;

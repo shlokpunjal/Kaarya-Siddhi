@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { moderateScale } from "../../utils/responsive";
-import type { EmployeeProfile } from "../../hooks/useEmployeeAutocomplete";
+import type { EmployeeProfile } from "../../hooks/task/useEmployeeAutocomplete";
 
 type Props = {
   value: string;

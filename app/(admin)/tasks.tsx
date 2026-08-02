@@ -196,7 +196,7 @@ export default function AdminTasks() {
               task={task}
               statusLabels={STATUS_LABELS}
               subtitlePrefix={employeeDisplayName(task.assignedTo)}
-              onPress={() => router.push({ pathname: "/(task)/taskDetailAdmin", params: { taskId: task.id } })}
+              onPress={() => router.push({ pathname: "/(task)/task-detail-admin", params: { taskId: task.id } })}
             />
           ))
         )}
