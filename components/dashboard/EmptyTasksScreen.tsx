@@ -18,6 +18,9 @@ type EmptyTasksScreenProps = {
   illustration: ImageSourcePropType;
   notificationsRoute: string;
   newTaskRoute: string;
+  title?: string;
+  subtitle?: string;
+  ctaLabel?: string;
 };
 
 export default function EmptyTasksScreen({
@@ -25,6 +28,9 @@ export default function EmptyTasksScreen({
   illustration,
   notificationsRoute,
   newTaskRoute,
+  title = "No tasks right now",
+  subtitle = "You're all caught up. Rest or Initiate.",
+  ctaLabel = "New Task",
 }: EmptyTasksScreenProps) {
   const router = useRouter();
   const { colors } = useTheme();
@@ -40,7 +46,7 @@ export default function EmptyTasksScreen({
 
           <TouchableOpacity
             onPress={() => router.push(notificationsRoute)}
-            style={[styles.bellButton, { backgroundColor: colors.base.surfaceL2 }]}
+            style={[styles.bellButton, { backgroundColor: colors.brand.primary, borderWidth: 1, borderColor: colors.brand.accent }]}
           >
             <Ionicons name="notifications-outline" size={22} color={colors.brand.accent} />
             {badgeCount > 0 && (
@@ -54,20 +60,36 @@ export default function EmptyTasksScreen({
       <View style={styles.content}>
         <Image source={illustration} style={styles.illustration} resizeMode="contain" />
 
-        <Text style={[typography.body, { color: colors.text.secondary, marginTop: 10 }]}>
-          You completed all tasks.
+        <Text
+          style={[
+            typography.heading,
+            { color: colors.text.primary, marginTop: 24, textAlign: "center" },
+          ]}
+        >
+          {title}
         </Text>
-        <Text style={[typography.subheading, { color: colors.text.primary, marginTop: 4 }]}>
-          You have no tasks.
+        <Text
+          style={[
+            typography.body,
+            {
+              color: colors.text.secondary,
+              marginTop: 6,
+              textAlign: "center",
+              maxWidth: wp(70),
+            },
+          ]}
+        >
+          {subtitle}
         </Text>
 
         <TouchableOpacity
+          activeOpacity={0.85}
           onPress={() => router.push(newTaskRoute)}
           style={[styles.newTaskButton, { backgroundColor: colors.brand.accent }]}
         >
-          <Ionicons name="add" size={22} color={colors.base.surfaceL1} />
-          <Text style={[typography.subheading, { color: colors.base.surfaceL1, fontSize: 18 }]}>
-            New Task
+          <Ionicons name="add" size={28} color={colors.base.surfaceL1} style={{ marginRight: 10 }} />
+          <Text style={[typography.subheading, { color: colors.base.surfaceL1, textAlign: "center" }]}>
+            {ctaLabel}
           </Text>
         </TouchableOpacity>
       </View>
@@ -77,7 +99,7 @@ export default function EmptyTasksScreen({
 
 const styles = StyleSheet.create({
   header: {
-    height: moderateScale(56),
+    height: moderateScale(64),
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -90,7 +112,6 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(20),
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0px 0px 5px gray",
   },
   badge: {
     position: "absolute",
@@ -114,10 +135,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 16,
+    height: moderateScale(56),
     paddingHorizontal: 40,
-    borderRadius: 30,
+    borderRadius: 32,
     marginTop: 36,
   },
 });
