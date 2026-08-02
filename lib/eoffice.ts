@@ -19,7 +19,7 @@ export async function createEofficeFile(input: {
   pending_with: string | null;
   pending_since: string;
   remark: string | null;
-  created_by: string;
+  // created_by: string;
 }): Promise<EofficeFile> {
   const res = await authFetch('/eoffice', {
     method: 'POST',

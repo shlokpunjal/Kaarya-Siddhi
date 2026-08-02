@@ -47,7 +47,7 @@ export default function NewEofficeFile() {
                 pending_with: pendingWith.trim() || null,
                 pending_since: pendingSince.toISOString(),
                 remark: remark.trim() || null,
-                created_by: user.id,
+                // created_by: user.id,
             });
             router.back();
         } catch (err) {

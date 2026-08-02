@@ -18,8 +18,9 @@ import { useAuth } from "../../context/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
 import BackButton from "../../components/auth/backButton";
+import { registerAndSavePushToken } from "../../lib/pushNotifications";
 import { sendLoginNotification } from "../../utils/notifications";
-import { wp, moderateScale } from "../../utils/responsive";
+import { wp, hp, moderateScale } from "../../utils/responsive";
 import TrainLoadingAnimation from "../../components/animation/TrainLoadingAnimation";
 
 type TrainStatus = "idle" | "loading" | "success" | "error";
@@ -241,11 +242,9 @@ const OtpVerify = () => {
         data.workspace_id,
         data.refresh_token,
       );
-      // Push token registration is NOT triggered here — app/_layout.tsx's
-      // NotificationBridge already does it reactively whenever userEmail
-      // changes (which saveSession just did above). Calling it here too
-      // used to mean every login registered + saved the push token twice
-      // in a row.
+      registerAndSavePushToken().catch(() => {
+        // best-effort — push registration failures shouldn't block login
+      });
 
       const elapsed = Date.now() - startTime;
       if (elapsed < MIN_VISIBLE_MS) {
@@ -428,7 +427,7 @@ const OtpVerify = () => {
                       style={{ flexDirection: "row", alignItems: "center" }}
                     >
                       <Text style={styles.LoginText}>Verifying</Text>
-                      <View style={{ width: 18, height: 18, marginLeft: 8 }}>
+                      <View style={{ width: moderateScale(18), height: moderateScale(18), marginLeft: wp(2.13) }}>
                         <ActivityIndicator size="small" color="#FFFFFF" />
                       </View>
                     </View>
@@ -466,15 +465,15 @@ const SUCCESS = "#2E7D32";
 const styles = StyleSheet.create({
   trainAboveCard: {
     width: "85%",
-    marginTop: 30,
+    marginTop: hp(3.69),
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
+    paddingBottom: hp(4.93),
   },
   setText: {
     color: "white",
-    fontSize: 15,
+    fontSize: moderateScale(15),
   },
   SetStyle: {
     alignItems: "center",
@@ -482,18 +481,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8870A",
     height: moderateScale(48),
     width: "50%",
-    borderRadius: 10,
+    borderRadius: moderateScale(10),
     elevation: 4,
-    top: 160,
+    top: hp(19.7),
   },
   createStyle: {
     color: "#6B7280",
-    top: 150,
-    fontSize: 16,
+    top: hp(18.47),
+    fontSize: moderateScale(16),
   },
   LoginText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: moderateScale(16),
     letterSpacing: 0.3,
   },
   LoginStyle: {
@@ -502,8 +501,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#1A2744",
     height: moderateScale(52),
     width: "100%",
-    borderRadius: 16,
-    marginTop: 14,
+    borderRadius: moderateScale(16),
+    marginTop: hp(1.72),
     shadowColor: "#1A2744",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.16,
@@ -513,8 +512,8 @@ const styles = StyleSheet.create({
   resendButton: {
     width: "100%",
     height: moderateScale(52),
-    borderRadius: 16,
-    marginTop: 16,
+    borderRadius: moderateScale(16),
+    marginTop: hp(1.97),
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#1A2744",
@@ -525,24 +524,24 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   resendText: {
-    marginTop: 20,
+    marginTop: hp(2.46),
     color: "#E8870A",
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontFamily: "Poppins_400Regular",
   },
   errorText: {
     color: ERROR,
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontFamily: "Poppins_400Regular",
-    marginTop: 6,
-    marginLeft: 4,
+    marginTop: hp(0.74),
+    marginLeft: wp(1.07),
   },
   successText: {
     color: SUCCESS,
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontFamily: "Poppins_400Regular",
-    marginTop: 6,
-    marginLeft: 4,
+    marginTop: hp(0.74),
+    marginLeft: wp(1.07),
   },
   mainStyle: {
     alignItems: "center",
@@ -554,16 +553,16 @@ const styles = StyleSheet.create({
   },
   maintext: {
     color: "white",
-    fontSize: 18,
-    marginLeft: 40,
-    marginBottom: 1,
+    fontSize: moderateScale(18),
+    marginLeft: wp(10.67),
+    marginBottom: hp(0.12),
   },
   imagestyle: {
     justifyContent: "center",
     alignItems: "center",
     height: moderateScale(120),
     width: moderateScale(120),
-    marginTop: 60,
+    marginTop: hp(7.39),
     borderRadius: moderateScale(96),
     backgroundColor: "#E8870A",
   },
@@ -577,13 +576,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     width: "85%",
-    borderRadius: 24,
+    borderRadius: moderateScale(24),
 
     paddingHorizontal: wp(5.3),
-    paddingTop: 22,
-    paddingBottom: 18,
+    paddingTop: hp(2.71),
+    paddingBottom: hp(2.22),
 
-    marginTop: 10,
+    marginTop: hp(1.23),
 
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
@@ -595,32 +594,34 @@ const styles = StyleSheet.create({
     overflow: "visible",
   },
   diviExpanded: {
-    paddingBottom: 26,
+    paddingBottom: hp(3.2),
   },
   divtext: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     color: "#1A2744",
-    marginBottom: 8,
-    fontFamily: "Poppins_400Regular",
+    marginBottom: hp(0.99),
+    fontFamily: "Poppins_500Medium",
   },
   otpContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 14,
-    marginBottom: 14,
+    marginTop: hp(1.72),
+    marginBottom: hp(1.72),
   },
   otpInput: {
     width: moderateScale(42),
     height: moderateScale(52),
-    marginHorizontal: 3.5,
-    borderRadius: 14,
+    marginHorizontal: wp(0.95),
+    borderRadius: moderateScale(14),
     borderWidth: 1.5,
     borderColor: "#D8DEE9",
     backgroundColor: "#FFFFFF",
-    fontSize: 22,
+    fontSize: moderateScale(22),
     color: "#1A2744",
     textAlign: "center",
+    fontFamily: "Poppins_500Medium",
+
   },
 
   otpError: {

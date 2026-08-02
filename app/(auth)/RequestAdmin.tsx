@@ -98,7 +98,7 @@ export default function RequestAdmin() {
         },
       });
     } catch (err: any) {
-      console.log(err);
+      // console.log(err);
       setError(err.message || "Unable to connect to server.");
     } finally {
       setLoading(false);

@@ -15,6 +15,7 @@ import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
 import EmployeeRequestDetailSkeleton from '../../components/skeletonScreens/EmployeeRequestDetailSkeleton';
 import { authFetch } from "../../utils/authFetch";
+import { subscribeToTableChanges } from "../../services/realtimeService";
 
 const statusMeta = (colors: any, status: string) => {
   if (status === "accepted")
@@ -50,21 +51,14 @@ export default function EmployeeRequestDetail() {
     setLoading(true);
     fetchRequest();
 
-    const channel = supabase
-      .channel(`extension_request_${requestId}_employee`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "extension_requests",
-          filter: `id=eq.${requestId}`,
-        },
-        () => {
-          fetchRequest();
-        }
-      )
-      .subscribe();
+    const channel = subscribeToTableChanges(
+      `extension_request_${requestId}_employee`,
+      "extension_requests",
+      `id=eq.${requestId}`,
+      () => {
+        fetchRequest();
+      },
+    );
 
     channelRef.current = channel;
 

@@ -6,10 +6,11 @@ import { useRouter, useFocusEffect } from "expo-router";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
-import { supabase, getFreshChannel } from "../../lib/supabase";
+import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
 import EmployeeNotificationsSkeleton from '../../components/skeletonScreens/EmployeeNotificationSkeleton';
 import { authFetch } from "../../utils/authFetch";
+import { subscribeToTableChanges } from "../../services/realtimeService";
 
 type NotifRow = {
   id: string;
@@ -37,7 +38,6 @@ const notifMeta = (colors: any, type: NotifRow["type"]) => {
     return { color: colors.status.overdue, icon: "alert-circle-outline" as const };
   return { color: colors.status.overdue, icon: "close-circle-outline" as const };
 };
-
 
 export default function EmployeeNotifications() {
   const { colors } = useTheme();
@@ -84,13 +84,12 @@ export default function EmployeeNotifications() {
 
   useEffect(() => {
     if (!userId) return;
-    const channel = getFreshChannel(`employee_notifs_${userId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-        () => fetchNotifications(userId)
-      )
-      .subscribe();
+    const channel = subscribeToTableChanges(
+      `employee_notifs_${userId}`,
+      "notifications",
+      `user_id=eq.${userId}`,
+      () => fetchNotifications(userId),
+    );
     channelRef.current = channel;
     return () => {
       if (channelRef.current) {

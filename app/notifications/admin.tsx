@@ -6,10 +6,11 @@ import { useRouter, useFocusEffect } from "expo-router";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
-import { supabase, getFreshChannel } from "../../lib/supabase";
+import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
 import AdminNotificationsSkeleton from "../../components/skeletonScreens/AdminNotificationSkeleton";
 import { authFetch } from "../../utils/authFetch";
+import { subscribeToTableChanges } from "../../services/realtimeService";
 
 export default function AdminNotifications() {
   const { colors } = useTheme();
@@ -32,6 +33,7 @@ export default function AdminNotifications() {
   const [otherNotifications, setOtherNotifications] = useState<OtherNotif[]>(
     [],
   );
+
   const fetchOtherNotifications = useCallback(async () => {
     try {
       const res = await authFetch("/notifications?types=task_in_review,overdue,eoffice_pending");
@@ -51,8 +53,6 @@ export default function AdminNotifications() {
       fetchOtherNotifications();
     }, [fetchOtherNotifications]),
   );
-
-
 
   const clearOtherNotifications = async () => {
     if (otherNotifications.length === 0) return;
@@ -99,29 +99,24 @@ export default function AdminNotifications() {
     }, [fetchPendingCount]),
   );
 
-  // Realtime: this admin's own `notifications` rows drive both the pending
-  // badge count and the "Other Notifications" list. Previously these were
-  // two separate channels subscribed to the exact same table/filter/event —
-  // every insert/update/delete fired both callbacks through two redundant
-  // realtime connections. One channel, two effects of the same event.
+  // Realtime — single subscription for the `notifications` table, scoped
+  // to this admin's own user id. Both the "Requests" pending-count badge
+  // and the "Other Notifications" list need to react to the same
+  // underlying event (a row changing for this user); previously these
+  // were two separate Realtime channels on the identical table+filter+
+  // event, each doing its own fetch. One subscription, two refetches.
   useEffect(() => {
     if (!adminUserId) return;
 
-    const channel = getFreshChannel(`notifications_admin_badge_${adminUserId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${adminUserId}`,
-        },
-        () => {
-          fetchPendingCount();
-          fetchOtherNotifications();
-        },
-      )
-      .subscribe();
+    const channel = subscribeToTableChanges(
+      `notifications_admin_${adminUserId}`,
+      "notifications",
+      `user_id=eq.${adminUserId}`,
+      () => {
+        fetchPendingCount();
+        fetchOtherNotifications();
+      },
+    );
 
     notifChannelRef.current = channel;
 
@@ -137,20 +132,12 @@ export default function AdminNotifications() {
   useEffect(() => {
     if (!workspaceId) return;
 
-    const channel = getFreshChannel(`extension_requests_admin_badge_${workspaceId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "extension_requests",
-          filter: `workspace_id=eq.${workspaceId}`,
-        },
-        () => {
-          fetchPendingCount();
-        },
-      )
-      .subscribe();
+    const channel = subscribeToTableChanges(
+      `extension_requests_admin_badge_${workspaceId}`,
+      "extension_requests",
+      `workspace_id=eq.${workspaceId}`,
+      () => fetchPendingCount(),
+    );
 
     extensionChannelRef.current = channel;
 
