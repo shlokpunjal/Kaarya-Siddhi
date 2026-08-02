@@ -6,7 +6,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { moderateScale } from "../../utils/responsive";
-import AdminNotificationsSkeleton from "../../components/skeletonScreens/AdminNotificationSkeleton";
+import AdminNotificationsSkeleton from "../../components/skeletonScreens/Admin/AdminNotificationSkeleton";
 import { authFetch } from "../../utils/authFetch";
 import ScreenHeader from "../../components/notifications/ScreenHeader";
 import EmptyState from "../../components/notifications/EmptyState";

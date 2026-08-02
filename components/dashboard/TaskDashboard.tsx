@@ -7,7 +7,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { getGreeting } from "../../utils/greeting";
 import { wp, hp, moderateScale } from "../../utils/responsive";
-import DashboardSkeleton from "../skeletonScreens/DashboardSkeleton";
+import DashboardSkeleton from "../skeletonScreens/Dashboard/DashboardSkeleton";
 import EmptyTasksScreen from "./EmptyTasksScreen";
 import TaskAccordion from "./TaskAccordion";
 import { useDashboardTasks } from "../../hooks/useDashboardTasks";

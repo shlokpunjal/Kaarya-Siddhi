@@ -30,7 +30,7 @@ import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { toLocalDateString } from "../../utils/dateFormat";
 import { authFetch } from "../../utils/authFetch";
-import TaskActionSkeleton from "../../components/skeletonScreens/TaskActionSkeleton";
+import TaskActionSkeleton from "../../components/skeletonScreens/Tasks/TaskActionSkeleton";
 
 export default function ExtendDeadline() {
   const { colors, isDark } = useTheme();

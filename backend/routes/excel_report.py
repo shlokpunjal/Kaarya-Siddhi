@@ -21,11 +21,26 @@ def generate_task_report(
     employee_id: str | None = Query(None),
     user: dict = Depends(get_current_user),
 ):
-    # Only admins can generate workspace-wide reports
-    if user.get("role") != "admin":
+    # Only admins can generate workspace-wide reports. Re-checked against
+    # the DB rather than trusted from the JWT payload — role/workspace_id
+    # claims in an access token can be up to ACCESS_TOKEN_MINUTES stale,
+    # and a report export is exactly the kind of bulk-data action that
+    # should reflect a role/workspace change immediately, not after the
+    # old token expires. Matches the pattern already used in tasks.py.
+    caller = (
+        supabase.table("users")
+        .select("role, workspace_id")
+        .eq("email", user["sub"])
+        .execute()
+    )
+    if not caller.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    caller_row = caller.data[0]
+
+    if caller_row.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Only admins can generate task reports.")
 
-    workspace_id = user.get("workspace_id")
+    workspace_id = caller_row.get("workspace_id")
     if not workspace_id:
         raise HTTPException(status_code=400, detail="No workspace associated with this account.")
 

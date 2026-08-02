@@ -1,8 +1,8 @@
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../context/ThemeContext';
-import SkeletonBox from './SkeletonBox';
-import { wp, moderateScale } from '../../utils/responsive';
+import { useTheme } from '../../../context/ThemeContext';
+import SkeletonBox from '../SkeletonBox';
+import { wp, moderateScale } from '../../../utils/responsive';
 
 const AVATAR_SIZE = moderateScale(84);
 const RING_SIZE = AVATAR_SIZE + 12;

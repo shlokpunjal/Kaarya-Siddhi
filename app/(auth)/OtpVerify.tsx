@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef, useEffect } from "react";
@@ -80,6 +81,7 @@ const OtpVerify = () => {
   const cardScale = useRef(new Animated.Value(0.95)).current;
   const inputsFade = useRef(new Animated.Value(1)).current;
   const inputRefs = useRef<(TextInput | null)[]>([]);
+  const scrollViewRef = useRef<ScrollView | null>(null);
   const isVerifyingRef = useRef(false);
   const pendingVerifiedDataRef = useRef<VerifiedData | null>(null);
   const [cooldown, setCooldown] = useState(30);
@@ -94,6 +96,25 @@ const OtpVerify = () => {
   const { saveSession } = useAuth();
   const [otpError, setOtpError] = useState("");
   const [resendMessage, setResendMessage] = useState("");
+
+  // The first OTP box is auto-focused on mount (below), which opens the
+  // keyboard immediately — before the user has done anything. On Android,
+  // KeyboardAvoidingView's "height" behavior shrinks the visible area but
+  // doesn't itself scroll the ScrollView, so the card (and the Verify OTP
+  // button in particular) can end up partially hidden behind the keyboard.
+  // Scrolling to the end whenever the keyboard opens keeps the whole card
+  // in view — there's nothing below it worth showing instead.
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const sub = Keyboard.addListener(showEvent, () => {
+      // A short delay lets the KeyboardAvoidingView/ScrollView layout
+      // settle before we measure where "the end" actually is.
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     startCooldown();
@@ -203,8 +224,6 @@ const OtpVerify = () => {
 
       const data = await response.json();
 
-      console.log("VERIFY OTP RESPONSE:", data);
-      console.log("ACCESS TOKEN:", data.token);
       if (!response.ok) {
         const elapsed = Date.now() - startTime;
         if (elapsed < MIN_VISIBLE_MS) {
@@ -315,6 +334,7 @@ const OtpVerify = () => {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -606,6 +626,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    width: "100%",
     marginTop: hp(1.72),
     marginBottom: hp(1.72),
   },
@@ -620,8 +641,6 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(22),
     color: "#1A2744",
     textAlign: "center",
-    fontFamily: "Poppins_500Medium",
-
   },
 
   otpError: {

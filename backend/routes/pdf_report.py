@@ -51,10 +51,22 @@ def generate_pdf_report(
     employee_id: str | None = Query(None),
     user: dict = Depends(get_current_user),
 ):
-    if user.get("role") != "admin":
+    # Re-checked against the DB rather than trusted from the JWT payload —
+    # see excel_report.py for the full rationale (same fix, same reason).
+    caller = (
+        supabase.table("users")
+        .select("role, workspace_id")
+        .eq("email", user["sub"])
+        .execute()
+    )
+    if not caller.data:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    caller_row = caller.data[0]
+
+    if caller_row.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Only admins can generate task reports.")
 
-    workspace_id = user.get("workspace_id")
+    workspace_id = caller_row.get("workspace_id")
     if not workspace_id:
         raise HTTPException(status_code=400, detail="No workspace associated with this account.")
 
