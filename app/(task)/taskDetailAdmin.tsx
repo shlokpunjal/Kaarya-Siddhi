@@ -1,12 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
-import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Text,
   TouchableOpacity,
   View,
   ScrollView,
   ActivityIndicator,
-  Linking,
   Platform,
   Modal,
   TextInput,
@@ -20,6 +19,30 @@ import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/common/AlertModal";
 import { authFetch } from "../../utils/authFetch";
 import TaskDetailSkeleton from "../../components/skeletonScreens/TaskDetailSkeleton";
+import { ScreenHeader } from "../../components/task/ScreenHeader";
+import { DetailRow } from "../../components/task/DetailRow";
+import { FileAttachmentList } from "../../components/task/FileAttachmentList";
+import { ActionButton } from "../../components/task/ActionButton";
+import { useCurrentUserId } from "../../hooks/useCurrentUserId";
+import { useTaskDetail } from "../../hooks/useTaskDetail";
+import { useTaskDelete } from "../../hooks/useTaskDelete";
+import { useTaskComplete } from "../../hooks/useTaskComplete";
+
+// Keyed by the normalized in-app status ("inReview"), not the raw DB value.
+const statusColorKey: Record<string, string> = {
+  overdue: "overdue",
+  pending: "pending",
+  inReview: "inReview",
+  completed: "completed",
+};
+
+// Every task on this screen was created by an admin (the dashboard only
+// fetches tasks where created_by = the logged-in admin), but we still
+// normalize "in_review" -> "inReview" the same way the fetch used to.
+const normalizeStatus = (taskData: any) => ({
+  ...taskData,
+  status: taskData.status === "in_review" ? "inReview" : taskData.status,
+});
 
 export default function TaskDetailAdmin() {
   const { colors } = useTheme();
@@ -27,112 +50,31 @@ export default function TaskDetailAdmin() {
   const router = useRouter();
   const { showToast } = useToast();
 
-  // Keyed by the normalized in-app status ("inReview"), not the raw DB value.
-  const statusColorMap: Record<string, string> = {
-    overdue: colors.status.overdue,
-    pending: colors.status.pending,
-    inReview: colors.status.inReview,
-    completed: colors.status.completed,
-  };
+  const currentUserId = useCurrentUserId();
+  const { task, setTask, taskFiles, meta, loading } = useTaskDetail(
+    taskId,
+    normalizeStatus,
+  );
 
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-
-  // ── Resolve logged-in admin's id (to confirm task ownership before
-  // showing edit/delete) ──────────────────────────────────────────────────
-  useEffect(() => {
-    const resolveUser = async () => {
-      const res = await authFetch("/me");
-      if (res.ok) {
-        const data = await res.json();
-        setCurrentUserId(data.id);
-      }
-    };
-
-    resolveUser();
-  }, []);
-
-  const [task, setTask] = useState<any>(null);
-  const [taskFiles, setTaskFiles] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [assignedName, setAssignedName] = useState<string>("—");
-  const [deleting, setDeleting] = useState(false);
-  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
-
-  // ── Suggest Changes (opens a dialog, admin types a message, task goes
-  // back to pending with the message attached) ────────────────────────────
-  const [suggestionModalVisible, setSuggestionModalVisible] = useState(false);
-  const [suggestionText, setSuggestionText] = useState("");
-  const [sendingSuggestion, setSendingSuggestion] = useState(false);
-
-  // ── Mark Complete (confirm dialog, then updates status) ─────────────────
-  const [completeConfirmVisible, setCompleteConfirmVisible] = useState(false);
-  const [completing, setCompleting] = useState(false);
-
-  // Every task on this screen was created by an admin (the dashboard only
-  // fetches tasks where created_by = the logged-in admin), but we still
-  // confirm ownership before showing edit/delete, same pattern as the
-  // employee screen — guards against a stray deep link to someone else's task.
+  // We still confirm ownership before showing edit/delete — guards against
+  // a stray deep link to someone else's task.
   const isOwnTask =
     !!task && !!currentUserId && task.created_by === currentUserId;
   const canEditOrDelete = isOwnTask && task?.status !== "completed";
   const canReview = task?.status !== "completed";
 
-  // ── Fetch task + its files from Supabase ────────────────────────────────────
-  useEffect(() => {
-    if (!taskId) return;
+  const taskDelete = useTaskDelete(taskId, () => router.back());
+  const taskComplete = useTaskComplete(taskId, () =>
+    setTask((prev: any) => ({ ...prev, status: "completed" })),
+  );
 
-    const fetchTask = async () => {
-      setLoading(true);
+  // ── Suggest Changes: sends the message + pushes the task back to
+  // pending. PATCH /tasks/:id accepts { status, suggestion } and —
+  // server-side — notifies the assigned employee. ──
+  const [suggestionModalVisible, setSuggestionModalVisible] = useState(false);
+  const [suggestionText, setSuggestionText] = useState("");
+  const [sendingSuggestion, setSendingSuggestion] = useState(false);
 
-      const res = await authFetch(`/tasks/${taskId}/detail`);
-      if (!res.ok) {
-        console.error("Task fetch error:", res.status);
-        setLoading(false);
-        return;
-      }
-
-      const { task: taskData, files, assigned_to_name } = await res.json();
-
-      setTask({
-        ...taskData,
-        status: taskData.status === "in_review" ? "inReview" : taskData.status,
-      });
-      setTaskFiles(files ?? []);
-      setAssignedName(assigned_to_name || "—");
-      setLoading(false);
-    };
-
-    fetchTask();
-  }, [taskId]);
-
-  // ── Delete task ───────────────────────────────────────────────────────────────
-  const handleDeleteTask = () => {
-    setDeleteConfirmVisible(true);
-  };
-
-  const confirmDeleteTask = async () => {
-    if (!task) return;
-
-    try {
-      setDeleting(true);
-
-      const res = await authFetch(`/tasks/${task.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Delete failed");
-
-      setDeleteConfirmVisible(false);
-      showToast("Task has been deleted.", "success");
-      setTimeout(() => router.back(), 900);
-    } catch (error: any) {
-      setDeleteConfirmVisible(false);
-      showToast(error?.message || "Delete failed", "error");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  // ── Suggest Changes: sends the message + pushes the task back to pending.
-  // PATCH /tasks/:id accepts { status, suggestion } and — server-side —
-  // notifies the assigned employee (notifications row + push/tray alert).
   const handleOpenSuggestion = () => {
     setSuggestionText("");
     setSuggestionModalVisible(true);
@@ -143,31 +85,20 @@ export default function TaskDetailAdmin() {
       showToast("Please write a suggestion first", "error");
       return;
     }
-
     try {
       setSendingSuggestion(true);
-
       const res = await authFetch(`/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "pending",
-          suggestion: suggestionText.trim(),
-        }),
+        body: JSON.stringify({ status: "pending", suggestion: suggestionText.trim() }),
       });
-
       if (!res.ok) throw new Error("Failed to send suggestion");
-
-      // The employee is notified server-side by the PATCH above (writes a
-      // `notifications` row + sends the push/tray alert) — see
-      // backend/routes/employee_tasks.py:update_task.
 
       setTask((prev: any) => ({
         ...prev,
         status: "pending",
         suggestion: suggestionText.trim(),
       }));
-
       setSuggestionModalVisible(false);
       showToast("Suggestion sent to employee.", "success");
     } catch (error: any) {
@@ -177,45 +108,8 @@ export default function TaskDetailAdmin() {
     }
   };
 
-  // ── Mark Complete: confirm dialog, then updates status ──────────────────────
-  // NOTE: same assumption as above — adjust the endpoint/body to your backend.
-  const handleMarkComplete = () => {
-    setCompleteConfirmVisible(true);
-  };
+  if (loading) return <TaskDetailSkeleton />;
 
-  const confirmMarkComplete = async () => {
-    if (!task) return;
-
-    try {
-      setCompleting(true);
-
-      const res = await authFetch(`/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "completed" }),
-      });
-
-      if (!res.ok) throw new Error("Failed to mark complete");
-
-      setTask((prev: any) => ({ ...prev, status: "completed" }));
-      setCompleteConfirmVisible(false);
-      showToast("Task marked as completed!", "success");
-    } catch (error: any) {
-      setCompleteConfirmVisible(false);
-      showToast(error?.message || "Failed to mark complete", "error");
-    } finally {
-      setCompleting(false);
-    }
-  };
-
-  // ── Loading ──────────────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <TaskDetailSkeleton />
-    );
-  }
-
-  // ── Task not found ───────────────────────────────────────────────────────────
   if (!task) {
     return (
       <SafeAreaView
@@ -226,65 +120,24 @@ export default function TaskDetailAdmin() {
           alignItems: "center",
         }}
       >
-        <Ionicons
-          name="alert-circle-outline"
-          size={48}
-          color={colors.status.overdue}
-        />
-        <Text
-          style={{
-            ...typography.body,
-            color: colors.text.primary,
-            marginTop: 12,
-          }}
-        >
+        <Ionicons name="alert-circle-outline" size={48} color={colors.status.overdue} />
+        <Text style={{ ...typography.body, color: colors.text.primary, marginTop: 12 }}>
           Task not found.
         </Text>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{ marginTop: 20 }}
-        >
-          <Text style={{ color: colors.brand.accent, ...typography.body }}>
-            Go Back
-          </Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+          <Text style={{ color: colors.brand.accent, ...typography.body }}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
-  const statusColor = statusColorMap[task.status] ?? colors.text.secondary;
+  const statusColor =
+    colors.status[statusColorKey[task.status] as keyof typeof colors.status] ??
+    colors.text.secondary;
 
-  // ── UI ───────────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
-      {/* Header */}
-      <View
-        style={{
-          backgroundColor: colors.brand.primary,
-          height: moderateScale(70),
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 16,
-        }}
-      >
-        <Ionicons
-          onPress={() => router.back()}
-          name="arrow-back"
-          size={moderateScale(28)}
-          color={colors.brand.onPrimary}
-        />
-        <Text
-          style={{
-            ...typography.heading,
-            color: colors.brand.onPrimary,
-            flex: 1,
-            textAlign: "center",
-            marginRight: moderateScale(28),
-          }}
-        >
-          Task Details
-        </Text>
-      </View>
+      <ScreenHeader title="Task Details" />
 
       <ScrollView
         contentContainerStyle={{ padding: wp(6.4), paddingBottom: 40 }}
@@ -308,7 +161,7 @@ export default function TaskDetailAdmin() {
             }),
           }}
         >
-          {/* Task Title + Edit/Delete icons */}
+          {/* Title + edit/delete */}
           <View
             style={{
               flexDirection: "row",
@@ -318,100 +171,42 @@ export default function TaskDetailAdmin() {
               gap: 12,
             }}
           >
-            <Text
-              style={{
-                ...typography.heading,
-                color: colors.text.primary,
-                flex: 1,
-              }}
-            >
+            <Text style={{ ...typography.heading, color: colors.text.primary, flex: 1 }}>
               {task.title}
             </Text>
 
             {canEditOrDelete && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                  paddingTop: 2,
-                }}
-              >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 2 }}>
                 <TouchableOpacity
                   onPress={() =>
-                    router.push({
-                      pathname: "/(task)/newtask",
-                      params: { taskId: task.id },
-                    })
+                    router.push({ pathname: "/(task)/newtask", params: { taskId: task.id } })
                   }
-                  disabled={deleting}
+                  disabled={taskDelete.deleting}
                 >
-                  <Ionicons
-                    name="create-outline"
-                    size={22}
-                    color={colors.brand.accent}
-                  />
+                  <Ionicons name="create-outline" size={22} color={colors.brand.accent} />
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleDeleteTask}
-                  disabled={deleting}
-                >
-                  {deleting ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={colors.status.overdue}
-                    />
+                <TouchableOpacity onPress={taskDelete.requestDelete} disabled={taskDelete.deleting}>
+                  {taskDelete.deleting ? (
+                    <ActivityIndicator size="small" color={colors.status.overdue} />
                   ) : (
-                    <Ionicons
-                      name="trash-outline"
-                      size={20}
-                      color={colors.status.overdue}
-                    />
+                    <Ionicons name="trash-outline" size={20} color={colors.status.overdue} />
                   )}
                 </TouchableOpacity>
               </View>
             )}
           </View>
 
-          <View
-            style={{
-              height: 1,
-              backgroundColor: colors.base.border,
-              marginBottom: 16,
-            }}
-          />
+          <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
           {/* Status */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 16,
-            }}
-          >
-            <Ionicons
-              name="ellipse"
-              size={12}
-              color={statusColor}
-              style={{ marginRight: 8 }}
-            />
-            <Text
-              style={{ ...typography.heading3, color: colors.text.primary }}
-            >
-              Status:{" "}
-            </Text>
-            <Text
-              style={{
-                ...typography.heading3,
-                color: statusColor,
-                textTransform: "capitalize",
-              }}
-            >
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
+            <Ionicons name="ellipse" size={12} color={statusColor} style={{ marginRight: 8 }} />
+            <Text style={{ ...typography.heading3, color: colors.text.primary }}>Status: </Text>
+            <Text style={{ ...typography.heading3, color: statusColor, textTransform: "capitalize" }}>
               {task.status ?? "pending"}
             </Text>
           </View>
 
-          {/* Auto-deletion notice — shown only when the task is completed */}
           {task.status === "completed" && (
             <View
               style={{
@@ -432,254 +227,65 @@ export default function TaskDetailAdmin() {
                 color={colors.status.overdue}
                 style={{ marginTop: 1 }}
               />
-              <Text
-                style={{
-                  ...typography.label,
-                  color: colors.status.overdue,
-                  flex: 1,
-                }}
-              >
+              <Text style={{ ...typography.label, color: colors.status.overdue, flex: 1 }}>
                 This will be deleted after 15 days.
               </Text>
             </View>
           )}
 
-          {/* Divider */}
-          <View
-            style={{
-              height: 1,
-              backgroundColor: colors.base.border,
-              marginBottom: 16,
-            }}
-          />
+          <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
-          {/* Description */}
-          <Text
-            style={{
-              ...typography.heading3,
-              color: colors.text.primary,
-              marginBottom: 6,
-            }}
-          >
+          <Text style={{ ...typography.heading3, color: colors.text.primary, marginBottom: 6 }}>
             Description
           </Text>
-          <Text
-            style={{
-              ...typography.body,
-              color: colors.text.secondary,
-              marginBottom: 20,
-            }}
-          >
+          <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 20 }}>
             {task.description ?? "No description provided."}
           </Text>
 
-          {/* Deadline — no longer has a separate "Extend Deadline" flow here;
-              admin edits the deadline directly via the edit icon above,
-              which routes to /newtask in edit mode. */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 20,
-            }}
-          >
-            <Ionicons
-              name="calendar-outline"
-              size={18}
-              color={colors.text.secondary}
-              style={{ marginRight: 8 }}
-            />
-            <Text
-              style={{ ...typography.heading3, color: colors.text.primary }}
-            >
-              Deadline:{" "}
-            </Text>
-            <Text style={{ ...typography.body, color: statusColor }}>
-              {task.deadline
+          {/* Deadline is edited directly via the edit icon above (routes to
+              /newtask in edit mode) — no separate "Extend Deadline" flow here. */}
+          <DetailRow
+            icon="calendar-outline"
+            label="Deadline"
+            value={
+              task.deadline
                 ? new Date(task.deadline).toLocaleDateString("en-IN", {
                     day: "2-digit",
                     month: "short",
                     year: "numeric",
                   })
-                : "No deadline set"}
-            </Text>
-          </View>
-
-          {/* Assigned To */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 20,
-            }}
-          >
-            <Ionicons
-              name="person-outline"
-              size={18}
-              color={colors.text.secondary}
-              style={{ marginRight: 8 }}
-            />
-            <Text
-              style={{ ...typography.heading3, color: colors.text.primary }}
-            >
-              Assigned To:{" "}
-            </Text>
-            <Text
-              numberOfLines={1}
-              style={{
-                ...typography.body,
-                color: colors.text.secondary,
-                flex: 1,
-              }}
-            >
-              {assignedName}
-            </Text>
-          </View>
-
-          {/* Divider */}
-          <View
-            style={{
-              height: 1,
-              backgroundColor: colors.base.border,
-              marginBottom: 16,
-            }}
+                : "No deadline set"
+            }
+            valueColor={statusColor}
           />
 
-          {/* Files Attached — fetched from task_files table (Cloudinary URLs) */}
-          <Text
-            style={{
-              ...typography.heading3,
-              color: colors.text.primary,
-              marginBottom: 10,
-            }}
-          >
-            Files Attached ({taskFiles.length})
-          </Text>
+          <DetailRow icon="person-outline" label="Assigned To" value={meta.assigned_to_name || "—"} />
 
-          {taskFiles.length === 0 ? (
-            <Text
-              style={{
-                ...typography.body,
-                color: colors.text.secondary,
-                marginBottom: 16,
-              }}
-            >
-              No files attached.
-            </Text>
-          ) : (
-            taskFiles.map((file, idx) => (
-              <TouchableOpacity
-                key={idx}
-                onPress={() => file.file_url && Linking.openURL(file.file_url)}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  backgroundColor: colors.base.surfaceL2,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: colors.base.border,
-                  padding: 12,
-                  marginBottom: 8,
-                  gap: 10,
-                }}
-              >
-                <Ionicons
-                  name="document"
-                  size={22}
-                  color={colors.brand.accent}
-                />
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    flex: 1,
-                    ...typography.body,
-                    color: colors.text.primary,
-                  }}
-                >
-                  {file.file_name ?? "Unnamed file"}
-                </Text>
-                <Ionicons
-                  name="open-outline"
-                  size={18}
-                  color={colors.text.secondary}
-                />
-              </TouchableOpacity>
-            ))
-          )}
+          <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
-          {/* Suggest Changes / Mark Complete — two separate actions replacing
-              the old single "Review or Complete" button. */}
+          <FileAttachmentList files={taskFiles} />
+
+          {/* Suggest Changes / Mark Complete */}
           {canReview ? (
             <View style={{ marginTop: 24 }}>
-              <TouchableOpacity
+              <ActionButton
+                label="Suggest Changes"
                 onPress={handleOpenSuggestion}
-                style={{
-                  width: "100%",
-                  backgroundColor: colors.brand.secprimary,
-                  height: moderateScale(50),
-                  borderRadius: 12,
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <Text
-                  style={{
-                    color: colors.brand.onPrimary,
-                    ...typography.subheading,
-                  }}
-                >
-                  Suggest Changes
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleMarkComplete}
-                style={{
-                  width: "100%",
-                  backgroundColor: colors.brand.accent,
-                  height: moderateScale(50),
-                  borderRadius: 12,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  marginTop: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    color: colors.brand.onPrimary,
-                    ...typography.subheading,
-                  }}
-                >
-                  Mark Complete
-                </Text>
-              </TouchableOpacity>
+                color={colors.brand.secprimary}
+              />
+              <View style={{ marginTop: 12 }}>
+                <ActionButton label="Mark Complete" onPress={taskComplete.requestComplete} />
+              </View>
             </View>
           ) : (
-            <View
-              style={{
-                backgroundColor: colors.base.border,
-                height: moderateScale(50),
-                borderRadius: 12,
-                justifyContent: "center",
-                alignItems: "center",
-                marginTop: 24,
-              }}
-            >
-              <Text
-                style={{
-                  color: colors.brand.onPrimary,
-                  ...typography.subheading,
-                }}
-              >
-                Already Completed
-              </Text>
+            <View style={{ marginTop: 24 }}>
+              <ActionButton label="Already Completed" onPress={() => {}} disabled />
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Suggest Changes Modal — free-text message that goes back to the
-          employee, and pushes the task back into Pending */}
+      {/* Suggest Changes Modal */}
       <Modal
         visible={suggestionModalVisible}
         transparent
@@ -703,13 +309,7 @@ export default function TaskDetailAdmin() {
               borderColor: colors.base.border,
             }}
           >
-            <Text
-              style={{
-                ...typography.heading3,
-                color: colors.text.primary,
-                marginBottom: 12,
-              }}
-            >
+            <Text style={{ ...typography.heading3, color: colors.text.primary, marginBottom: 12 }}>
               Suggest Changes
             </Text>
             <TextInput
@@ -746,9 +346,7 @@ export default function TaskDetailAdmin() {
                   alignItems: "center",
                 }}
               >
-                <Text style={{ ...typography.body, color: colors.text.primary }}>
-                  Cancel
-                </Text>
+                <Text style={{ ...typography.body, color: colors.text.primary }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSendSuggestion}
@@ -766,9 +364,7 @@ export default function TaskDetailAdmin() {
                 {sendingSuggestion ? (
                   <ActivityIndicator color={colors.base.surfaceL1} />
                 ) : (
-                  <Text style={{ ...typography.body, color: colors.brand.onPrimary }}>
-                    Send
-                  </Text>
+                  <Text style={{ ...typography.body, color: colors.brand.onPrimary }}>Send</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -776,27 +372,26 @@ export default function TaskDetailAdmin() {
         </View>
       </Modal>
 
-      {/* Mark Complete confirmation */}
       <AlertModal
-        visible={completeConfirmVisible}
+        visible={taskComplete.confirmVisible}
         type="warning"
         title="Mark as Complete"
         message="Do you want to mark this task as complete?"
-        confirmText={completing ? "Marking..." : "Yes, Complete"}
+        confirmText={taskComplete.completing ? "Marking..." : "Yes, Complete"}
         cancelText="Cancel"
-        onConfirm={confirmMarkComplete}
-        onCancel={() => setCompleteConfirmVisible(false)}
+        onConfirm={taskComplete.confirmComplete}
+        onCancel={taskComplete.cancelComplete}
       />
 
       <AlertModal
-        visible={deleteConfirmVisible}
+        visible={taskDelete.confirmVisible}
         type="warning"
         title="Delete Task"
         message="Are you sure you want to delete this task? This action cannot be undone."
-        confirmText={deleting ? "Deleting..." : "Delete"}
+        confirmText={taskDelete.deleting ? "Deleting..." : "Delete"}
         cancelText="Cancel"
-        onConfirm={confirmDeleteTask}
-        onCancel={() => setDeleteConfirmVisible(false)}
+        onConfirm={taskDelete.confirmDelete}
+        onCancel={taskDelete.cancelDelete}
       />
     </SafeAreaView>
   );
