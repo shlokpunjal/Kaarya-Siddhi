@@ -1,7 +1,7 @@
 import { View } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import { wp, moderateScale } from '../../utils/responsive';
-import SkeletonBox from './SkeletonBox';
+import { useTheme } from '../../../context/ThemeContext';
+import { wp, moderateScale } from '../../../utils/responsive';
+import SkeletonBox from '../SkeletonBox';
 
 export default function AdminRequestsListSkeleton() {
   const { colors } = useTheme();

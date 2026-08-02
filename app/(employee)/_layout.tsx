@@ -1,6 +1,8 @@
 import { Tabs, router } from 'expo-router';
 import { Image } from 'react-native';
+import { useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { moderateScale } from '../../utils/responsive';
 
 const icons = {
@@ -38,6 +40,14 @@ function TabIcon({ source, focused }: { source: any; focused: boolean }) {
 
 export default function EmployeeTabsLayout() {
   const { colors } = useTheme();
+  const { userRole, isLoading } = useAuth();
+
+  // Defense-in-depth only — see the matching guard in (admin)/_layout.tsx.
+  useEffect(() => {
+    if (!isLoading && userRole && userRole !== 'employee') {
+      router.replace(userRole === 'admin' ? '/(admin)' : '/(auth)/LoginChoice');
+    }
+  }, [isLoading, userRole]);
 
   return (
     <Tabs

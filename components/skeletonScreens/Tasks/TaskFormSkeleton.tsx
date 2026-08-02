@@ -1,9 +1,9 @@
 import { View, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../context/ThemeContext';
-import { wp, hp, moderateScale } from '../../utils/responsive';
-import SkeletonBox from './SkeletonBox';
-import HeaderTitleSkeleton from './HeaderTitleSkeleton';
+import { useTheme } from '../../../context/ThemeContext';
+import { wp, hp, moderateScale } from '../../../utils/responsive';
+import SkeletonBox from '../SkeletonBox';
+import HeaderTitleSkeleton from '../HeaderTitleSkeleton';
 
 // Matches app/(task)/newtask.tsx and newtaskemp.tsx while fetchingTask is true
 // (edit mode only) — header + stacked form-field bars inside the input card.

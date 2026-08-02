@@ -14,7 +14,7 @@ import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import { AlertModal } from "../../components/common/AlertModal";
-import TaskFormSkeleton from "../../components/skeletonScreens/TaskFormSkeleton";
+import TaskFormSkeleton from "../../components/skeletonScreens/Tasks/TaskFormSkeleton";
 import { ScreenHeader } from "../../components/task/ScreenHeader";
 import { EmployeeAutocompleteInput } from "../../components/task/EmployeeAutoCompleteInput";
 import { PrioritySelector } from "../../components/task/PrioritySelector";

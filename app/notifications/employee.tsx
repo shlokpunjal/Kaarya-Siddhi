@@ -8,7 +8,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
-import EmployeeNotificationsSkeleton from '../../components/skeletonScreens/EmployeeNotificationSkeleton';
+import EmployeeNotificationsSkeleton from '../../components/skeletonScreens/Employee/EmployeeNotificationSkeleton';
 import { authFetch } from "../../utils/authFetch";
 import { subscribeToTableChanges } from "../../services/realtimeService";
 

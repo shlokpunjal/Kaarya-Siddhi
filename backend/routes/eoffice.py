@@ -17,9 +17,10 @@ DateStr = Annotated[str, Field(min_length=1, max_length=40)]
 #
 # Permission model (deliberately explicit): eOffice records can be READ and
 # CREATED by any signed-in member (admin or employee) of the owning
-# workspace. Updating (PATCH) an existing record is still ADMIN-only. Every
-# read/write below is scoped to the caller's own workspace via
-# `workspace_id`.
+# workspace. Updating (PATCH) an existing record is restricted to the
+# record's own creator or an admin of the workspace — see
+# update_eoffice_file() below. Every read/write below is scoped to the
+# caller's own workspace via `workspace_id`.
 # -----------------------------------------------------------------------
 
 

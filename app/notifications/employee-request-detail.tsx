@@ -13,7 +13,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
-import EmployeeRequestDetailSkeleton from '../../components/skeletonScreens/EmployeeRequestDetailSkeleton';
+import EmployeeRequestDetailSkeleton from '../../components/skeletonScreens/Employee/EmployeeRequestDetailSkeleton';
 import { authFetch } from "../../utils/authFetch";
 import { subscribeToTableChanges } from "../../services/realtimeService";
 
