@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,48 +7,23 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import AdminRequestReviewSkeleton from "../../components/skeletonScreens/AdminRequestReviewSkeleton";
 import { authFetch } from "../../utils/authFetch";
-import { subscribeToTableChanges } from "../../services/realtimeService";
-
-const statusMeta = (colors: any, status: string) => {
-  if (status === "accepted")
-    return {
-      color: colors.status.completed,
-      icon: "checkmark-circle" as const,
-      label: "Accepted",
-    };
-  if (status === "rejected")
-    return {
-      color: colors.status.overdue,
-      icon: "close-circle" as const,
-      label: "Rejected",
-    };
-  return {
-    color: colors.status.pending,
-    icon: "time" as const,
-    label: "Pending Review",
-  };
-};
-
-const priorityMeta = (colors: any, priority?: string) => {
-  if (priority === "high")
-    return { color: colors.status.overdue, label: "High Priority" };
-  if (priority === "medium")
-    return { color: colors.status.pending, label: "Medium Priority" };
-  return { color: colors.status.completed, label: "Low Priority" };
-};
+import ScreenHeader from "../../components/notifications/ScreenHeader";
+import StatusHero from "../../components/notifications/StatusHero";
+import DecisionButtons from "../../components/notifications/DecisionButtons";
+import { cardShadow } from "../../utils/notifications/cardShadow";
+import { formatDateIN } from "../../utils/notifications/formatDate";
+import { getPriorityMeta } from "../../utils/notifications/notificationMeta";
+import { useRealtimeTable } from "../../hooks/notifications/useRealtimeTable";
 
 export default function AdminRequestReview() {
   const { colors } = useTheme();
@@ -66,8 +41,6 @@ export default function AdminRequestReview() {
   >(null);
   const [adminNote, setAdminNote] = useState("");
 
-  const channelRef = useRef<RealtimeChannel | null>(null);
-
   const fetchRequest = async () => {
     const res = await authFetch(`/extension-requests/${requestId}`);
     if (!res.ok) {
@@ -84,25 +57,14 @@ export default function AdminRequestReview() {
     if (!requestId) return;
     setLoading(true);
     fetchRequest();
-
-    const channel = subscribeToTableChanges(
-      `extension_request_${requestId}`,
-      "extension_requests",
-      `id=eq.${requestId}`,
-      () => {
-        fetchRequest();
-      },
-    );
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
   }, [requestId]);
+
+  useRealtimeTable(
+    requestId ? `extension_request_${requestId}` : null,
+    "extension_requests",
+    requestId ? `id=eq.${requestId}` : null,
+    fetchRequest,
+  );
 
   if (loading) {
     return <AdminRequestReviewSkeleton />;
@@ -146,17 +108,15 @@ export default function AdminRequestReview() {
     );
   }
 
-  const meta = statusMeta(colors, request.status);
-  const priority = priorityMeta(colors, request.tasks?.priority);
-  const cardShadow = Platform.select({
-    ios: {
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 10,
-    },
-    android: { elevation: 4 },
-  });
+  const priority = getPriorityMeta(colors, request.tasks?.priority);
+  // Only needed here for the "Your Note" panel border/text tint once a
+  // decision has been made — StatusHero owns the icon/label version of this.
+  const statusColor =
+    request.status === "accepted"
+      ? colors.status.completed
+      : request.status === "rejected"
+      ? colors.status.overdue
+      : colors.status.pending;
 
   const openConfirm = (decision: "accepted" | "rejected") => {
     setPendingDecision(decision);
@@ -196,87 +156,17 @@ export default function AdminRequestReview() {
     setTimeout(() => router.back(), 900);
   };
 
-  const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
-      {/* Header */}
-      <View
-        style={{
-          backgroundColor: colors.brand.primary,
-          height: moderateScale(60),
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 15,
-        }}
-      >
-        <Ionicons
-          onPress={() => router.back()}
-          name="arrow-back"
-          size={moderateScale(26)}
-          color={colors.brand.onPrimary ?? colors.base.surfaceL1}
-        />
-        <Text
-          style={{
-            ...typography.heading,
-            color: colors.brand.onPrimary ?? colors.base.surfaceL1,
-            marginLeft: 15,
-          }}
-        >
-          Review Request
-        </Text>
-      </View>
+      <ScreenHeader title="Review Request" />
 
       <ScrollView
         contentContainerStyle={{ padding: wp(5.3), paddingBottom: 40 }}
       >
-        {/* ── Status hero ── */}
-        <View
-          style={{
-            backgroundColor: meta.color + "18",
-            borderRadius: 20,
-            padding: 22,
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <View
-            style={{
-              height: moderateScale(64),
-              width: moderateScale(64),
-              borderRadius: moderateScale(32),
-              backgroundColor: meta.color + "26",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 12,
-            }}
-          >
-            <Ionicons
-              name={meta.icon}
-              size={moderateScale(34)}
-              color={meta.color}
-            />
-          </View>
-          <Text style={{ ...typography.heading3, color: meta.color }}>
-            {meta.label}
-          </Text>
-          {request.decided_at && (
-            <Text
-              style={{
-                ...typography.label,
-                color: colors.text.secondary,
-                marginTop: 4,
-              }}
-            >
-              Decided on {formatDate(request.decided_at)}
-            </Text>
-          )}
-        </View>
+        <StatusHero
+          status={request.status}
+          subtitle={request.decided_at ? `Decided on ${formatDateIN(request.decided_at)}` : undefined}
+        />
 
         {/* ── Task card ── */}
         <View
@@ -407,7 +297,7 @@ export default function AdminRequestReview() {
                 CURRENT
               </Text>
               <Text style={{ ...typography.body, color: colors.text.primary }}>
-                {formatDate(request.current_deadline)}
+                {formatDateIN(request.current_deadline)}
               </Text>
             </View>
 
@@ -455,7 +345,7 @@ export default function AdminRequestReview() {
                   fontFamily: "Poppins-SemiBold",
                 }}
               >
-                {formatDate(request.requested_deadline)}
+                {formatDateIN(request.requested_deadline)}
               </Text>
             </View>
           </View>
@@ -512,8 +402,8 @@ export default function AdminRequestReview() {
         {request.status !== "pending" && (
           <View
             style={{
-              backgroundColor: meta.color + "12",
-              borderColor: meta.color + "33",
+              backgroundColor: statusColor + "12",
+              borderColor: statusColor + "33",
               borderWidth: 1,
               borderRadius: 18,
               padding: 20,
@@ -528,11 +418,11 @@ export default function AdminRequestReview() {
                 marginBottom: 10,
               }}
             >
-              <Ionicons name="create-outline" size={16} color={meta.color} />
+              <Ionicons name="create-outline" size={16} color={statusColor} />
               <Text
                 style={{
                   ...typography.label,
-                  color: meta.color,
+                  color: statusColor,
                   textTransform: "uppercase",
                   letterSpacing: 0.5,
                 }}
@@ -566,59 +456,11 @@ export default function AdminRequestReview() {
 
         {/* ── Accept / Reject — only while pending ── */}
         {request.status === "pending" && (
-          <View style={{ flexDirection: "row", gap: 14, marginTop: 12 }}>
-            <TouchableOpacity
-              onPress={() => openConfirm("accepted")}
-              style={{
-                flex: 1,
-                height: moderateScale(54),
-                borderRadius: 14,
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "row",
-                gap: 8,
-                backgroundColor: colors.status.completed,
-                ...cardShadow,
-              }}
-            >
-              <Ionicons
-                name="checkmark"
-                size={20}
-                color={colors.brand.onPrimary}
-              />
-              <Text
-                style={{
-                  ...typography.subheading,
-                  color: colors.brand.onPrimary,
-                }}
-              >
-                Accept 
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => openConfirm("rejected")}
-              style={{
-                flex: 1,
-                height: moderateScale(54),
-                borderRadius: 14,
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "row",
-                gap: 8,
-                backgroundColor: colors.status.overdue,
-                ...cardShadow,
-              }}
-            >
-              <Ionicons name="close" size={20} color={colors.brand.onPrimary} />
-              <Text
-                style={{
-                  ...typography.subheading,
-                  color: colors.brand.onPrimary,
-                }}
-              >
-                Reject
-              </Text>
-            </TouchableOpacity>
+          <View style={{ marginTop: 12 }}>
+            <DecisionButtons
+              onAccept={() => openConfirm("accepted")}
+              onReject={() => openConfirm("rejected")}
+            />
           </View>
         )}
       </ScrollView>
