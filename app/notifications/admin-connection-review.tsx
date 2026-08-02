@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+import { View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -15,28 +9,11 @@ import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import AdminConnectionReviewSkeleton from "../../components/skeletonScreens/AdminConnectionReviewSkeleton";
 import { authFetch } from "../../utils/authFetch";
-
-type Status = "pending" | "accepted" | "rejected";
-
-const statusMeta = (colors: any, status: Status) => {
-  if (status === "accepted")
-    return {
-      color: colors.status.completed,
-      icon: "checkmark-circle" as const,
-      label: "Accepted",
-    };
-  if (status === "rejected")
-    return {
-      color: colors.status.overdue,
-      icon: "close-circle" as const,
-      label: "Rejected",
-    };
-  return {
-    color: colors.status.pending,
-    icon: "time" as const,
-    label: "Pending Review",
-  };
-};
+import ScreenHeader from "../../components/notifications/ScreenHeader";
+import StatusHero from "../../components/notifications/StatusHero";
+import DecisionButtons from "../../components/notifications/DecisionButtons";
+import { cardShadow } from "../../utils/notifications/cardShadow";
+import type { RequestStatus } from "../../utils/notifications/notificationMeta";
 
 export default function AdminConnectionReview() {
   const { colors } = useTheme();
@@ -48,30 +25,16 @@ export default function AdminConnectionReview() {
   const { showToast } = useToast();
 
   const [employeeName, setEmployeeName] = useState<string | null>(null);
-  const [status, setStatus] = useState<Status>("pending");
+  const [status, setStatus] = useState<RequestStatus>("pending");
   const [loading, setLoading] = useState(true);
-  const [deciding, setDeciding] = useState<"accepted" | "rejected" | null>(
-    null,
-  );
-
-  const cardShadow = Platform.select({
-    ios: {
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 10,
-    },
-    android: { elevation: 4 },
-  });
+  const [deciding, setDeciding] = useState<"accepted" | "rejected" | null>(null);
 
   useEffect(() => {
     if (!employeeEmail || !adminEmail) return;
     (async () => {
       setLoading(true);
 
-      const nameRes = await authFetch(
-        `/user-name?email=${encodeURIComponent(employeeEmail)}`,
-      );
+      const nameRes = await authFetch(`/user-name?email=${encodeURIComponent(employeeEmail)}`);
       const nameData = nameRes.ok ? await nameRes.json() : { name: null };
       setEmployeeName(nameData.name);
 
@@ -94,7 +57,7 @@ export default function AdminConnectionReview() {
   const decide = async (decision: "accepted" | "rejected") => {
     setDeciding(decision);
     try {
-     const res = await authFetch("/connection-respond", {
+      const res = await authFetch("/connection-respond", {
         method: "POST",
         body: JSON.stringify({
           employee_email: employeeEmail,
@@ -121,68 +84,12 @@ export default function AdminConnectionReview() {
     return <AdminConnectionReviewSkeleton />;
   }
 
-  const meta = statusMeta(colors, status);
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
-      <View
-        style={{
-          backgroundColor: colors.brand.primary,
-          height: moderateScale(60),
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 15,
-        }}
-      >
-        <Ionicons
-          onPress={() => router.back()}
-          name="arrow-back"
-          size={moderateScale(26)}
-          color={colors.brand.onPrimary}
-        />
-        <Text
-          style={{
-            ...typography.heading,
-            color: colors.brand.onPrimary,
-            marginLeft: moderateScale(15),
-          }}
-        >
-          Connection Request
-        </Text>
-      </View>
+      <ScreenHeader title="Connection Request" />
 
       <View style={{ padding: wp(5.3) }}>
-        {/* ── Status hero ── */}
-        <View
-          style={{
-            backgroundColor: meta.color + "18",
-            borderRadius: 20,
-            padding: 22,
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <View
-            style={{
-              height: moderateScale(64),
-              width: moderateScale(64),
-              borderRadius: moderateScale(32),
-              backgroundColor: meta.color + "26",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 12,
-            }}
-          >
-            <Ionicons
-              name={meta.icon}
-              size={moderateScale(34)}
-              color={meta.color}
-            />
-          </View>
-          <Text style={{ ...typography.heading3, color: meta.color }}>
-            {meta.label}
-          </Text>
-        </View>
+        <StatusHero status={status} />
 
         {/* ── Employee card ── */}
         <View
@@ -208,110 +115,23 @@ export default function AdminConnectionReview() {
               marginBottom: 14,
             }}
           >
-            <Ionicons
-              name="person"
-              size={moderateScale(36)}
-              color={colors.brand.accent}
-            />
+            <Ionicons name="person" size={moderateScale(36)} color={colors.brand.accent} />
           </View>
-          <Text
-            style={{
-              ...typography.heading3,
-              color: colors.text.primary,
-              textAlign: "center",
-            }}
-          >
+          <Text style={{ ...typography.heading3, color: colors.text.primary, textAlign: "center" }}>
             {employeeName ?? employeeEmail}
           </Text>
-          <Text
-            style={{
-              ...typography.label,
-              color: colors.text.secondary,
-              marginTop: 4,
-            }}
-          >
-            {status === "pending"
-              ? "wants to connect with you"
-              : "sent a connection request"}
+          <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 4 }}>
+            {status === "pending" ? "wants to connect with you" : "sent a connection request"}
           </Text>
         </View>
 
         {/* ── Accept / Reject — only while pending ── */}
         {status === "pending" && (
-          <View style={{ flexDirection: "row", gap: 14 }}>
-            <TouchableOpacity
-              onPress={() => decide("accepted")}
-              disabled={deciding !== null}
-              style={{
-                flex: 1,
-                height: moderateScale(54),
-                borderRadius: 14,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                backgroundColor: colors.status.completed,
-                opacity: deciding !== null ? 0.7 : 1,
-                ...cardShadow,
-              }}
-            >
-              {deciding === "accepted" ? (
-                <ActivityIndicator color={colors.base.surfaceL1} />
-              ) : (
-                <>
-                  <Ionicons
-                    name="checkmark"
-                    size={20}
-                    color={colors.base.surfaceL1}
-                  />
-                  <Text
-                    style={{
-                      ...typography.subheading,
-                      color: colors.base.surfaceL1,
-                    }}
-                  >
-                    Accept
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => decide("rejected")}
-              disabled={deciding !== null}
-              style={{
-                flex: 1,
-                height: moderateScale(54),
-                borderRadius: 14,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                backgroundColor: colors.status.overdue,
-                opacity: deciding !== null ? 0.7 : 1,
-                ...cardShadow,
-              }}
-            >
-              {deciding === "rejected" ? (
-                <ActivityIndicator color={colors.base.surfaceL1} />
-              ) : (
-                <>
-                  <Ionicons
-                    name="close"
-                    size={20}
-                    color={colors.base.surfaceL1}
-                  />
-                  <Text
-                    style={{
-                      ...typography.subheading,
-                      color: colors.base.surfaceL1,
-                    }}
-                  >
-                    Reject
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+          <DecisionButtons
+            busy={deciding}
+            onAccept={() => decide("accepted")}
+            onReject={() => decide("rejected")}
+          />
         )}
       </View>
     </SafeAreaView>
