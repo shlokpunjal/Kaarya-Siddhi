@@ -1,24 +1,27 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback } from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { supabase } from "../../lib/supabase";
 import { moderateScale } from "../../utils/responsive";
 import EmployeeNotificationsSkeleton from '../../components/skeletonScreens/Employee/EmployeeNotificationSkeleton';
 import { authFetch } from "../../utils/authFetch";
-import { subscribeToTableChanges } from "../../services/realtimeService";
+import ScreenHeader from "../../components/notifications/ScreenHeader";
+import EmptyState from "../../components/notifications/EmptyState";
+import { useCurrentUser } from "../../hooks/notifications/useCurrentUser";
+import { useRealtimeTable } from "../../hooks/notifications/useRealtimeTable";
+import { formatDateIN } from "../../utils/notifications/formatDate";
 
 type NotifRow = {
   id: string;
   type:
-  | "connection_accepted" | "connection_rejected"
-  | "extension_accepted" | "extension_rejected"
-  | "task_assigned" | "task_in_review" | "task_suggestion"
-  | "deadline" | "overdue" | "eoffice_pending";
+    | "connection_accepted" | "connection_rejected"
+    | "extension_accepted" | "extension_rejected"
+    | "task_assigned" | "task_in_review" | "task_suggestion"
+    | "deadline" | "overdue" | "eoffice_pending";
   message: string;
   created_at: string;
   metadata: any;
@@ -42,20 +45,9 @@ const notifMeta = (colors: any, type: NotifRow["type"]) => {
 export default function EmployeeNotifications() {
   const { colors } = useTheme();
   const router = useRouter();
-  const [userId, setUserId] = useState<string | null>(null);
+  const { userId } = useCurrentUser();
   const [notifications, setNotifications] = useState<NotifRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const channelRef = useRef<RealtimeChannel | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const res = await authFetch("/me");
-      if (res.ok) {
-        const data = await res.json();
-        setUserId(data.id);
-      }
-    })();
-  }, []);
 
   const fetchNotifications = useCallback(async (id: string) => {
     setLoading(true);
@@ -82,22 +74,16 @@ export default function EmployeeNotifications() {
     }, [userId, fetchNotifications])
   );
 
-  useEffect(() => {
-    if (!userId) return;
-    const channel = subscribeToTableChanges(
-      `employee_notifs_${userId}`,
-      "notifications",
-      `user_id=eq.${userId}`,
-      () => fetchNotifications(userId),
-    );
-    channelRef.current = channel;
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
+  const handleChange = useCallback(() => {
+    if (userId) fetchNotifications(userId);
   }, [userId, fetchNotifications]);
+
+  useRealtimeTable(
+    userId ? `employee_notifs_${userId}` : null,
+    "notifications",
+    userId ? `user_id=eq.${userId}` : null,
+    handleChange,
+  );
 
   const clearAll = async () => {
     if (!userId || notifications.length === 0) return;
@@ -114,7 +100,7 @@ export default function EmployeeNotifications() {
     }
   };
 
-    const handlePress = (n: NotifRow) => {
+  const handlePress = (n: NotifRow) => {
     if (n.type === "extension_accepted" || n.type === "extension_rejected") {
       router.push({
         pathname: "/notifications/employee-request-detail",
@@ -144,20 +130,7 @@ export default function EmployeeNotifications() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
-      <View
-        style={{
-          backgroundColor: colors.brand.primary,
-          height: moderateScale(60),
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 15,
-        }}
-      >
-        <Ionicons onPress={() => router.back()} name="arrow-back" size={moderateScale(26)} color={colors.brand.onPrimary} />
-        <Text style={{ ...typography.heading, color: colors.brand.onPrimary, marginLeft: moderateScale(15) }}>
-          Notifications
-        </Text>
-      </View>
+      <ScreenHeader title="Notifications" />
 
       <ScrollView
         contentContainerStyle={{
@@ -167,13 +140,7 @@ export default function EmployeeNotifications() {
           paddingBottom: 20,
         }}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            marginBottom: 12,
-          }}
-        >
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 12 }}>
           {notifications.length > 0 && (
             <TouchableOpacity onPress={clearAll}>
               <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
@@ -181,52 +148,8 @@ export default function EmployeeNotifications() {
           )}
         </View>
 
-        {!loading && notifications.length === 0 && (
-          <View
-            style={{
-              flex: 1,
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingHorizontal: 32,
-              transform: [{ translateY: -40 }], // Move it up
-            }}
-          >
-            <View
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: 36,
-                backgroundColor: 'rgba(0, 0, 0, 0.08)', // subtle circle behind icon
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 16,
-              }}
-            >
-              <Ionicons name="notifications-outline" size={32} color={colors.text.secondary} />
-            </View>
+        {!loading && notifications.length === 0 && <EmptyState offsetY={-40} />}
 
-            <Text
-              style={{
-                ...typography.subheading, // or a bold/medium variant
-                color: colors.text.primary,
-                marginBottom: 10,
-                textAlign: 'center',
-              }}
-            >
-              You're all caught up
-            </Text>
-
-            <Text
-              style={{
-                ...typography.body,
-                color: colors.text.secondary,
-                textAlign: 'center',
-              }}
-            >
-              New notifications will show up here.
-            </Text>
-          </View>
-        )}
         {notifications.map((n) => {
           const meta = notifMeta(colors, n.type);
           const isExtension = n.type.startsWith("extension");
@@ -259,11 +182,7 @@ export default function EmployeeNotifications() {
               <View style={{ flex: 1 }}>
                 <Text style={{ ...typography.body, color: colors.text.primary }}>{n.message}</Text>
                 <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 4 }}>
-                  {new Date(n.created_at).toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {formatDateIN(n.created_at)}
                 </Text>
               </View>
             </TouchableOpacity>
