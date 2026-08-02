@@ -13,14 +13,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
-import { supabase } from "../../lib/supabase";
 import { wp, moderateScale } from "../../utils/responsive";
 import AdminRequestsListSkeleton from "../../components/skeletonScreens/Admin/AdminRequestListSkeleton";
 import { authFetch } from "../../utils/authFetch";
-import { subscribeToTableChanges } from "../../services/realtimeService";
+import { useCurrentUser } from "../../hooks/notifications/useCurrentUser";
+import { useRealtimeTable } from "../../hooks/notifications/useRealtimeTable";
+import { getPriorityMeta } from "../../utils/notifications/notificationMeta";
 
 type ConnectionNotif = {
   id: string;
@@ -36,12 +36,6 @@ type ExtensionRow = {
   requested_deadline: string;
   created_at: string;
   tasks: { title: string; priority: "low" | "medium" | "high" } | null;
-};
-
-const priorityColor = (colors: any, priority?: string) => {
-  if (priority === "high") return colors.status.overdue;
-  if (priority === "medium") return colors.status.pending;
-  return colors.status.completed;
 };
 
 export default function AdminRequestsList() {
@@ -90,29 +84,10 @@ export default function AdminRequestsList() {
     return () => sub.remove();
   }, []);
 
-  const [adminUserId, setAdminUserId] = useState<string | null>(null);
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
-  const [connectionNotifs, setConnectionNotifs] = useState<ConnectionNotif[]>(
-    [],
-  );
+  const { userId: adminUserId, workspaceId } = useCurrentUser();
+  const [connectionNotifs, setConnectionNotifs] = useState<ConnectionNotif[]>([]);
   const [extensionRows, setExtensionRows] = useState<ExtensionRow[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const notifChannelRef = useRef<RealtimeChannel | null>(null);
-  const extensionChannelRef = useRef<RealtimeChannel | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const res = await authFetch("/me");
-      if (res.ok) {
-        const data = await res.json();
-        setAdminUserId(data.id);
-        setWorkspaceId(data.workspace_id);
-      } else {
-        setLoading(false);
-      }
-    })();
-  }, []);
 
   const fetchConnections = useCallback(async () => {
     if (!adminUserId) return;
@@ -146,40 +121,20 @@ export default function AdminRequestsList() {
   );
 
   // Realtime — connection requests (via notifications, scoped to this admin).
-  useEffect(() => {
-    if (!adminUserId) return;
-    const channel = subscribeToTableChanges(
-      `admin_requests_notifs_${adminUserId}`,
-      "notifications",
-      `user_id=eq.${adminUserId}`,
-      () => fetchConnections(),
-    );
-    notifChannelRef.current = channel;
-    return () => {
-      if (notifChannelRef.current) {
-        supabase.removeChannel(notifChannelRef.current);
-        notifChannelRef.current = null;
-      }
-    };
-  }, [adminUserId, fetchConnections]);
+  useRealtimeTable(
+    adminUserId ? `admin_requests_notifs_${adminUserId}` : null,
+    "notifications",
+    adminUserId ? `user_id=eq.${adminUserId}` : null,
+    fetchConnections,
+  );
 
   // Realtime — extension requests (direct table, scoped to workspace).
-  useEffect(() => {
-    if (!workspaceId) return;
-    const channel = subscribeToTableChanges(
-      `admin_extension_requests_${workspaceId}`,
-      "extension_requests",
-      `workspace_id=eq.${workspaceId}`,
-      () => fetchExtensions(),
-    );
-    extensionChannelRef.current = channel;
-    return () => {
-      if (extensionChannelRef.current) {
-        supabase.removeChannel(extensionChannelRef.current);
-        extensionChannelRef.current = null;
-      }
-    };
-  }, [workspaceId, fetchExtensions]);
+  useRealtimeTable(
+    workspaceId ? `admin_extension_requests_${workspaceId}` : null,
+    "extension_requests",
+    workspaceId ? `workspace_id=eq.${workspaceId}` : null,
+    fetchExtensions,
+  );
 
   return (
     <View style={{ flex: 1, justifyContent: "flex-end" }}>
@@ -420,10 +375,7 @@ export default function AdminRequestsList() {
                         height: 8,
                         width: 8,
                         borderRadius: 4,
-                        backgroundColor: priorityColor(
-                          colors,
-                          r.tasks?.priority,
-                        ),
+                        backgroundColor: getPriorityMeta(colors, r.tasks?.priority).color,
                       }}
                     />
                     <Text
