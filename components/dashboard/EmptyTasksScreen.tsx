@@ -1,4 +1,11 @@
-import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  ImageSourcePropType,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -6,11 +13,19 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { wp, moderateScale } from "../../utils/responsive";
 
-type NoTaskEmpProps = {
-  decidedRequestCount?: number;
+type EmptyTasksScreenProps = {
+  badgeCount?: number;
+  illustration: ImageSourcePropType;
+  notificationsRoute: string;
+  newTaskRoute: string;
 };
 
-export default function NoTaskEmp({ decidedRequestCount = 0 }: NoTaskEmpProps) {
+export default function EmptyTasksScreen({
+  badgeCount = 0,
+  illustration,
+  notificationsRoute,
+  newTaskRoute,
+}: EmptyTasksScreenProps) {
   const router = useRouter();
   const { colors } = useTheme();
 
@@ -23,14 +38,12 @@ export default function NoTaskEmp({ decidedRequestCount = 0 }: NoTaskEmpProps) {
             Kaarya Siddhi
           </Text>
 
-          {/* Bell icon — surfaceL2 + shadow instead of a fixed white overlay, so it reads
-              correctly against brand.primary in both light and dark theme */}
           <TouchableOpacity
-            onPress={() => router.push("/notifications/employee")}
+            onPress={() => router.push(notificationsRoute)}
             style={[styles.bellButton, { backgroundColor: colors.base.surfaceL2 }]}
           >
             <Ionicons name="notifications-outline" size={22} color={colors.brand.accent} />
-            {decidedRequestCount > 0 && (
+            {badgeCount > 0 && (
               <View style={[styles.badge, { backgroundColor: colors.status.pending }]} />
             )}
           </TouchableOpacity>
@@ -39,11 +52,7 @@ export default function NoTaskEmp({ decidedRequestCount = 0 }: NoTaskEmpProps) {
 
       {/* ── Main content ── */}
       <View style={styles.content}>
-        <Image
-          source={require("../../assets/images/image.png")}
-          style={styles.illustration}
-          resizeMode="contain"
-        />
+        <Image source={illustration} style={styles.illustration} resizeMode="contain" />
 
         <Text style={[typography.body, { color: colors.text.secondary, marginTop: 10 }]}>
           You completed all tasks.
@@ -53,7 +62,7 @@ export default function NoTaskEmp({ decidedRequestCount = 0 }: NoTaskEmpProps) {
         </Text>
 
         <TouchableOpacity
-          onPress={() => router.push("/newtaskemp")}
+          onPress={() => router.push(newTaskRoute)}
           style={[styles.newTaskButton, { backgroundColor: colors.brand.accent }]}
         >
           <Ionicons name="add" size={22} color={colors.base.surfaceL1} />
@@ -110,15 +119,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     borderRadius: 30,
     marginTop: 36,
-  },
-  tabBar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    height: 60,
-  },
-  tabItem: {
-    alignItems: "center",
-    justifyContent: "center",
   },
 });
