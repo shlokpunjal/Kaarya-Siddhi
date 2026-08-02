@@ -275,7 +275,7 @@ export default function AdminProfile() {
               key={emp.email}
               onPress={() =>
                 router.push({
-                  pathname: "/(task)/employeeTasks",
+                  pathname: "/(task)/employee-tasks",
                   params: { employeeEmail: emp.email, employeeName: emp.name },
                 })
               }

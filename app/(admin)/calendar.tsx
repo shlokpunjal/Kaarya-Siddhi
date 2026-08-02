@@ -4,7 +4,7 @@ import CalendarView from "../../components/calendar/CalendarView";
 export default function CalendarScreen() {
   return (
     <CalendarView
-      taskDetailRoute="/(task)/taskDetailAdmin"
+      taskDetailRoute="/(task)/task-detail-admin"
       buildChannels={(currentUser: { workspace_id: string; }) => {
         const workspaceId = currentUser.workspace_id as string;
         return [

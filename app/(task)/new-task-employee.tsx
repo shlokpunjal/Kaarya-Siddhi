@@ -16,17 +16,19 @@ import { wp, hp, moderateScale } from "../../utils/responsive";
 import { AlertModal } from "../../components/common/AlertModal";
 import TaskFormSkeleton from "../../components/skeletonScreens/TaskFormSkeleton";
 import { ScreenHeader } from "../../components/task/ScreenHeader";
-import { EmployeeAutocompleteInput } from "../../components/task/EmployeeAutoCompleteInput";
 import { PrioritySelector } from "../../components/task/PrioritySelector";
 import { DeadlinePicker } from "../../components/task/DeadlinePicker";
 import { FileAttachmentPicker } from "../../components/task/FileAttachmentPicker";
-import { useTaskForm } from "../../hooks/useTaskForm";
+import { useTaskForm } from "../../hooks/task/useTaskForm";
 
-export default function Newtask() {
+// Employee's own create/edit screen — self-assigned task, no employee
+// picker. Mirrors newtask.tsx (the admin's assign-to-employee version)
+// exactly except for that one field; both share useTaskForm underneath.
+export default function NewTaskEmployee() {
   const { colors } = useTheme();
   const { taskId } = useLocalSearchParams<{ taskId?: string }>();
 
-  const form = useTaskForm(taskId);
+  const form = useTaskForm(taskId, "self");
   const {
     isEditMode,
     fetchingTask,
@@ -42,7 +44,6 @@ export default function Newtask() {
     onChangeDate,
     selectedPriority,
     setSelectedPriority,
-    employeeAutocomplete,
     fileAttachments,
     submit,
     taskDelete,
@@ -67,7 +68,7 @@ export default function Newtask() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
       <ScreenHeader
-        title={isEditMode ? "Edit Task" : "Task Assignment"}
+        title={isEditMode ? "Edit Task" : "New Task"}
         rightIcon={isEditMode ? "trash-outline" : undefined}
         onRightPress={taskDelete.requestDelete}
         rightDisabled={taskDelete.deleting || loading}
@@ -112,15 +113,8 @@ export default function Newtask() {
               style={inputStyle}
             />
 
-            <EmployeeAutocompleteInput
-              value={employeeAutocomplete.assignToName}
-              onChangeText={employeeAutocomplete.search}
-              onSelect={employeeAutocomplete.select}
-              selectedEmployeeId={employeeAutocomplete.selectedEmployeeId}
-              filteredEmployees={employeeAutocomplete.filteredEmployees}
-              showDropdown={employeeAutocomplete.showDropdown}
-              inputStyle={inputStyle}
-            />
+            {/* No employee autocomplete here — this screen only ever
+                handles the employee's own self-created tasks. */}
 
             <DeadlinePicker
               date={deadlineDate}

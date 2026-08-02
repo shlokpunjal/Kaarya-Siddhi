@@ -183,7 +183,7 @@ export default function EmployeeTasks() {
               colors={colors}
               task={task}
               statusLabels={STATUS_LABELS}
-              onPress={() => router.push({ pathname: "/(task)/task-detail", params: { taskId: task.id } })}
+              onPress={() => router.push({ pathname: "/(task)/task-detail-employee", params: { taskId: task.id } })}
             />
           ))
         )}
