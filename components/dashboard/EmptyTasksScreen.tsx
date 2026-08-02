@@ -1,4 +1,11 @@
-import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  ImageSourcePropType,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -6,11 +13,25 @@ import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { wp, moderateScale } from "../../utils/responsive";
 
-type NoTaskEmpProps = {
-  decidedRequestCount?: number;
+type EmptyTasksScreenProps = {
+  badgeCount?: number;
+  illustration: ImageSourcePropType;
+  notificationsRoute: string;
+  newTaskRoute: string;
+  title?: string;
+  subtitle?: string;
+  ctaLabel?: string;
 };
 
-export default function NoTaskEmp({ decidedRequestCount = 0 }: NoTaskEmpProps) {
+export default function EmptyTasksScreen({
+  badgeCount = 0,
+  illustration,
+  notificationsRoute,
+  newTaskRoute,
+  title = "No tasks right now",
+  subtitle = "You're all caught up. Rest or Initiate.",
+  ctaLabel = "New Task",
+}: EmptyTasksScreenProps) {
   const router = useRouter();
   const { colors } = useTheme();
 
@@ -23,14 +44,12 @@ export default function NoTaskEmp({ decidedRequestCount = 0 }: NoTaskEmpProps) {
             Kaarya Siddhi
           </Text>
 
-          {/* Bell icon — surfaceL2 + shadow instead of a fixed white overlay, so it reads
-              correctly against brand.primary in both light and dark theme */}
           <TouchableOpacity
-            onPress={() => router.push("/notifications/employee")}
-            style={[styles.bellButton, { backgroundColor: colors.base.surfaceL2 }]}
+            onPress={() => router.push(notificationsRoute)}
+            style={[styles.bellButton, { backgroundColor: colors.brand.primary, borderWidth: 1, borderColor: colors.brand.accent }]}
           >
             <Ionicons name="notifications-outline" size={22} color={colors.brand.accent} />
-            {decidedRequestCount > 0 && (
+            {badgeCount > 0 && (
               <View style={[styles.badge, { backgroundColor: colors.status.pending }]} />
             )}
           </TouchableOpacity>
@@ -39,26 +58,38 @@ export default function NoTaskEmp({ decidedRequestCount = 0 }: NoTaskEmpProps) {
 
       {/* ── Main content ── */}
       <View style={styles.content}>
-        <Image
-          source={require("../../assets/images/image.png")}
-          style={styles.illustration}
-          resizeMode="contain"
-        />
+        <Image source={illustration} style={styles.illustration} resizeMode="contain" />
 
-        <Text style={[typography.body, { color: colors.text.secondary, marginTop: 10 }]}>
-          You completed all tasks.
+        <Text
+          style={[
+            typography.heading,
+            { color: colors.text.primary, marginTop: 24, textAlign: "center" },
+          ]}
+        >
+          {title}
         </Text>
-        <Text style={[typography.subheading, { color: colors.text.primary, marginTop: 4 }]}>
-          You have no tasks.
+        <Text
+          style={[
+            typography.body,
+            {
+              color: colors.text.secondary,
+              marginTop: 6,
+              textAlign: "center",
+              maxWidth: wp(70),
+            },
+          ]}
+        >
+          {subtitle}
         </Text>
 
         <TouchableOpacity
-          onPress={() => router.push("/newtaskemp")}
+          activeOpacity={0.85}
+          onPress={() => router.push(newTaskRoute)}
           style={[styles.newTaskButton, { backgroundColor: colors.brand.accent }]}
         >
-          <Ionicons name="add" size={22} color={colors.base.surfaceL1} />
-          <Text style={[typography.subheading, { color: colors.base.surfaceL1, fontSize: 18 }]}>
-            New Task
+          <Ionicons name="add" size={28} color={colors.base.surfaceL1} style={{ marginRight: 10 }} />
+          <Text style={[typography.subheading, { color: colors.base.surfaceL1, textAlign: "center" }]}>
+            {ctaLabel}
           </Text>
         </TouchableOpacity>
       </View>
@@ -68,7 +99,7 @@ export default function NoTaskEmp({ decidedRequestCount = 0 }: NoTaskEmpProps) {
 
 const styles = StyleSheet.create({
   header: {
-    height: moderateScale(56),
+    height: moderateScale(64),
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -81,7 +112,6 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(20),
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0px 0px 5px gray",
   },
   badge: {
     position: "absolute",
@@ -105,20 +135,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 16,
+    height: moderateScale(56),
     paddingHorizontal: 40,
-    borderRadius: 30,
+    borderRadius: 32,
     marginTop: 36,
-  },
-  tabBar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    height: 60,
-  },
-  tabItem: {
-    alignItems: "center",
-    justifyContent: "center",
   },
 });
