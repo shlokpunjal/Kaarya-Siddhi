@@ -356,7 +356,7 @@ export default function AdminNotifications() {
                     isEoffice
                       ? router.push("/reports/eoffice")
                       : router.push({
-                          pathname: "/(task)/taskDetailAdmin",
+                          pathname: "/(task)/task-detail-admin",
                           params: { taskId },
                         })
                   }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as DocumentPicker from "expo-document-picker";
-import { uploadToCloudinary } from "../utils/cloudinaryUpload";
+import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB — adjust to your use case
 

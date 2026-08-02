@@ -4,9 +4,9 @@ export default function AdminDashboard() {
   return (
     <TaskDashboard
       role="admin"
-      newTaskRoute="/newtask"
+      newTaskRoute="/new-task"
       notificationsRoute="/notifications/admin"
-      taskDetailRoute="/(task)/taskDetailAdmin"
+      taskDetailRoute="/(task)/task-detail-admin"
       emptyIllustration={require("../../assets/images/notaskImage.png")}
     />
   );

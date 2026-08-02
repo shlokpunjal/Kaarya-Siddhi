@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { authFetch } from "../utils/authFetch";
+import { authFetch } from "../../utils/authFetch";
 
 export type TaskDetailMeta = {
   assigned_by_name?: string;

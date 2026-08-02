@@ -128,7 +128,7 @@ export default function EmployeeNotifications() {
       n.type === "overdue"
     ) {
       router.push({
-        pathname: "/(task)/task-detail",
+        pathname: "/(task)/task-detail-employee",
         params: { taskId: n.task_id ?? n.metadata?.taskId },
       });
     } else if (n.type === "eoffice_pending") {

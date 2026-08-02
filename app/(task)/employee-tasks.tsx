@@ -372,7 +372,7 @@ export default function EmployeeTasks() {
                   key={task.id}
                   onPress={() =>
                     router.push({
-                      pathname: "/(task)/taskDetailAdmin",
+                      pathname: "/(task)/task-detail-admin",
                       params: { taskId: task.id },
                     })
                   }

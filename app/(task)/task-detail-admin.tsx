@@ -23,10 +23,11 @@ import { ScreenHeader } from "../../components/task/ScreenHeader";
 import { DetailRow } from "../../components/task/DetailRow";
 import { FileAttachmentList } from "../../components/task/FileAttachmentList";
 import { ActionButton } from "../../components/task/ActionButton";
+import { TaskNotFound } from "../../components/task/TaskNotFound";
 import { useCurrentUserId } from "../../hooks/useCurrentUserId";
-import { useTaskDetail } from "../../hooks/useTaskDetail";
-import { useTaskDelete } from "../../hooks/useTaskDelete";
-import { useTaskComplete } from "../../hooks/useTaskComplete";
+import { useTaskDetail } from "../../hooks/task/useTaskDetail";
+import { useTaskDelete } from "../../hooks/task/useTaskDelete";
+import { useTaskComplete } from "../../hooks/task/useTaskComplete";
 
 // Keyed by the normalized in-app status ("inReview"), not the raw DB value.
 const statusColorKey: Record<string, string> = {
@@ -111,24 +112,7 @@ export default function TaskDetailAdmin() {
   if (loading) return <TaskDetailSkeleton />;
 
   if (!task) {
-    return (
-      <SafeAreaView
-        style={{
-          flex: 1,
-          backgroundColor: colors.base.background,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <Ionicons name="alert-circle-outline" size={48} color={colors.status.overdue} />
-        <Text style={{ ...typography.body, color: colors.text.primary, marginTop: 12 }}>
-          Task not found.
-        </Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <Text style={{ color: colors.brand.accent, ...typography.body }}>Go Back</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
+    return <TaskNotFound />;
   }
 
   const statusColor =
@@ -179,7 +163,7 @@ export default function TaskDetailAdmin() {
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 2 }}>
                 <TouchableOpacity
                   onPress={() =>
-                    router.push({ pathname: "/(task)/newtask", params: { taskId: task.id } })
+                    router.push({ pathname: "/(task)/new-task", params: { taskId: task.id } })
                   }
                   disabled={taskDelete.deleting}
                 >
@@ -239,7 +223,8 @@ export default function TaskDetailAdmin() {
             Description
           </Text>
           <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 20 }}>
-            {task.description ?? "No description provided."}
+            {task.description?.trim().replace(/\n{3,}/g, "\n\n") ||
+              "No description provided."}
           </Text>
 
           {/* Deadline is edited directly via the edit icon above (routes to
