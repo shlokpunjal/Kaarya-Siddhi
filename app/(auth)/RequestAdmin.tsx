@@ -14,10 +14,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { typography } from "../../theme/theme";
-import FadeIn from "../../components/auth/FadeIn";
-import BackButton from "../../components/auth/backButton";
+import FadeIn from "../../components/Auth/FadeIn";
+import BackButton from "../../components/Auth/backButton";
 import { authFetch } from "../../utils/authFetch";
-import ValidatedInput from "../../components/auth/ValidatedInput";
+import ValidatedInput from "../../components/Auth/ValidatedInput";
 import { isValidEmail } from "../../constants/validators";
 import { wp, moderateScale } from "../../utils/responsive";
 

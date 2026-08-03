@@ -107,8 +107,8 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
       task_id: taskIdForFiles,
       file_url: res.file_url,
       file_name: res.file_name,
-      file_type: res.file_type,
-      storage_service: "cloudinary",
+      // file_type: res.file_type,
+      // storage_service: "cloudinary",
     }));
     const filesRes = await authFetch("/task-files", {
       method: "POST",
