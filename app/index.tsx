@@ -4,6 +4,8 @@ import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { authFetch } from "../utils/authFetch";
+import LoadingAssetsScreen from "../components/common/LoadingAssetsScreen"; // adjust path
+
 
 export default function Index() {
   useEffect(() => {
@@ -43,9 +45,7 @@ export default function Index() {
   }
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#1A214F" />
-    </View>
+    <LoadingAssetsScreen />
   );
 }
 

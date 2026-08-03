@@ -12,6 +12,7 @@ import {
   Platform,
   Keyboard,
 } from "react-native";
+import { useToast } from "../../context/ToastContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useRef, useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
@@ -85,6 +86,7 @@ const OtpVerify = () => {
   const isVerifyingRef = useRef(false);
   const pendingVerifiedDataRef = useRef<VerifiedData | null>(null);
   const [cooldown, setCooldown] = useState(30);
+  const { showToast } = useToast();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { email, ph, role, mode, name } = useLocalSearchParams<{
     email: string;
@@ -310,7 +312,7 @@ const OtpVerify = () => {
         return;
       }
 
-      setResendMessage("OTP sent successfully");
+      showToast("OTP sent to your email");
       startCooldown();
     } catch (error) {
       setOtpError("Unable to resend OTP.");
