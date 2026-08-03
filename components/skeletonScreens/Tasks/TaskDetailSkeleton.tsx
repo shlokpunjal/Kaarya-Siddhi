@@ -99,8 +99,14 @@ export default function TaskDetailSkeleton() {
             </View>
           ))}
 
-          {/* Review or Complete button */}
-          <SkeletonBox width="100%" height={50} borderRadius={12} style={{ marginTop: 24 }} />
+          {/* Suggest Changes + Mark Complete buttons (mirrors TaskDetailAdmin's
+              canReview branch: two stacked ActionButtons, 12px gap) */}
+          <View style={{ marginTop: 24 }}>
+            <SkeletonBox width="100%" height={50} borderRadius={12} />
+            <View style={{ marginTop: 12 }}>
+              <SkeletonBox width="100%" height={50} borderRadius={12} />
+            </View>
+          </View>
         </View>
       </View>
     </SafeAreaView>

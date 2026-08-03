@@ -7,7 +7,7 @@ export default function EofficeListSkeleton() {
 
   return (
     <View style={{ paddingBottom: 24 }}>
-      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
         <View
           key={i}
           style={[styles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}

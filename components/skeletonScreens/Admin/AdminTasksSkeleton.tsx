@@ -21,7 +21,7 @@ export default function AdminTasksSkeleton() {
 
       {/* Task cards */}
       <View style={styles.scrollContent}>
-        {[0, 1, 2, 3, 4, 5].map((i) => (
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
           <View
             key={i}
             style={[styles.taskCard, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}
