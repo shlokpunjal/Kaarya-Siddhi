@@ -18,6 +18,7 @@ from routes.employee_tasks import router as employee_tasks_router
 from routes.eoffice import router as eoffice_router
 from routes.notify import router as notify_router
 from routes.extensions import router as extensions_router
+from routes import health
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("kaarya_siddhi")
 
@@ -86,3 +87,4 @@ app.include_router(users_router)
 app.include_router(excel_report_router)
 app.include_router(pdf_report_router)
 app.include_router(cloudinary_signature_router)
+app.include_router(health.router)
