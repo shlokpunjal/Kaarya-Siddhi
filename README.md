@@ -186,4 +186,4 @@ Built during a summer internship at **Central Railway, Solapur Division** under 
 | Person 2      | Core workflow — task creation, assignment, dashboard              |
 | Person 3      | Workflow extensions — extension requests, approval/rejection      |
 | Person 4      | Backend architecture, Supabase schema, API endpoints              |
-| Person 5 (PM) | Project management, UI/UX consistency, Excel/PDF reports          |
+| Person 5 (PM) | Project management, UI/UX consistency, Excel/PDF reports, eOffice          |
