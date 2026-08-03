@@ -17,7 +17,7 @@ import { typography } from "../../theme/theme";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/common/AlertModal";
-import { authFetch } from "../../utils/authFetch";
+
 import TaskDetailSkeleton from "../../components/skeletonScreens/Tasks/TaskDetailSkeleton";
 import { ScreenHeader } from "../../components/task/ScreenHeader";
 import { DetailRow } from "../../components/task/DetailRow";
