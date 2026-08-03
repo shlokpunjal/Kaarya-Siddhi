@@ -18,7 +18,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
 import { typography } from "../../theme/theme";
-import BackButton from "../../components/auth/backButton";
+import BackButton from "../../components/Auth/backButton";
 import { registerAndSavePushToken } from "../../lib/pushNotifications";
 import { sendLoginNotification } from "../../utils/notifications";
 import { wp, hp, moderateScale } from "../../utils/responsive";
