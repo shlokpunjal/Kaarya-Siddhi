@@ -5,32 +5,23 @@ import {
   Poppins_600SemiBold,
   Poppins_700Bold,
 } from "@expo-google-fonts/poppins";
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { View, Image, Text, Animated, StyleSheet } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
-import { supabase, getFreshChannel } from "../lib/supabase";
 import { ThemeProvider } from "../context/ThemeContext";
 import { typography } from "../theme/theme";
-import { AuthProvider, useAuth } from "../context/AuthContext";
-import * as Notifications from "expo-notifications";
-import { sendLocalNotification } from "../utils/notifications";
-import { registerAndSavePushToken } from "../lib/pushNotifications";
+import { AuthProvider } from "../context/AuthContext";
 import { ToastProvider } from "../context/ToastContext";
 import OfflineScreen from "../components/common/OfflineScreen";
-import { authFetch } from "../utils/authFetch";
+// This also calls configureNotificationHandler() at import time, so the
+// foreground-presentation config (shouldShowBanner/List/Sound) is set up
+// as soon as this module loads — no separate setNotificationHandler call
+// needed here anymore.
+import { useNotificationBridge } from "../hooks/useNotificationBridge";
 
 // enableScreens(false);
 SplashScreen.preventAutoHideAsync();
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
 
 const BRAND_PRIMARY = "#1A2744";
 const BRAND_ACCENT = "#E8870A";
@@ -39,411 +30,18 @@ const TEXT_PRIMARY = "#F0EDE6";
 const TEXT_SECONDARY = "#8B95A1";
 const LOGO_SIZE = 114;
 
-function notifTitle(type: string): string {
-  switch (type) {
-    case "connection_request":
-      return "New Connection Request";
-    case "connection_accepted":
-      return "Request Accepted";
-    case "connection_rejected":
-      return "Request Rejected";
-    case "extension_accepted":
-      return "Extension Accepted";
-    case "extension_rejected":
-      return "Extension Rejected";
-    case "task_assigned":
-      return "New Task Assigned";
-    case "task_in_review":
-      return "Task Submitted for Review";
-    case "eoffice_pending":
-      return "Track your eOffice files";
-    default:
-      return "Notification";
-  }
-}
-
-function navigateFromNotificationData(
-  data: Record<string, any>,
-  router: ReturnType<typeof useRouter>,
-  userRole?: string | null,
-) {
-  if (!data?.type) return;
-
-  switch (data.type) {
-    case "connection_request":
-      router.push({
-        pathname: "/notifications/admin-connection-review",
-        params: {
-          employeeEmail: data.employee_email,
-          adminEmail: data.admin_email,
-        },
-      });
-      break;
-    case "connection_accepted":
-    case "connection_rejected":
-      router.push("/notifications/employee");
-      break;
-    case "extension_request":
-      router.push({
-        pathname: "/notifications/admin-request-review",
-        params: { requestId: data.extension_request_id },
-      });
-      break;
-    case "extension_accepted":
-    case "extension_rejected":
-      router.push({
-        pathname: "/notifications/employee-request-detail",
-        params: { requestId: data.extension_request_id },
-      });
-      break;
-    case "task_assigned":
-      router.push({
-        pathname: "/(task)/task-detail",
-        params: { taskId: data.taskId },
-      });
-      break;
-    case "task_in_review":
-    case "deadline":
-    case "overdue":
-      // deadline: only ever sent to the employee (assignee), so no
-      // role branch needed — always the employee-facing screen.
-      // overdue / task_in_review: sent to both the assignee and the
-      // task's creator — the creator is often an admin, who needs
-      // taskDetailAdmin, not the employee-facing task-detail screen
-      // (which the in-app "Other Notifications" tap in admin.tsx
-      // already routes to for task_in_review).
-      router.push({
-        pathname: userRole === "admin" ? "/(task)/taskDetailAdmin" : "/(task)/task-detail",
-        params: { taskId: data.taskId },
-      });
-      break;
-    case "eoffice_pending":
-      router.push("/reports/eoffice");
-      break;
-  }
-}
-
+// Was: a full second copy of push-token registration + realtime
+// subscription + notification-tap routing, inlined here as
+// `NotificationBridge` — separate from, and slowly drifting out of
+// sync with, hooks/useNotificationBridge.ts (which existed in the repo
+// but was never actually mounted anywhere). Replaced with a thin
+// wrapper around the one real implementation so there's a single
+// source of truth again.
 function NotificationBridge() {
-  const router = useRouter();
-  const { userEmail, userRole } = useAuth();
-  // ---------------------------------------------------------
-  // 1. PUSH TOKEN + SUPABASE REALTIME NOTIFICATIONS
-  // ---------------------------------------------------------
-  useEffect(() => {
-    if (!userEmail) {
-      // console.log("[NotificationBridge] No user logged in yet.");
-      return;
-    }
-
-    let notifChannel: any = null;
-    let extensionChannel: any = null;
-    let cancelled = false;
-
-    const setupNotifications = async () => {
-      try {
-        // console.log("[NotificationBridge] Starting setup...");
-
-        // ---------------------------------------------------
-        // Get current user
-        // ---------------------------------------------------
-        const meRes = await authFetch("/me");
-        const userRow = meRes.ok ? await meRes.json() : null;
-        const userError = meRes.ok ? null : { message: `HTTP ${meRes.status}` };
-
-        if (cancelled) return;
-
-        if (userError) {
-          console.error(
-            "[NotificationBridge] Failed to fetch user:",
-            userError,
-          );
-          return;
-        }
-
-        if (!userRow) {
-          console.warn("[NotificationBridge] User row not found.");
-          return;
-        }
-
-        // console.log(
-        //   "[NotificationBridge] User loaded:",
-        //   userRow.id,
-        //   userRow.role,
-        // );
-
-        // notifications_enabled === false means: still write the row (so
-        // it shows on the in-app notifications page), just don't buzz
-        // the tray. false is the only value that suppresses it — missing/
-        // null defaults to enabled, matching the DB column's default.
-        const notificationsEnabled = userRow.notifications_enabled !== false;
-
-        // ---------------------------------------------------
-        // Register push token
-        // Failure here should NOT stop the app/realtime setup.
-        // ---------------------------------------------------
-        try {
-          await registerAndSavePushToken();
-
-          // console.log("[NotificationBridge] Push registration completed.");
-        } catch (pushError) {
-          console.error(
-            "[NotificationBridge] Push registration failed:",
-            pushError,
-          );
-        }
-
-        if (cancelled) return;
-
-        // ---------------------------------------------------
-        // Notification table realtime listener
-        // ---------------------------------------------------
-       try {
-          notifChannel = getFreshChannel(`global_notifs_${userRow.id}`)
-            .on(
-              "postgres_changes",
-              {
-                event: "INSERT",
-                schema: "public",
-                table: "notifications",
-                filter: `user_id=eq.${userRow.id}`,
-              },
-              async (payload) => {
-                try {
-                  const notification = payload?.new;
-
-                  if (!notification) {
-                    console.warn(
-                      "[NotificationBridge] Empty notification payload.",
-                    );
-                    return;
-                  }
-
-                  if (!notificationsEnabled) {
-                    // Row already exists in the DB (written server-side
-                    // before this realtime event fires) — it'll show up
-                    // next time they open the notifications page. Just
-                    // skip the tray banner.
-                    return;
-                  }
-
-                  const title = notifTitle(notification.type);
-
-                  const message =
-                    notification.message ?? "You have a new notification.";
-
-                  await sendLocalNotification(title, message, {
-                    type: notification.type,
-                    taskId: notification.task_id,
-                    ...(notification.metadata ?? {}),
-                  });
-
-                } catch (notificationError) {
-                  console.error(
-                    "[NotificationBridge] Failed to show local notification:",
-                    notificationError,
-                  );
-                }
-              },
-            )
-            .subscribe((status) => {
-              // console.log("[NotificationBridge] Notification channel:", status);
-            });
-        } catch (channelError) {
-          console.error(
-            "[NotificationBridge] Failed to create notification channel:",
-            channelError,
-          );
-        }
-
-        // ---------------------------------------------------
-        // Admin extension request listener
-        // ---------------------------------------------------
-        if (userRow.role === "admin" && userRow.workspace_id) {
-          try {
-           extensionChannel = getFreshChannel(`global_extensions_${userRow.workspace_id}`)
-              .on(
-                "postgres_changes",
-                {
-                  event: "INSERT",
-                  schema: "public",
-                  table: "extension_requests",
-                  filter: `workspace_id=eq.${userRow.workspace_id}`,
-                },
-                async (payload) => {
-                  try {
-                    const row = payload?.new;
-                    await sendLocalNotification(
-                      "New Extension Request",
-                      "A deadline extension was requested.",
-                      row
-                        ? {
-                            type: "extension_request",
-                            extension_request_id: row.id,
-                            taskId: row.task_id,
-                          }
-                        : undefined,
-                    );
-                  } catch (notificationError) {
-                    console.error(
-                      "[NotificationBridge] Extension notification failed:",
-                      notificationError,
-                    );
-                  }
-                },
-              )
-              .subscribe((status) => {
-                // console.log("[NotificationBridge] Extension channel:", status);
-              });
-          } catch (extensionError) {
-            console.error(
-              "[NotificationBridge] Failed to create extension channel:",
-              extensionError,
-            );
-          }
-        }
-
-        // console.log("[NotificationBridge] Setup completed successfully.");
-      } catch (error) {
-        // MOST IMPORTANT:
-        // Don't allow NotificationBridge setup errors to become
-        // unhandled promise rejections.
-        console.error("[NotificationBridge] Unexpected setup error:", error);
-      }
-    };
-
-    setupNotifications().catch((error) => {
-      console.error("[NotificationBridge] Fatal setup promise error:", error);
-    });
-
-    // ---------------------------------------------------------
-    // CLEANUP
-    // ---------------------------------------------------------
-    return () => {
-      cancelled = true;
-
-      // console.log("[NotificationBridge] Cleaning up...");
-
-      if (notifChannel) {
-        try {
-          supabase.removeChannel(notifChannel);
-        } catch (error) {
-          console.error(
-            "[NotificationBridge] Failed removing notification channel:",
-            error,
-          );
-        }
-      }
-
-      if (extensionChannel) {
-        try {
-          supabase.removeChannel(extensionChannel);
-        } catch (error) {
-          console.error(
-            "[NotificationBridge] Failed removing extension channel:",
-            error,
-          );
-        }
-      }
-    };
-  }, [userEmail]);
-
-  // ---------------------------------------------------------
-  // 2. NOTIFICATION TAP / DEEP LINK HANDLING
-  // ---------------------------------------------------------
-  useEffect(() => {
-    let responseSubscription: Notifications.EventSubscription | null = null;
-
-    let navigationTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const handleColdStartNotification = async () => {
-      try {
-        const response = await Notifications.getLastNotificationResponseAsync();
-
-        if (!response) {
-          return;
-        }
-
-        const data = response.notification.request.content.data as Record<
-          string,
-          any
-        >;
-
-        if (!data) {
-          return;
-        }
-
-        // Router might not be completely mounted during cold start.
-        navigationTimer = setTimeout(() => {
-          try {
-            navigateFromNotificationData(data, router, userRole);
-          } catch (navigationError) {
-            console.error(
-              "[NotificationBridge] Cold-start navigation failed:",
-              navigationError,
-            );
-          }
-        }, 700);
-      } catch (error) {
-        console.error(
-          "[NotificationBridge] Failed reading last notification:",
-          error,
-        );
-      }
-    };
-
-    handleColdStartNotification().catch((error) => {
-      console.error("[NotificationBridge] Cold-start handler failed:", error);
-    });
-
-    // ---------------------------------------------------------
-    // App already running/backgrounded → notification tapped
-    // ---------------------------------------------------------
-    try {
-      responseSubscription =
-        Notifications.addNotificationResponseReceivedListener((response) => {
-          try {
-            const data = response.notification.request.content.data as Record<
-              string,
-              any
-            >;
-
-            if (!data) {
-              return;
-            }
-
-            navigateFromNotificationData(data, router, userRole);
-          } catch (error) {
-            console.error(
-              "[NotificationBridge] Notification navigation failed:",
-              error,
-            );
-          }
-        });
-    } catch (error) {
-      console.error(
-        "[NotificationBridge] Failed adding response listener:",
-        error,
-      );
-    }
-
-    // ---------------------------------------------------------
-    // CLEANUP
-    // ---------------------------------------------------------
-    return () => {
-      if (navigationTimer) {
-        clearTimeout(navigationTimer);
-      }
-
-      try {
-        responseSubscription?.remove();
-      } catch (error) {
-        console.error("[NotificationBridge] Listener cleanup failed:", error);
-      }
-    };
- }, [router, userRole]);
-
+  useNotificationBridge();
   return null;
 }
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     "Poppins-Regular": Poppins_400Regular,
@@ -551,10 +149,6 @@ const styles = StyleSheet.create({
   logoContainer: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
-    // borderRadius: LOGO_SIZE / 2,
-    // overflow: "hidden",
-    // borderWidth: 2,
-    // borderColor: BRAND_ACCENT,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
