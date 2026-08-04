@@ -6,12 +6,7 @@
 # `create_notification(...)` (writes a `notifications` row + sends the
 # push) or `push_only(...)` (push without a DB row, for events that
 # already have their own record elsewhere, e.g. extension_requests)
-# instead of hand-rolling its own insert + push pair. Previously each
-# call site (connections.py, extension.py, employee_tasks.py, the cron
-# jobs, notify.py) duplicated this insert+push logic slightly
-# differently — different field sets, some using a sync push sender,
-# some using a separate async one imported from routes.notify. That
-# drift is what this file replaces.
+# instead of hand-rolling its own insert + push pair.
 #
 # EVERYTHING HERE IS BEST-EFFORT AND NEVER RAISES. A notification is a
 # side effect of some primary action (accepting a connection, deciding
@@ -19,16 +14,26 @@
 # the notification row or sending the push fails, that must not fail
 # the primary action or crash the request — it gets logged and
 # swallowed instead.
+#
+# --------------------------------------------------------------------
+# FIX (see send_push_notification below): Expo's push API returns
+# HTTP 200 even when an individual push failed — the real per-message
+# result lives in resp.json()["data"][i]["status"] /
+# ["details"]["error"]. The previous version of this file only checked
+# resp.status_code, so a token that Expo was silently rejecting (e.g.
+# "DeviceNotRegistered" after an uninstall, or "InvalidCredentials"
+# because the project's Android FCM V1 service-account credentials
+# aren't uploaded in Expo/EAS yet) looked exactly like success: no
+# error logged, notifications row still written, in-app list still
+# fine, tray banner never arrives. This version parses that response
+# body, logs the actual reason, and clears expo_push_token from the DB
+# when Expo says the token is dead (DeviceNotRegistered) so a stale
+# token doesn't just fail forever, silently, on every future push.
+# --------------------------------------------------------------------
 
 import requests as http_requests
 from supabase_client import supabase
 
-# Default push title per notification type, used when a call site
-# doesn't pass its own `title`. Keep this in sync with the `type`
-# values actually inserted below and with notifTitle() in
-# app/_layout.tsx on the frontend (the two are independent copies by
-# necessity — one's Python, one's TS — but should describe the same
-# set of types).
 DEFAULT_TITLES = {
     "connection_request": "New Connection Request",
     "connection_pending": "Request Sent",
@@ -42,11 +47,28 @@ DEFAULT_TITLES = {
     "overdue": "Task overdue",
 }
 
+# Expo error codes that mean "this token will never work again" — safe
+# to clear so we stop trying (and so the user's profile/settings screen
+# can honestly tell them push isn't configured on this device instead
+# of silently doing nothing forever).
+_DEAD_TOKEN_ERRORS = {"DeviceNotRegistered"}
+
+
+def _clear_dead_token(push_token: str) -> None:
+    try:
+        supabase.table("users").update({
+            "expo_push_token": None,
+            "push_token_status": "device_not_registered",
+        }).eq("expo_push_token", push_token).execute()
+    except Exception as e:
+        print(f"Failed to clear dead push token: {e}")
+
 
 def send_push_notification(push_token: str | None, title: str, body: str, data: dict | None = None) -> bool:
     """Fire a single Expo push. Never raises. Returns True only if Expo
-    accepted the request — callers don't need to check this in normal
-    flows, it's mainly useful for logging/debugging."""
+    confirms the message was actually accepted for delivery (status
+    "ok" in the response body) — NOT just that the HTTP call succeeded,
+    since Expo returns HTTP 200 even for pushes it rejects."""
     if not push_token:
         return False
     try:
@@ -65,10 +87,43 @@ def send_push_notification(push_token: str | None, title: str, body: str, data: 
             headers={"Content-Type": "application/json"},
             timeout=10,
         )
+
         if resp.status_code >= 400:
-            print(f"Push notification rejected ({resp.status_code}): {resp.text[:200]}")
+            print(f"Push notification HTTP error ({resp.status_code}): {resp.text[:300]}")
             return False
-        return True
+
+        # This is the part that was missing: Expo returns 200 with a
+        # body like {"data": {"status": "error", "message": "...",
+        # "details": {"error": "DeviceNotRegistered"}}} (single push)
+        # or {"data": [...]} (batch). A 200 here does NOT mean the push
+        # will actually arrive.
+        try:
+            body_json = resp.json()
+        except ValueError:
+            print(f"Push notification: couldn't parse Expo response: {resp.text[:300]}")
+            return False
+
+        result = body_json.get("data")
+        # Normalize: single-send returns a dict, batch returns a list.
+        entries = result if isinstance(result, list) else [result] if result else []
+
+        ok = True
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            status = entry.get("status")
+            if status == "ok":
+                continue
+            ok = False
+            error_code = (entry.get("details") or {}).get("error")
+            print(
+                f"Push rejected by Expo (token={push_token[:20]}..., "
+                f"error={error_code}, message={entry.get('message')})"
+            )
+            if error_code in _DEAD_TOKEN_ERRORS:
+                _clear_dead_token(push_token)
+
+        return ok
     except Exception as e:
         print(f"Push notification failed: {e}")
         return False
@@ -147,25 +202,18 @@ def create_notification(
     if send_push:
         try:
             push_token = _get_push_token(user_id)
-            send_push_notification(
+            sent = send_push_notification(
                 push_token,
                 title or DEFAULT_TITLES.get(notif_type, "Notification"),
                 message,
                 data={"type": notif_type, "taskId": task_id, **metadata},
             )
+            if push_token and not sent:
+                print(f"Push NOT delivered for user={user_id}, type={notif_type} (see reason above).")
         except Exception as e:
             print(f"Failed to send push for notification (user={user_id}, type={notif_type}): {e}")
 
     return row_written
-
-# NOTE: send_push_notifications_bulk / create_notifications_bulk used to
-# live here, for the deadline/overdue/eoffice cron reminder jobs. That
-# whole flow (batched insert + chunked Expo push) has been reimplemented
-# directly in Postgres — see database/reminders_pg_cron.sql — since the
-# reminder jobs themselves are no longer Python at all. Removed rather
-# than left as dead code; every remaining function below is still used
-# by routes/connections.py, routes/employee_tasks.py, routes/extension.py,
-# routes/notify.py.
 
 
 def push_only(user_id: str, title: str, body: str, data: dict | None = None) -> None:
