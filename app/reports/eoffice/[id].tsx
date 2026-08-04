@@ -93,10 +93,12 @@ export default function EofficeDetail() {
       });
       setFile(updated);
       showToast("File details updated.", "success");
+      setTimeout(() => {
+        router.back();
+      }, 900);
     } catch (err) {
       console.error("Failed to update file", err);
       setErrorMessage("Could not save changes.");
-    } finally {
       setSaving(false);
     }
   };

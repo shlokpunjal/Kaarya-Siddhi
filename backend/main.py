@@ -79,6 +79,7 @@ from routes.excel_report import router as excel_report_router
 from routes.pdf_report import router as pdf_report_router
 from routes.cloudinary_signature import router as cloudinary_signature_router
 from routes.realtime import router as realtime_router
+
 app.include_router(realtime_router)
 app.include_router(auth_router)
 app.include_router(connections_router)

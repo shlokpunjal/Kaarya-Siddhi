@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { View, Text, ScrollView, Pressable, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { TaskStatus, TaskPriority, Task } from "../../types/task";
 import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
@@ -87,9 +87,12 @@ export default function AdminTasks() {
 
   // isRefresh=true skips the full-screen loading state so the header/search bar
   // stay mounted and the pull-to-refresh spinner is the only indicator.
+  // isRefresh=true drives the pull-to-refresh spinner. When called with
+  // neither flag (e.g. from useFocusEffect on return-to-screen), it's a
+  // silent background refetch — no skeleton, no spinner, list just
+  // updates in place once the data arrives.
   const fetchTasksAndTeam = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
-    else setLoading(true);
 
     const res = await authFetch("/admin-tasks-and-team");
     if (!res.ok) {
@@ -106,9 +109,11 @@ export default function AdminTasks() {
     setRefreshing(false);
   };
 
-  useEffect(() => {
-    fetchTasksAndTeam();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchTasksAndTeam();
+    }, []),
+  );
 
   const onRefresh = useCallback(() => {
     fetchTasksAndTeam(true);
