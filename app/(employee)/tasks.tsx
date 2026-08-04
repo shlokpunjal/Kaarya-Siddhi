@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { View, Text, ScrollView, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { TaskStatus, TaskPriority, Task } from "../../types/task";
 import { typography } from "../../theme/theme";
@@ -85,9 +85,12 @@ export default function EmployeeTasks() {
 
   // This app authenticates via a custom OTP backend, NOT Supabase Auth —
   // session lives in AsyncStorage.
+  // isRefresh=true drives the pull-to-refresh spinner. When called with
+  // neither flag (e.g. from useFocusEffect on return-to-screen), it's a
+  // silent background refetch — no skeleton, no spinner, list just
+  // updates in place once the data arrives.
   const fetchPersonalTasks = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
-    else setLoading(true);
 
     const email = await AsyncStorage.getItem("userEmail");
     if (!email) {
@@ -106,9 +109,11 @@ export default function EmployeeTasks() {
     setRefreshing(false);
   };
 
-  useEffect(() => {
-    fetchPersonalTasks();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchPersonalTasks();
+    }, []),
+  );
 
   const onRefresh = useCallback(() => {
     fetchPersonalTasks(true);

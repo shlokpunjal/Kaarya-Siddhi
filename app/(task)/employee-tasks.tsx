@@ -5,10 +5,10 @@ import {
   ScrollView,
   RefreshControl,
 } from "react-native";
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { Task } from "../../types/task";
@@ -57,6 +57,10 @@ export default function EmployeeTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Only the very first load should show the full skeleton. Later
+  // focus-triggered refetches (e.g. returning from the detail screen)
+  // are silent — the list just updates in place once data arrives.
+  const hasLoadedOnce = useRef(false);
 
   // ── Fetch tasks assigned to this specific employee ────────────────────────
   const fetchEmployeeTasks = useCallback(
@@ -76,16 +80,21 @@ export default function EmployeeTasks() {
     [employeeEmail],
   );
 
-  useEffect(() => {
-    let mounted = true;
-    setLoading(true);
-    fetchEmployeeTasks(() => mounted).finally(() => {
-      if (mounted) setLoading(false);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [fetchEmployeeTasks]);
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      if (!hasLoadedOnce.current) setLoading(true);
+      fetchEmployeeTasks(() => mounted).finally(() => {
+        if (mounted) {
+          setLoading(false);
+          hasLoadedOnce.current = true;
+        }
+      });
+      return () => {
+        mounted = false;
+      };
+    }, [fetchEmployeeTasks]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

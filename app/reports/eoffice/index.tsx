@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../../context/ThemeContext';
 import { typography } from '../../../theme/theme';
 import { fetchEofficeFiles } from '../../../lib/eoffice';
@@ -43,6 +43,14 @@ export default function EofficeList() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Re-fetch every time this screen comes back into focus (e.g. returning
+  // from the detail screen after saving changes) so statuses stay current.
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
