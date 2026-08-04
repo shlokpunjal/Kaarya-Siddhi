@@ -326,7 +326,7 @@ export default function EofficeDetail() {
           >
             <Text style={[typography.label, { color: colors.status.overdue }]}>
               This file is marked completed and will be automatically deleted
-              after 15 days.
+              after 7 days.
             </Text>
           </View>
         )}
@@ -337,7 +337,7 @@ export default function EofficeDetail() {
         title={pendingValue ? "Mark as completed?" : "Reopen this file?"}
         message={
           pendingValue
-            ? "This will mark the file as completed. It will be automatically deleted from the system after 15 days."
+            ? "This will mark the file as completed. It will be automatically deleted from the system after 7 days."
             : "This will mark the file as pending again."
         }
         confirmText={pendingValue ? "Mark Completed" : "Reopen"}
