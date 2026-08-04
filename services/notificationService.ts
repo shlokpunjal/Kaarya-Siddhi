@@ -8,18 +8,7 @@ import { sendLocalNotification } from "../utils/notifications";
 // Low-level presentation (actually scheduling a local notification via
 // expo-notifications) still lives in utils/notifications.ts — this file
 // decides content/routing, that one decides delivery mechanics.
-//
-// Moved out of app/_layout.tsx during the notification-logic refactor so
-// _layout.tsx can stay focused on layout/providers/navigation. Behavior
-// is unchanged from before the move.
 
-/**
- * Configures how notifications are presented while the app is in the
- * foreground. This is the single source of truth for that config — call
- * it exactly once. It's invoked at module load below, so importing this
- * module (directly, or transitively via hooks/useNotificationBridge.ts)
- * is enough to apply it; no separate call is needed elsewhere.
- */
 export function configureNotificationHandler(): void {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -76,6 +65,16 @@ export async function showLocalNotificationForRow(notification: any): Promise<vo
  * Routes the app to the right screen when a notification is tapped
  * (cold start or foreground/background). `userRole` disambiguates
  * types that route differently for admins vs. employees.
+ *
+ * FIX: this previously pushed to "/(task)/task-detail" and
+ * "/(task)/taskDetailAdmin" — neither of those files exists under
+ * app/(task)/. The real screens are task-detail-employee.tsx and
+ * task-detail-admin.tsx (confirmed against every other working
+ * navigation call in the app, e.g. app/notifications/admin.tsx and
+ * app/(employee)/tasks.tsx, which already use the correct paths).
+ * Tapping a task notification from the tray was hitting a dead route
+ * because of this typo/mismatch. Also added eoffice_pending, which had
+ * an empty switch case and did nothing at all when tapped.
  */
 export function navigateFromNotificationData(
   data: Record<string, any>,
@@ -112,8 +111,11 @@ export function navigateFromNotificationData(
       });
       break;
     case "task_assigned":
+      // Was "/(task)/task-detail" (doesn't exist). task_assigned is
+      // only ever sent to the employee who received the task, so no
+      // role branch is needed here.
       router.push({
-        pathname: "/(task)/task-detail",
+        pathname: "/(task)/task-detail-employee",
         params: { taskId: data.taskId },
       });
       break;
@@ -128,14 +130,22 @@ export function navigateFromNotificationData(
       // so it's always the employee-facing screen too.
       // overdue / task_in_review: sent to both the assignee and the
       // task's creator — the creator is often an admin, who needs
-      // taskDetailAdmin, not the employee-facing task-detail screen
-      // (which the in-app "Other Notifications" tap in admin.tsx
-      // already routes to for task_in_review).
+      // task-detail-admin, not the employee-facing screen.
+      //
+      // Was "/(task)/taskDetailAdmin" / "/(task)/task-detail" — neither
+      // exists. Corrected to the real file names.
       router.push({
-        pathname: userRole === "admin" ? "/(task)/taskDetailAdmin" : "/(task)/task-detail",
+        pathname: userRole === "admin" ? "/(task)/task-detail-admin" : "/(task)/task-detail-employee",
         params: { taskId: data.taskId },
       });
       break;
     case "eoffice_pending":
+      // Was an empty case — tapping this notification did nothing.
+      // eoffice_pending is a grouped reminder covering multiple files
+      // (see database/reminders_pg_cron.sql), not tied to a single
+      // file id, so it routes to the eOffice list rather than a
+      // specific /reports/eoffice/[id].
+      router.push("/reports/eoffice");
+      break;
   }
 }
