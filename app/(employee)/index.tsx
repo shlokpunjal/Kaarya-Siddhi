@@ -7,7 +7,7 @@ export default function EmployeeDashboard() {
       newTaskRoute="(task)/new-task-employee"
       notificationsRoute="/notifications/employee"
       taskDetailRoute="/(task)/task-detail-employee"
-      emptyIllustration={require("../../assets/images/image.png")}
+      emptyIllustration={require("../../assets/images/notaskImage.png")}
     />
   );
 }
