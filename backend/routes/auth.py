@@ -289,5 +289,31 @@ async def refresh_token_endpoint(data: RefreshRequest):
 
 @router.post("/logout")
 async def logout(data: LogoutRequest):
-    supabase.table("refresh_tokens").update({"revoked": True}).eq("token_hash", hash_token(data.refresh_token)).execute()
+    token_hash = hash_token(data.refresh_token)
+
+    # Look up which user this refresh token belongs to BEFORE revoking it,
+    # so we can also clear their push token. Best-effort: if this lookup
+    # fails for any reason, logout must still succeed — a user should
+    # never be stuck logged in because of a push-token cleanup problem.
+    try:
+        row = (
+            supabase.table("refresh_tokens")
+            .select("user_email")
+            .eq("token_hash", token_hash)
+            .execute()
+        )
+        if row.data:
+            user_email = row.data[0]["user_email"]
+            # Clear the push token so this device stops receiving pushes
+            # for this account once logged out. A future login on this
+            # device (same or different user) will re-register a fresh
+            # token via registerAndSavePushToken() as normal.
+            supabase.table("users").update({
+                "expo_push_token": None,
+                "push_token_status": None,
+            }).eq("email", user_email).execute()
+    except Exception as e:
+        print(f"Failed to clear push token on logout: {e}")
+
+    supabase.table("refresh_tokens").update({"revoked": True}).eq("token_hash", token_hash).execute()
     return {"success": True, "message": "Logged out."}

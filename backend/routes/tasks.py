@@ -110,10 +110,24 @@ async def get_dashboard_counts(current_user: dict = Depends(get_current_user)):
         # FIRST employee (see connection_respond in routes/connections.py) —
         # so a brand-new admin with a pending connection_request sitting in
         # their inbox has no workspace_id yet. Pending connection requests
-        # and "other" notifications are keyed off the admin's own user_id,
-        # not workspace_id, so they must always be counted regardless.
-        # Only the extension_requests lookup is workspace-scoped, and that's
-        # the only piece that needs to be skipped for a workspace-less admin.
+        # are keyed off the admin's own user_id, not workspace_id, so they
+        # must always be counted regardless. Only the extension_requests
+        # lookup is workspace-scoped, and that's the only piece that needs
+        # to be skipped for a workspace-less admin.
+        #
+        # FIX: this used to also add ADMIN_OTHER_NOTIFICATION_TYPES
+        # (task_in_review / overdue / eoffice_pending) into this total.
+        # Those are the separate "Other Notifications" feed shown further
+        # down the same screen — not requests — and they're NOT one-time:
+        # eoffice_pending is re-inserted every day with no dedupe by
+        # design (see database/reminders_pg_cron.sql), and overdue adds a
+        # fresh row per task per day it stays overdue. That made this
+        # "X pending" badge — which the UI explicitly labels as being
+        # about "Connection & extend deadline requests" — climb
+        # indefinitely and no longer reflect actual pending decisions.
+        # This endpoint is only consumed by the Requests card
+        # (app/notifications/admin.tsx), so it's safe to scope it to
+        # exactly what that card is about.
         conn_result = (
             supabase.table("notifications")
             .select("id", count="exact")
@@ -121,14 +135,7 @@ async def get_dashboard_counts(current_user: dict = Depends(get_current_user)):
             .eq("type", "connection_request")
             .execute()
         )
-        other_result = (
-            supabase.table("notifications")
-            .select("id", count="exact")
-            .eq("user_id", user_row["id"])
-            .in_("type", ADMIN_OTHER_NOTIFICATION_TYPES)
-            .execute()
-        )
-
+ 
         ext_count = 0
         if user_row.get("workspace_id"):
             ext_result = (
@@ -139,11 +146,10 @@ async def get_dashboard_counts(current_user: dict = Depends(get_current_user)):
                 .execute()
             )
             ext_count = ext_result.count or 0
-
+ 
         return {
-            "count": (conn_result.count or 0) + ext_count + (other_result.count or 0)
+            "count": (conn_result.count or 0) + ext_count
         }
-
     else:
         raise HTTPException(status_code=403, detail="Unrecognized role.")
     
