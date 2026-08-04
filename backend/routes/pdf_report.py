@@ -151,14 +151,15 @@ def generate_pdf_report(
     ))
     elements.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=12))
 
-    # --- PAGE 1: Table (no raw IDs — Title + Assigned To's name) ---
-    headers = ["Title", "Assigned To", "Status", "Priority", "Deadline"]
-    col_widths = [65 * mm, 42 * mm, 24 * mm, 22 * mm, 30 * mm]
+    # --- PAGE 1: Table (Sr. No. instead of raw task IDs, "Task Name" instead of "Title") ---
+    headers = ["Sr. No.", "Task Name", "Assigned To", "Status", "Priority", "Deadline"]
+    col_widths = [14 * mm, 50 * mm, 38 * mm, 24 * mm, 20 * mm, 26 * mm]
 
     table_data = [headers]
-    for task in tasks:
+    for idx, task in enumerate(tasks, start=1):
         assigned_name = user_name_map.get(task.get("assigned_to"), "Unassigned")
         table_data.append([
+            str(idx),
             task.get("title", ""),
             assigned_name,
             task.get("status", ""),
@@ -174,6 +175,7 @@ def generate_pdf_report(
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, 0), 10),
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("ALIGN", (0, 1), (0, -1), "CENTER"),  # Sr. No. column centered
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("ROWBACKGROUND", (0, 1), (-1, -1), [WHITE, LIGHT_GREY]),
         ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
@@ -184,10 +186,11 @@ def generate_pdf_report(
         ("RIGHTPADDING", (0, 0), (-1, -1), 6),
     ]
 
+    # Status column shifted from index 2 -> 3 now that Sr. No. was added
     for i, task in enumerate(tasks, start=1):
         status_color = STATUS_COLORS.get(task.get("status"), colors.black)
-        table_style.append(("TEXTCOLOR", (2, i), (2, i), status_color))
-        table_style.append(("FONTNAME", (2, i), (2, i), "Helvetica-Bold"))
+        table_style.append(("TEXTCOLOR", (3, i), (3, i), status_color))
+        table_style.append(("FONTNAME", (3, i), (3, i), "Helvetica-Bold"))
 
     table.setStyle(TableStyle(table_style))
     elements.append(table)
@@ -229,15 +232,26 @@ def generate_pdf_report(
         circle.strokeWidth = 1
         drawing.add(circle)
     else:
+        # IMPORTANT: reportlab's Wedge(cx, cy, r, startAngle, endAngle) sweeps
+        # counter-clockwise and requires startAngle < endAngle. We're walking
+        # the slices clockwise (start_angle decreasing), so we must pass the
+        # SMALLER angle first and the LARGER angle second — i.e. swap the
+        # arguments — otherwise reportlab normalizes the angle order itself
+        # (by adding 360°) and draws the wrong-sized wedge in the wrong spot.
+        # This was the actual bug: the old code passed them in the order it
+        # computed them (start_angle, start_angle - angle), which is
+        # descending, so every wedge except sometimes the last came out the
+        # wrong size and overlapped incorrectly.
         start_angle = 90
         for status_val, count in status_counts.items():
             angle = (count / total) * 360
-            wedge = Wedge(cx, cy, radius, start_angle, start_angle - angle)
+            end_angle = start_angle - angle
+            wedge = Wedge(cx, cy, radius, end_angle, start_angle)
             wedge.fillColor = pie_colors.get(status_val, colors.grey)
             wedge.strokeColor = WHITE
             wedge.strokeWidth = 1
             drawing.add(wedge)
-            start_angle -= angle
+            start_angle = end_angle
 
     legend_x = 280
     legend_y = 200
