@@ -16,7 +16,8 @@
         "backgroundColor": "#1A2744"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.pshlok.KaaryaSiddhi"
+      "package": "com.pshlok.KaaryaSiddhi",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {},
     "plugins": [
