@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "103754960068",
+    "project_id": "kaarya-siddhi-78841",
+    "storage_bucket": "kaarya-siddhi-78841.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:103754960068:android:224d6fc9a3f12283e58d91",
+        "android_client_info": {
+          "package_name": "com.pshlok.KaaryaSiddhi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAna2jQALzo95xgVlnvEDLf1GnJ4RLtTc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

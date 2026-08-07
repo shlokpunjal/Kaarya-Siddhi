@@ -17,7 +17,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.pshlok.KaaryaSiddhi",
-      "googleServicesFile": "/google-services.json"
+      "googleServicesFile": "./google-services.json"
     },
     "web": {},
     "plugins": [
