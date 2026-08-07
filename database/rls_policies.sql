@@ -35,7 +35,7 @@ alter table public.otp_tokens          enable row level security;
 alter table public.otp_sessions        enable row level security;
 alter table public.notifications       enable row level security;
 alter table public.employees           enable row level security;
-alter table public."e - office"        enable row level security;
+alter table public."e-office"          enable row level security;
 alter table public.connections         enable row level security;
 alter table public.admins              enable row level security;
 alter table public.extension_requests  enable row level security;
@@ -59,6 +59,24 @@ create policy "realtime read own notifications"
   for select
   to authenticated
   using (user_id = auth.uid());
+
+-- FIX: the extension_requests policy below looks up the caller's own
+-- workspace_id via a subquery on public.users. But public.users has
+-- RLS enabled with NO policies (see top of file) — including for its
+-- own subqueries, not just direct REST access. That meant the
+-- subquery always returned zero rows for every caller, so
+-- "workspace_id = (subquery)" was always NULL and never matched,
+-- silently blocking every admin from ever receiving an
+-- extension_requests Realtime event, regardless of workspace. This
+-- policy is scoped exactly like the notifications one above (own row
+-- only, via auth.uid()) so it doesn't open up any broader read access
+-- through the anon-key-embedded REST API.
+drop policy if exists "realtime read own user row" on public.users;
+create policy "realtime read own user row"
+  on public.users
+  for select
+  to authenticated
+  using (id = auth.uid());
 
 -- app/_layout.tsx subscribes to INSERT on extension_requests filtered
 -- to the admin's own workspace_id. Match that: an admin can only read
