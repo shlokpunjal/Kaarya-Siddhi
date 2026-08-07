@@ -15,7 +15,7 @@ from config import (
     MAX_VERIFY_ATTEMPTS, OTP_EXPIRY_MINUTES, OTP_RESEND_SECONDS, MAX_DAILY_ATTEMPTS,
     AUTH_RATE_LIMIT, LOOKUP_RATE_LIMIT,
 )
-from rate_limit import limiter
+from rate_limit import limiter # how many times a client can call a route 
 
 router = APIRouter()
 logger = logging.getLogger("kaarya_siddhi")
