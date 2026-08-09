@@ -13,6 +13,13 @@
         "buildType": "apk"
       }
     },
+    "preview-lite": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      }
+    },
     "production": {
       "env": {
         "EXPO_PUBLIC_API_URL": "https://kaarya-siddhi-0w7j.onrender.com"
