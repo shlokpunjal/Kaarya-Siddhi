@@ -5,12 +5,18 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://kaarya-siddhi-0w7j.onrender.com"
+      }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://kaarya-siddhi-0w7j.onrender.com"
       }
     },
     "preview-lite": {
@@ -18,11 +24,14 @@
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://kaarya-siddhi-0w7j.onrender.com"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://kaarya-siddhi-0w7j.onrender.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://kaarya-siddhi-0w7j.onrender.com"
       }
     }
   },
