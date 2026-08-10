@@ -4,22 +4,23 @@
     "slug": "Kaarya-Siddhi",
     "scheme": "kaaryasiddhi",
     "version": "1.0.0",
+    "orientation": "portrait",
     "icon": "./assets/images/logo.png",
-    "orientation": "default",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png",
-        "backgroundColor": "#1A2744"
+        "foregroundImage": "./assets/images/splash-logo.png",
+        "backgroundColor": "#192744"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.pshlok.KaaryaSiddhi",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.pshlok.KaaryaSiddhi"
     },
-    "web": {},
+    "web": {
+      "favicon": "./assets/images/logo.png"
+    },
     "plugins": [
       "expo-router",
       "expo-font",
@@ -27,26 +28,12 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/logo.png",
-          "imageWidth": 140,
+          "image": "./assets/images/splash-logo.png",
+          "imageWidth": 190,
           "resizeMode": "contain",
-          "backgroundColor": "#1A2744"
-        }
-      ],
-      "expo-secure-store",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/notification-icon.png",
-          "color": "#1A2744"
+          "backgroundColor": "#192744"
         }
       ]
-    ],
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "302108ef-f71d-42fe-9837-2b1b4a967552"
-      }
-    }
+    ]
   }
 }
