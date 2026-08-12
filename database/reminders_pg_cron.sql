@@ -15,19 +15,31 @@
 --   1. safe_uuid() — tasks.assigned_to / created_by are TEXT, not UUID.
 --      A single malformed value would otherwise make ::uuid throw and
 --      abort the WHOLE run for every task that day. safe_uuid() returns
---      NULL instead, so a bad row is just silently skipped — same
---      behavior as the Python version's dict.get() lookups.
---   2. REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated — Supabase's
+--      NULL instead, so a bad row is just silently skipped.
+--   2. Orphan-safe joins — "e-office".created_by has no FK to users at
+--      all, so a deleted user leaves a dangling created_by behind
+--      forever with nothing to stop it. send_eoffice_reminders() now
+--      inner-joins users so an orphaned row is skipped instead of
+--      throwing a foreign-key violation on the notifications insert
+--      and aborting the ENTIRE run for every other user that day (this
+--      is what caused the real outage — see e-office id 27, Aug 2026,
+--      where send-eoffice-reminders failed silently every day from
+--      Aug 4 to Aug 11 with a notifications_user_id_fkey violation).
+--   3. REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated — Supabase's
 --      PostgREST auto-exposes every public-schema function as a callable
 --      HTTP endpoint (/rest/v1/rpc/<name>) and grants EXECUTE to anon/
 --      authenticated by default. Without this revoke, anyone holding
 --      your app's public anon key could call these repeatedly over HTTP
 --      and spam real users with push notifications (the eoffice job has
 --      no "already sent" guard by design, so it's the most exposed).
---   3. Chunked pushes — Expo's push API rejects a single request with
---      more than 100 messages. The Python version already chunks; this
---      SQL now does too, so a big batch can't silently fail outright.
---   4. notifications_enabled — every job writes the `notifications` row
+--   4. ONE PUSH PER net.http_post() CALL — not batched. Expo's push API
+--      rejects the ENTIRE request with PUSH_TOO_MANY_EXPERIENCE_IDS if
+--      even one token in a batch belongs to a different app build/
+--      experience than the others (confirmed live, Aug 2026 — one
+--      stray token from a different Expo project silently killed every
+--      push in the batch, not just its own). Sending individually means
+--      one bad/stale/mismatched token only fails itself.
+--   5. notifications_enabled — every job writes the `notifications` row
 --      for EVERY eligible user regardless of this setting (so it still
 --      shows on their in-app notifications page). It only gates whether
 --      a push (and therefore an OS tray banner) actually goes out.
@@ -48,6 +60,16 @@
 --        join cron.job j on j.jobid = jrd.jobid
 --        where j.jobname in ('send-deadline-reminders','send-overdue-reminders','send-eoffice-reminders')
 --        order by start_time desc limit 20;
+--   5. Check actual Expo delivery results (not just whether the DB
+--      function errored) any time:
+--        select id, status_code, content, created
+--        from net._http_response
+--        order by created desc limit 20;
+--      A 200 with {"status":"ok"} means Expo accepted it. A 200 with
+--      {"status":"error", "details":{"error":"InvalidCredentials"}}
+--      means that specific recipient's app build has no FCM server key
+--      configured in Expo/EAS — reinstalling the correct build fixes
+--      it; nothing on the DB side can.
 --
 -- AFTER THIS IS VERIFIED WORKING:
 --   - Delete the 3 old Render Cron Jobs + "Warm-up Ping" (nothing needs
@@ -116,11 +138,13 @@ begin
   where e.expo_push_token is not null
     and coalesce(e.notifications_enabled, true) = true;
 
+  -- one push per call -- a mismatched-experience or otherwise bad
+  -- token must not take the rest of the batch down with it
   if msgs is not null then
-    for i in 1 .. array_length(msgs, 1) by 100 loop
+    for i in 1 .. array_length(msgs, 1) loop
       perform net.http_post(
         url := 'https://exp.host/--/api/v2/push/send',
-        body := to_jsonb(msgs[i : least(i + 99, array_length(msgs, 1))]),
+        body := msgs[i],
         headers := '{"Content-Type": "application/json"}'::jsonb
       );
     end loop;
@@ -213,11 +237,12 @@ begin
   where r.push_token is not null
     and coalesce(r.notifications_enabled, true) = true;
 
+  -- one push per call -- same reasoning as above
   if msgs is not null then
-    for i in 1 .. array_length(msgs, 1) by 100 loop
+    for i in 1 .. array_length(msgs, 1) loop
       perform net.http_post(
         url := 'https://exp.host/--/api/v2/push/send',
-        body := to_jsonb(msgs[i : least(i + 99, array_length(msgs, 1))]),
+        body := msgs[i],
         headers := '{"Content-Type": "application/json"}'::jsonb
       );
     end loop;
@@ -258,6 +283,7 @@ begin
            count(*) as file_count,
            jsonb_agg(eo.file_no) as file_nos
     from "e-office" eo
+    join users u on u.id = eo.created_by   -- skips orphaned created_by instead of aborting the whole run
     where eo.completed = false
     group by eo.created_by
   ),
@@ -288,11 +314,12 @@ begin
   where u.expo_push_token is not null
     and coalesce(u.notifications_enabled, true) = true;
 
+  -- one push per call -- same reasoning as above
   if msgs is not null then
-    for i in 1 .. array_length(msgs, 1) by 100 loop
+    for i in 1 .. array_length(msgs, 1) loop
       perform net.http_post(
         url := 'https://exp.host/--/api/v2/push/send',
-        body := to_jsonb(msgs[i : least(i + 99, array_length(msgs, 1))]),
+        body := msgs[i],
         headers := '{"Content-Type": "application/json"}'::jsonb
       );
     end loop;
