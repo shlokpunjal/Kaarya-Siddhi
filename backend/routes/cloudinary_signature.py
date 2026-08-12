@@ -25,7 +25,7 @@ def _sign_params(params: dict) -> str:
     to_sign += CLOUDINARY_API_SECRET
     return hashlib.sha1(to_sign.encode("utf-8")).hexdigest()
 
-ALLOWED_FOLDERS = {"profile_pics", "task_attachments"}
+ALLOWED_FOLDERS = {"profile_pics", "task_attachments", "chat_attachments"}
 
 @router.get("/cloudinary/signature")
 async def get_cloudinary_signature(

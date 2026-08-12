@@ -79,6 +79,7 @@ from routes.excel_report import router as excel_report_router
 from routes.pdf_report import router as pdf_report_router
 from routes.cloudinary_signature import router as cloudinary_signature_router
 from routes.realtime import router as realtime_router
+from routes.chat import router as chat_router
 
 app.include_router(realtime_router)
 app.include_router(auth_router)
@@ -88,4 +89,5 @@ app.include_router(users_router)
 app.include_router(excel_report_router)
 app.include_router(pdf_report_router)
 app.include_router(cloudinary_signature_router)
+app.include_router(chat_router)
 app.include_router(health.router)
