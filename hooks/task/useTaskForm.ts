@@ -219,8 +219,12 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
                 team_batch_id: teamBatchId,
               }),
             });
-            if (!createRes.ok) throw new Error(`Failed for ${emp.name}`);
-            const task = await createRes.json();
+             if (!createRes.ok) {
+              const errBody = await createRes.text().catch(() => "");
+              console.error(`Assign failed for ${emp.name} (${emp.id}):`, createRes.status, errBody);
+              throw new Error(`Failed for ${emp.name}`);
+            }
+                  const task = await createRes.json();
 
             await attachUploadedFiles(task.id, uploadedResults);
 
