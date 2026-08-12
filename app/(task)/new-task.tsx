@@ -17,6 +17,8 @@ import { AlertModal } from "../../components/common/AlertModal";
 import TaskFormSkeleton from "../../components/skeletonScreens/Tasks/TaskFormSkeleton";
 import { ScreenHeader } from "../../components/task/ScreenHeader";
 import { EmployeeAutocompleteInput } from "../../components/task/EmployeeAutoCompleteInput";
+import {AssignModeToggle} from "../../components/task/AssignToggleMode";
+import { TeamAssigneesInput } from "../../components/task/TeamAssigneesInput";
 import { PrioritySelector } from "../../components/task/PrioritySelector";
 import { DeadlinePicker } from "../../components/task/DeadlinePicker";
 import { FileAttachmentPicker } from "../../components/task/FileAttachmentPicker";
@@ -43,6 +45,9 @@ export default function Newtask() {
     selectedPriority,
     setSelectedPriority,
     employeeAutocomplete,
+    assignMode,
+    setAssignMode,
+    teamAssignees,
     fileAttachments,
     submit,
     taskDelete,
@@ -112,15 +117,35 @@ export default function Newtask() {
               style={inputStyle}
             />
 
-            <EmployeeAutocompleteInput
-              value={employeeAutocomplete.assignToName}
-              onChangeText={employeeAutocomplete.search}
-              onSelect={employeeAutocomplete.select}
-              selectedEmployeeId={employeeAutocomplete.selectedEmployeeId}
-              filteredEmployees={employeeAutocomplete.filteredEmployees}
-              showDropdown={employeeAutocomplete.showDropdown}
-              inputStyle={inputStyle}
-            />
+            {/* Editing an existing task always has exactly one assignee,
+                so the Person/Team toggle only makes sense when creating
+                a new task. */}
+            {!isEditMode && (
+              <AssignModeToggle value={assignMode} onChange={setAssignMode} />
+            )}
+
+            {assignMode === "team" && !isEditMode ? (
+              <TeamAssigneesInput
+                searchText={teamAssignees.searchText}
+                onChangeText={teamAssignees.search}
+                onSelect={teamAssignees.add}
+                onRemove={teamAssignees.remove}
+                selected={teamAssignees.selected}
+                filteredEmployees={teamAssignees.filteredEmployees}
+                showDropdown={teamAssignees.showDropdown}
+                inputStyle={inputStyle}
+              />
+            ) : (
+              <EmployeeAutocompleteInput
+                value={employeeAutocomplete.assignToName}
+                onChangeText={employeeAutocomplete.search}
+                onSelect={employeeAutocomplete.select}
+                selectedEmployeeId={employeeAutocomplete.selectedEmployeeId}
+                filteredEmployees={employeeAutocomplete.filteredEmployees}
+                showDropdown={employeeAutocomplete.showDropdown}
+                inputStyle={inputStyle}
+              />
+            )}
 
             <DeadlinePicker
               date={deadlineDate}
@@ -189,7 +214,11 @@ export default function Newtask() {
                     fontSize: moderateScale(18),
                   }}
                 >
-                  {isEditMode ? "Save Changes" : "Add task"}
+                  {isEditMode
+                    ? "Save Changes"
+                    : assignMode === "team"
+                      ? "Assign to Team"
+                      : "Add task"}
                 </Text>
               )}
             </TouchableOpacity>

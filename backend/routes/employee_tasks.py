@@ -58,6 +58,11 @@ class AssignedTaskCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=5000)
     attachment_url: Optional[UrlStr] = None
     priority: Priority = "medium"
+    # Set (to the same value across a batch of requests) only when the
+    # frontend's "Team" assign mode fans one task out per employee — lets
+    # /tasks/{id}/detail resolve and show teammates. Absent for a normal
+    # single-employee assignment.
+    team_batch_id: Optional[Annotated[str, Field(max_length=64)]] = None
 
 
 class TaskUpdate(BaseModel):
@@ -78,8 +83,6 @@ class TaskFileIn(BaseModel):
     task_id: IdStr
     file_url: UrlStr
     file_name: Optional[str] = Field(None, max_length=300)
-    file_type: Optional[str] = Field(None, max_length=100)
-    storage_service: Optional[str] = Field(None, max_length=50) 
 
 
 async def _get_own_id(email: str) -> str:
@@ -185,7 +188,6 @@ async def update_task(task_id: str, payload: TaskUpdate, current_user: dict = De
     if not updates:
         raise HTTPException(status_code=400, detail="No valid fields to update.")
 
-<<<<<<< HEAD
     if "assigned_to" in updates:
         # Reassignment is an admin action, same rules as POST /tasks/assign —
         # a creator editing their own self-task can't use this field to hand
@@ -214,15 +216,6 @@ async def update_task(task_id: str, payload: TaskUpdate, current_user: dict = De
             raise HTTPException(status_code=403, detail="That employee is not part of your workspace.")
 
     result = await run_db(supabase.table("tasks").update(updates).eq("id", task_id).select())
-=======
-    # Reassignment is an admin-only action. Previously any owner/assignee
-    # (i.e. any employee who owned or was assigned the task) could hand
-    # their own task off to an arbitrary user_id via this same field.
-    if "assigned_to" in updates and current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can reassign a task.")
-
-    result = supabase.table("tasks").update(updates).eq("id", task_id).select().execute()
->>>>>>> origin/fix/security-review-findings
     return result.data[0]
 
 @router.delete("/tasks/{task_id}")
@@ -254,7 +247,6 @@ async def delete_task(task_id: str, current_user: dict = Depends(get_current_use
 
 
 @router.post("/task-files")
-<<<<<<< HEAD
 async def add_task_files(payload: list[TaskFileIn], current_user: dict = Depends(get_current_user)):
     if not payload:
         raise HTTPException(status_code=400, detail="No file records provided.")
@@ -281,21 +273,6 @@ async def add_task_files(payload: list[TaskFileIn], current_user: dict = Depends
     await _check_tasks_access_in_workspace(task_ids, own_id, workspace_id)
 
     result = await run_db(supabase.table("task_files").insert([f.model_dump() for f in payload]))
-=======
-async def add_task_files(payload: list[dict], current_user: dict = Depends(get_current_user)):
-    # Previously had no check at all that the task belonged to the
-    # caller — any authenticated user could attach file records to any
-    # task_id. Verify ownership of every distinct task_id in the batch
-    # before inserting any of it.
-    own_id = _get_own_id(current_user["sub"])
-    task_ids = {row.get("task_id") for row in payload if row.get("task_id")}
-    if not task_ids:
-        raise HTTPException(status_code=400, detail="task_id is required for each file.")
-    for task_id in task_ids:
-        _check_ownership(task_id, own_id)
-
-    result = supabase.table("task_files").insert(payload).execute()
->>>>>>> origin/fix/security-review-findings
     return result.data
 
 @router.post("/tasks/assign")
@@ -336,6 +313,7 @@ async def create_assigned_task(payload: AssignedTaskCreate, current_user: dict =
             "priority": payload.priority,
             "created_by": row["id"],
             "workspace_id": row["workspace_id"],
+            "team_batch_id": payload.team_batch_id,
         })
         .select()
     )
@@ -392,11 +370,53 @@ async def get_task_detail(task_id: str, current_user: dict = Depends(get_current
             return user_id
         return u.get("name") or u.get("email") or user_id
 
+    # Team tasks: resolve siblings created in the same "Team" assign-mode
+    # batch (see AssignedTaskCreate.team_batch_id) so the detail screen can
+    # show "who else is on this task" — each teammate's name and their own
+    # progress on their copy of the task.
+    teammates: list[dict] = []
+    team_batch_id = task.get("team_batch_id")
+    if team_batch_id:
+        siblings_result = await run_db(
+            supabase.table("tasks")
+            .select("id, assigned_to, status")
+            .eq("team_batch_id", team_batch_id)
+            .eq("workspace_id", task.get("workspace_id"))
+            .neq("id", task_id)
+        )
+        siblings = siblings_result.data or []
+        sibling_assignee_ids = {s["assigned_to"] for s in siblings if s.get("assigned_to")}
+        if sibling_assignee_ids:
+            sibling_users = await run_db(
+                supabase.table("users")
+                .select("id, name, email")
+                .in_("id", list(sibling_assignee_ids))
+            )
+            sibling_names_by_id = {u["id"]: u for u in (sibling_users.data or [])}
+
+            def _resolve_sibling_name(user_id):
+                u = sibling_names_by_id.get(user_id)
+                if not u:
+                    return user_id
+                return u.get("name") or u.get("email") or user_id
+
+            teammates = [
+                {
+                    "task_id": s["id"],
+                    "employee_id": s["assigned_to"],
+                    "name": _resolve_sibling_name(s["assigned_to"]),
+                    "status": s.get("status"),
+                }
+                for s in siblings
+                if s.get("assigned_to")
+            ]
+
     return {
         "task": task,
         "files": files,
         "assigned_by_name": _resolve_name(task.get("created_by")),
         "assigned_to_name": _resolve_name(task.get("assigned_to")),
+        "teammates": teammates,
     }
 
 # AFTER — reuses the same _check_ownership() helper already used elsewhere in this file
