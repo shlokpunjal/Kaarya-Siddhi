@@ -101,6 +101,11 @@ export default function RootLayout() {
               <Stack.Screen name="reports/genExcel" />
               <Stack.Screen name="reports/genPdf" />
               <Stack.Screen name="reports/pdfViewer" />
+              <Stack.Screen name="(task)/task-detail" />
+              <Stack.Screen name="(task)/newtask" />
+              <Stack.Screen name="(task)/extend-deadline" />
+              <Stack.Screen name="(chat)" />
+              <Stack.Screen name="reports/genExcel" />
             </Stack>
           </OfflineScreen>
         </ToastProvider>
