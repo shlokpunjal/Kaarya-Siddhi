@@ -188,23 +188,30 @@ export default function CalendarView({ taskDetailRoute, buildChannels }: Calenda
 
       <View style={s.taskSection}>
         <Text style={[s.taskHeading, { color: brand.secprimary }]}>{selected === todayISO ? "Today" : selected}</Text>
-        <View style={s.taskScroll}>
+      <View style={s.taskScroll}>
           {tasksMap[selected]?.length ? (
-            tasksMap[selected].map((task, i) => (
-              <Pressable
-                key={task.id ?? i}
-                onPress={() => router.push({ pathname: taskDetailRoute as any, params: { taskId: task.id } })}
-                style={[s.taskCard, { backgroundColor: base.surfaceL1, borderColor: base.border, borderLeftColor: categoryColor[task.category] }]}
-              >
-                <View style={s.taskCardHeader}>
-                  <Text style={[s.taskTitle, { color: text.primary }]}>{task.title}</Text>
-                  <View style={[s.badge, { backgroundColor: `${categoryColor[task.category]}22` }]}>
-                    <Text style={[s.badgeText, { color: categoryColor[task.category] }]}>{categoryLabel[task.category]}</Text>
+            tasksMap[selected].map((task, i) => {
+              const hasDesc = !!task.descp && task.descp.trim().length > 0;
+              return (
+                <Pressable
+                  key={task.id ?? i}
+                  onPress={() => router.push({ pathname: taskDetailRoute as any, params: { taskId: task.id } })}
+                  style={[
+                    s.taskCard,
+                    { backgroundColor: base.surfaceL1, borderColor: base.border, borderLeftColor: categoryColor[task.category] },
+                    !hasDesc && s.taskCardNoDesc,
+                  ]}
+                >
+                  <View style={[s.taskCardHeader, !hasDesc && s.taskCardHeaderNoDesc]}>
+                    <Text style={[s.taskTitle, { color: text.primary }]}>{task.title}</Text>
+                    <View style={[s.badge, { backgroundColor: `${categoryColor[task.category]}22` }]}>
+                      <Text style={[s.badgeText, { color: categoryColor[task.category] }]}>{categoryLabel[task.category]}</Text>
+                    </View>
                   </View>
-                </View>
-                <Text style={[s.taskDesc, { color: text.secondary }]}>{task.descp}</Text>
-              </Pressable>
-            ))
+                  {hasDesc && <Text style={[s.taskDesc, { color: text.secondary }]}>{task.descp}</Text>}
+                </Pressable>
+              );
+            })
           ) : (
             <View style={[s.emptyState, { borderColor: base.border }]}>
               <Text style={[s.emptyTitle, { color: text.secondary }]}>No tasks scheduled</Text>
@@ -251,7 +258,9 @@ const s = StyleSheet.create({
     borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderLeftWidth: 4,
     ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 }, android: { elevation: 2 } }),
   },
+  taskCardNoDesc: { minHeight: moderateScale(56), justifyContent: "center" },
   taskCardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 8 },
+  taskCardHeaderNoDesc: { marginBottom: 0 },
   taskTitle: { fontSize: moderateScale(14), fontFamily: "Poppins-Medium", flex: 1 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   badgeText: { fontSize: moderateScale(10), fontFamily: "Poppins-Medium" },
