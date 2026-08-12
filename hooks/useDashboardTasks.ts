@@ -9,7 +9,7 @@ import { getFreshChannel } from "../utils/dashboard/realTime";
 
 type Role = "employee" | "admin";
 
-export function useDashboardTasks(role: Role) {
+export function useDashboardTasks(role: Role, employeeEmail?: string) {
   const router = useRouter();
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -44,7 +44,9 @@ export function useDashboardTasks(role: Role) {
       const me = await resolveUser();
       if (!me || !isMounted()) return;
 
-      const res = await authFetch("/tasks");
+      const res = await authFetch(
+        employeeEmail ? `/tasks?employee_email=${encodeURIComponent(employeeEmail)}` : "/tasks",
+      );
       if (!res.ok) {
         console.error("Error fetching tasks:", res.status);
         return;
