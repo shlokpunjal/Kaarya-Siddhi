@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, ImageSourcePropType } from "react-native";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -33,11 +33,44 @@ export default function TaskDashboard({
   const router = useRouter();
   const { tasks, loading, refreshing, onRefresh, badgeCount } = useDashboardTasks(role);
 
-  const [showOverdue, setShowOverdue] = useState(false);
+const [showOverdue, setShowOverdue] = useState(false);
   const [showPending, setShowPending] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
 
+  const scrollViewRef = useRef<ScrollView>(null);
+  const overdueRef = useRef<View>(null);
+  const pendingRef = useRef<View>(null);
+  const reviewRef = useRef<View>(null);
+  const completedRef = useRef<View>(null);
+
+  const sectionMap = {
+    Overdue: { setShow: setShowOverdue, ref: overdueRef },
+    Pending: { setShow: setShowPending, ref: pendingRef },
+    "In Review": { setShow: setShowReview, ref: reviewRef },
+    Completed: { setShow: setShowCompleted, ref: completedRef },
+  };
+
+  const sectionOffsets = useRef<Record<string, number>>({});
+
+  const handleSectionLayout = (label: string) => (e: { nativeEvent: { layout: { y: number } } }) => {
+    sectionOffsets.current[label] = e.nativeEvent.layout.y;
+  };
+
+  const handleMetricPress = (label: string) => {
+    const section = sectionMap[label as keyof typeof sectionMap];
+    if (!section) return;
+
+    section.setShow(true); // auto-open the dropdown
+
+    // wait a tick for the expand animation/re-render, then scroll using the last known offset
+    setTimeout(() => {
+      const y = sectionOffsets.current[label];
+      if (y !== undefined) {
+        scrollViewRef.current?.scrollTo({ y: Math.max(y - 20, 0), animated: true });
+      }
+    }, 100);
+  };
   if (loading) return <DashboardSkeleton />;
 
   const overdueTasks = tasks.filter((t) => t.status === "overdue");
@@ -71,6 +104,7 @@ export default function TaskDashboard({
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }}>
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={{ paddingBottom: 20 }}
         refreshControl={
           <RefreshControl
@@ -161,7 +195,12 @@ export default function TaskDashboard({
             }}
           >
             {metrics.map((metric, i) => (
-              <View key={metric.label} style={{ alignItems: "center" }}>
+              <TouchableOpacity
+                key={metric.label}
+                activeOpacity={0.7}
+                onPress={() => handleMetricPress(metric.label)}
+                style={{ alignItems: "center" }}
+              >
                 <View
                   style={{
                     marginLeft: i === 0 ? wp(3.2) : 0,
@@ -187,7 +226,7 @@ export default function TaskDashboard({
                 >
                   {metric.label}
                 </Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -218,47 +257,55 @@ export default function TaskDashboard({
         </View>
 
         {/* ── Accordions ── */}
-        <TaskAccordion
-          isFirst
-          label="Overdue"
-          color={colors.status.overdue}
-          tasks={overdueTasks}
-          expanded={showOverdue}
-          onToggle={() => setShowOverdue(!showOverdue)}
-          taskDetailRoute={taskDetailRoute}
-          emptyIcon="checkmark-circle-outline"
-          emptyMessage="No tasks are overdue"
-        />
-        <TaskAccordion
-          label="Pending"
-          color={colors.status.pending}
-          tasks={pendingTasks}
-          expanded={showPending}
-          onToggle={() => setShowPending(!showPending)}
-          taskDetailRoute={taskDetailRoute}
-          emptyIcon="hourglass-outline"
-          emptyMessage="Nothing pending right now"
-        />
-        <TaskAccordion
-          label="In Review"
-          color={colors.status.inReview}
-          tasks={reviewTasks}
-          expanded={showReview}
-          onToggle={() => setShowReview(!showReview)}
-          taskDetailRoute={taskDetailRoute}
-          emptyIcon="eye-outline"
-          emptyMessage="Nothing in review"
-        />
-        <TaskAccordion
-          label="Completed"
-          color={colors.status.completed}
-          tasks={completedTasks}
-          expanded={showCompleted}
-          onToggle={() => setShowCompleted(!showCompleted)}
-          taskDetailRoute={taskDetailRoute}
-          emptyIcon="trophy-outline"
-          emptyMessage="No completed tasks yet"
-        />
+        <View ref={overdueRef} onLayout={handleSectionLayout("Overdue")}>
+          <TaskAccordion
+            isFirst
+            label="Overdue"
+            color={colors.status.overdue}
+            tasks={overdueTasks}
+            expanded={showOverdue}
+            onToggle={() => setShowOverdue(!showOverdue)}
+            taskDetailRoute={taskDetailRoute}
+            emptyIcon="checkmark-circle-outline"
+            emptyMessage="No tasks are overdue"
+          />
+        </View>
+       <View ref={pendingRef} onLayout={handleSectionLayout("Pending")}>
+          <TaskAccordion
+            label="Pending"
+            color={colors.status.pending}
+            tasks={pendingTasks}
+            expanded={showPending}
+            onToggle={() => setShowPending(!showPending)}
+            taskDetailRoute={taskDetailRoute}
+            emptyIcon="hourglass-outline"
+            emptyMessage="Nothing pending right now"
+          />
+        </View>
+        <View ref={reviewRef} onLayout={handleSectionLayout("In Review")}>
+          <TaskAccordion
+            label="In Review"
+            color={colors.status.inReview}
+            tasks={reviewTasks}
+            expanded={showReview}
+            onToggle={() => setShowReview(!showReview)}
+            taskDetailRoute={taskDetailRoute}
+            emptyIcon="eye-outline"
+            emptyMessage="Nothing in review"
+          />
+        </View>
+        <View ref={completedRef} onLayout={handleSectionLayout("Completed")}>
+          <TaskAccordion
+            label="Completed"
+            color={colors.status.completed}
+            tasks={completedTasks}
+            expanded={showCompleted}
+            onToggle={() => setShowCompleted(!showCompleted)}
+            taskDetailRoute={taskDetailRoute}
+            emptyIcon="trophy-outline"
+            emptyMessage="No completed tasks yet"
+          />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
