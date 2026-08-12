@@ -43,7 +43,9 @@ export default function TaskAccordion({
         backgroundColor: colors.base.surfaceL1,
       }}
     >
-      <View
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={onToggle}
         style={{
           height: moderateScale(60),
           borderRadius: 20,
@@ -54,15 +56,13 @@ export default function TaskAccordion({
         }}
       >
         <Text style={{ ...typography.subheading, color }}>{label}</Text>
-        <TouchableOpacity onPress={onToggle}>
-          <Ionicons
-            name={expanded ? "chevron-up-outline" : "chevron-down-outline"}
-            size={30}
-            color={colors.base.surfaceL1}
-            style={{ backgroundColor: color, borderRadius: 10, padding: 2 }}
-          />
-        </TouchableOpacity>
-      </View>
+        <Ionicons
+          name={expanded ? "chevron-up-outline" : "chevron-down-outline"}
+          size={30}
+          color={colors.base.surfaceL1}
+          style={{ backgroundColor: color, borderRadius: 10, padding: 2 }}
+        />
+      </TouchableOpacity>
 
       {expanded && (
         <View style={{ borderRadius: 15, marginTop: 5 }}>
