@@ -8,12 +8,31 @@ import { createNotification } from "../../lib/notify";
 import { sendLocalNotification } from "../../utils/notifications";
 import { useToast } from "../../context/ToastContext";
 import { useEmployeeAutocomplete } from "./useEmployeeAutocomplete";
+import { useTeamAssignees } from "./useTeamAssignees";
 import { useFileAttachments } from "./useFileAttachments";
 import { useTaskDelete } from "./useTaskDelete";
 
 export type Priority = "low" | "medium" | "high";
 
 export type TaskFormMode = "assign" | "self";
+
+/** "person" assigns to one employee (existing behavior). "team" assigns
+ *  the same task to several employees at once — see submit() below for
+ *  how that's reconciled with the single-assignee backend. Only relevant
+ *  in assign mode, and only when creating a new task (an existing task
+ *  always has exactly one assignee). */
+export type AssignMode = "person" | "team";
+
+/**
+ * Correlation id shared across every task created in one "Team" submit —
+ * lets the backend resolve "who else is on this task" later (see
+ * GET /tasks/:id/detail). Just needs to be unique per submit, not
+ * cryptographically strong, so a timestamp + random suffix is enough —
+ * no uuid library dependency required.
+ */
+function generateTeamBatchId(): string {
+  return `team_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
 
 /**
  * Everything the New/Edit Task screen needs: field state, employee
@@ -46,6 +65,8 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
   const [fetchingTask, setFetchingTask] = useState(isEditMode);
 
   const employeeAutocomplete = useEmployeeAutocomplete();
+  const [assignMode, setAssignMode] = useState<AssignMode>("person");
+  const teamAssignees = useTeamAssignees(employeeAutocomplete.employeesList);
   const fileAttachments = useFileAttachments();
 
   useEffect(() => {
@@ -117,12 +138,22 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
     if (!filesRes.ok) throw new Error("Could not attach files.");
   };
 
+  // Team mode only ever applies when creating a brand-new assigned task —
+  // an existing task already has exactly one assignee, so edit mode always
+  // behaves like "person" regardless of the toggle's state.
+  const isTeamCreate = isAssignMode && !isEditMode && assignMode === "team";
+
   const submit = async () => {
     if (!taskName.trim()) {
       showToast("Please enter a task name", "warning");
       return;
     }
-    if (isAssignMode && !employeeAutocomplete.selectedEmployeeId) {
+    if (isTeamCreate) {
+      if (teamAssignees.selected.length === 0) {
+        showToast("Please add at least one employee to the team", "warning");
+        return;
+      }
+    } else if (isAssignMode && !employeeAutocomplete.selectedEmployeeId) {
       showToast("Please select a valid employee from the list", "warning");
       return;
     }
@@ -145,9 +176,8 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
       const mainFileUrl =
         uploadedResults.length > 0 ? uploadedResults[0].file_url : null;
 
-      const payload = {
+      const basePayload = {
         title: taskName,
-        ...(isAssignMode ? { assigned_to: assignedEmployeeId } : {}),
         deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
         description: description || null,
         priority: selectedPriority ?? "medium",
@@ -157,7 +187,8 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
         const updateRes = await authFetch(`/tasks/${taskId}`, {
           method: "PATCH",
           body: JSON.stringify({
-            ...payload,
+            ...basePayload,
+            ...(isAssignMode ? { assigned_to: assignedEmployeeId } : {}),
             ...(mainFileUrl ? { attachment_url: mainFileUrl } : {}),
           }),
         });
@@ -167,39 +198,108 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
 
         showToast("Task updated successfully", "success");
         setTimeout(() => router.back(), 900);
-      } else {
-        const createRes = await authFetch(
-          isAssignMode ? "/tasks/assign" : "/tasks/self",
-          {
-            method: "POST",
-            body: JSON.stringify({ ...payload, attachment_url: mainFileUrl }),
-          },
+        return;
+      }
+
+      if (isTeamCreate) {
+        // The backend has no multi-assignee concept (`tasks.assigned_to`
+        // is a single column), so "team" is a client-side convenience:
+        // it fans out into one identical task per selected employee, all
+        // tagged with the same team_batch_id so the detail screen can
+        // later resolve and show teammates.
+        const teamBatchId = generateTeamBatchId();
+        const results = await Promise.allSettled(
+          teamAssignees.selected.map(async (emp) => {
+            const createRes = await authFetch("/tasks/assign", {
+              method: "POST",
+              body: JSON.stringify({
+                ...basePayload,
+                assigned_to: emp.id,
+                attachment_url: mainFileUrl,
+                team_batch_id: teamBatchId,
+              }),
+            });
+            if (!createRes.ok) throw new Error(`Failed for ${emp.name}`);
+            const task = await createRes.json();
+
+            await attachUploadedFiles(task.id, uploadedResults);
+
+            createNotification({
+              userId: emp.id,
+              type: "task_assigned",
+              message: `You've been assigned a new task: "${taskName}".`,
+              taskId: task.id,
+            }).catch((err) =>
+              console.log("Notification creation failed:", err),
+            );
+
+            return task;
+          }),
         );
-        if (!createRes.ok) throw new Error("Could not create task.");
-        const task = await createRes.json();
 
-        await attachUploadedFiles(task.id, uploadedResults);
+        const succeeded = results.filter(
+          (r) => r.status === "fulfilled",
+        ).length;
+        const failed = results.length - succeeded;
 
-        // Assign mode only — the task itself is already created at this
-        // point, so notification delivery is best-effort and must never
-        // surface as a failure for an action that already succeeded.
-        if (isAssignMode && assignedEmployeeId) {
-          createNotification({
-            userId: assignedEmployeeId,
-            type: "task_assigned",
-            message: `You've been assigned a new task: "${taskName}".`,
-            taskId: task.id,
-          }).catch((err) => console.log("Notification creation failed:", err));
-
+        if (succeeded > 0) {
           sendLocalNotification(
             "Task Created",
-            `"${taskName}" has been assigned.`,
+            `"${taskName}" assigned to ${succeeded} employee${succeeded > 1 ? "s" : ""}.`,
           ).catch((err) => console.log("Local notification failed:", err));
         }
 
-        showToast("Task created successfully", "success");
-        setTimeout(() => router.back(), 900);
+        if (failed > 0) {
+          showToast(
+            succeeded > 0
+              ? `Assigned to ${succeeded}, but ${failed} failed.`
+              : "Could not assign the task to any employee.",
+            failed === results.length ? "error" : "warning",
+          );
+        } else {
+          showToast("Task created successfully", "success");
+        }
+
+        if (succeeded > 0) setTimeout(() => router.back(), 900);
+        return;
       }
+
+      // Single person (or self) create — original behavior.
+      const createRes = await authFetch(
+        isAssignMode ? "/tasks/assign" : "/tasks/self",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            ...basePayload,
+            ...(isAssignMode ? { assigned_to: assignedEmployeeId } : {}),
+            attachment_url: mainFileUrl,
+          }),
+        },
+      );
+      if (!createRes.ok) throw new Error("Could not create task.");
+      const task = await createRes.json();
+
+      await attachUploadedFiles(task.id, uploadedResults);
+
+      // Assign mode only — the task itself is already created at this
+      // point, so notification delivery is best-effort and must never
+      // surface as a failure for an action that already succeeded.
+      if (isAssignMode && assignedEmployeeId) {
+        createNotification({
+          userId: assignedEmployeeId,
+          type: "task_assigned",
+          message: `You've been assigned a new task: "${taskName}".`,
+          taskId: task.id,
+        }).catch((err) => console.log("Notification creation failed:", err));
+
+        sendLocalNotification(
+          "Task Created",
+          `"${taskName}" has been assigned.`,
+        ).catch((err) => console.log("Local notification failed:", err));
+      }
+
+      showToast("Task created successfully", "success");
+      setTimeout(() => router.back(), 900);
     } catch (error: any) {
       console.error("Full error:", error);
       showToast(error?.message || "Something went wrong", "error");
@@ -226,6 +326,9 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
     selectedPriority,
     setSelectedPriority,
     employeeAutocomplete,
+    assignMode,
+    setAssignMode,
+    teamAssignees,
     fileAttachments,
     submit,
     taskDelete,

@@ -6,10 +6,19 @@ export type TaskDetailMeta = {
   assigned_to_name?: string;
 };
 
+export type Teammate = {
+  task_id: string;
+  employee_id: string;
+  name: string;
+  status: string | null;
+};
+
 /**
- * Fetches /tasks/:id/detail — the task row, its attached files, and
- * whatever assignment metadata the endpoint returns (assigned_by_name
- * for the employee screen, assigned_to_name for the admin screen).
+ * Fetches /tasks/:id/detail — the task row, its attached files, whatever
+ * assignment metadata the endpoint returns (assigned_by_name for the
+ * employee screen, assigned_to_name for the admin screen), and — for
+ * tasks created via "Team" assign mode — the other employees who share
+ * this task's team_batch_id, each with their own status.
  *
  * `normalizeStatus` lets a screen adapt the raw DB status to whatever
  * shape it wants to render with (e.g. the admin screen maps
@@ -22,6 +31,7 @@ export function useTaskDetail(
   const [task, setTask] = useState<any>(null);
   const [taskFiles, setTaskFiles] = useState<any[]>([]);
   const [meta, setMeta] = useState<TaskDetailMeta>({});
+  const [teammates, setTeammates] = useState<Teammate[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTask = useCallback(async () => {
@@ -35,12 +45,18 @@ export function useTaskDetail(
       return;
     }
 
-    const { task: taskData, files, assigned_by_name, assigned_to_name } =
-      await res.json();
+    const {
+      task: taskData,
+      files,
+      assigned_by_name,
+      assigned_to_name,
+      teammates: teammatesData,
+    } = await res.json();
 
     setTask(normalizeStatus ? normalizeStatus(taskData) : taskData);
     setTaskFiles(files ?? []);
     setMeta({ assigned_by_name, assigned_to_name });
+    setTeammates(teammatesData ?? []);
     setLoading(false);
   }, [taskId]);
 
@@ -48,5 +64,5 @@ export function useTaskDetail(
     fetchTask();
   }, [fetchTask]);
 
-  return { task, setTask, taskFiles, meta, loading, refetch: fetchTask };
+  return { task, setTask, taskFiles, meta, teammates, loading, refetch: fetchTask };
 }
