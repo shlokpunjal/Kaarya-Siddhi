@@ -15,6 +15,7 @@ export interface Task {
   suggestion?: string;
   teamBatchId?: string | null;   // NEW — present when created via "Team" assign mode
   teamMemberCount?: number;      // NEW — set only on the collapsed dashboard card
+    groupKey?: string;
 }
 // One employee request to push a task's deadline back.
 // Only ONE non-final (pending) request is allowed per task at a time —

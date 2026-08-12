@@ -95,10 +95,20 @@ export function groupTeamTasks(tasks: Task[]): Task[] {
   const grouped: Task[] = [...batches.entries()].map(([batchId, members]) => {
     // All members share title/priority/dueDate/createdBy — just take
     // them from the first row; only status and count are aggregated.
+    //
+    // IMPORTANT: `id` must stay a REAL task id (first.id), not a
+    // synthetic string, because it's used to navigate to
+    // /tasks/{id}/detail — that endpoint does `.eq("id", task_id)`
+    // against a Postgres uuid column, and a synthetic id like
+    // "team_<batchId>" throws "invalid input syntax for type uuid" on
+    // the backend (unhandled -> 500). groupKey is the synthetic,
+    // batch-unique value — use it ONLY for list `key={}` props, never
+    // for navigation or API calls.
     const first = members[0];
     return {
       ...first,
-      id: `team_${batchId}`, // stable synthetic id — distinct from any real task.id
+      id: first.id,
+      groupKey: `team_${batchId}`,
       status: aggregateStatus(members.map((m) => m.status)),
       teamMemberCount: members.length,
     };
