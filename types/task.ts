@@ -2,18 +2,20 @@ export type TaskStatus = 'overdue' | 'pending' | 'inReview' | 'completed';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type ExtensionStatus = 'pending' | 'accepted' | 'rejected';
 
+// types/task.ts
 export interface Task {
   id: string;
   title: string;
   status: TaskStatus;
   priority: TaskPriority;
   label: string;
-  assignedTo: string; // employee id
-  createdBy: string;  // admin id
+  assignedTo: string;
+  createdBy: string;
   dueDate: string;
-  suggestion?: string; // admin feedback, set only by admin
+  suggestion?: string;
+  teamBatchId?: string | null;   // NEW — present when created via "Team" assign mode
+  teamMemberCount?: number;      // NEW — set only on the collapsed dashboard card
 }
-
 // One employee request to push a task's deadline back.
 // Only ONE non-final (pending) request is allowed per task at a time —
 // enforce that in createExtensionRequest, not in the UI alone.

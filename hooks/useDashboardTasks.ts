@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
 import { Task } from "../types/task";
 import { authFetch } from "../utils/authFetch";
-import { mapRowToTask, syncOverdueStatuses, TaskRow } from "../utils/dashboard/taskMapping";
+import { mapRowToTask, syncOverdueStatuses, TaskRow, groupTeamTasks } from "../utils/dashboard/taskMapping";
 import { getFreshChannel } from "../utils/dashboard/realTime";
 
 type Role = "employee" | "admin";
@@ -54,6 +54,7 @@ export function useDashboardTasks(role: Role, employeeEmail?: string) {
       const data: TaskRow[] = await res.json();
       let mapped = (data ?? []).map(mapRowToTask);
       mapped = await syncOverdueStatuses(mapped);
+      mapped = groupTeamTasks(mapped)
       if (isMounted()) setTasks(mapped);
     },
     [resolveUser],
