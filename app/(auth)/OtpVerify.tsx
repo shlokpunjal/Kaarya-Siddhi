@@ -24,6 +24,11 @@ import { registerAndSavePushToken } from "../../lib/pushNotifications";
 import { sendLoginNotification } from "../../utils/notifications";
 import { wp, hp, moderateScale } from "../../utils/responsive";
 import TrainLoadingAnimation from "../../components/animation/TrainLoadingAnimation";
+import { useTheme } from "../../context/ThemeContext";
+import { Ionicons } from "@expo/vector-icons";
+
+
+
 
 type TrainStatus = "idle" | "loading" | "success" | "error";
 
@@ -119,33 +124,39 @@ const OtpVerify = () => {
   }, []);
 
   useEffect(() => {
-    startCooldown();
-    Animated.parallel([
-      Animated.timing(cardOpacity, {
-        toValue: 1,
-        duration: 450,
-        useNativeDriver: true,
-      }),
-      Animated.spring(cardTranslateY, {
-        toValue: 0,
-        friction: 7,
-        tension: 70,
-        useNativeDriver: true,
-      }),
-      Animated.spring(cardScale, {
-        toValue: 1,
-        friction: 8,
-        tension: 80,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    setTimeout(() => {
-      inputRefs.current[0]?.focus();
-    }, 300);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
+  startCooldown();
+
+  // Show toast when OTP screen opens
+  showToast("OTP sent to your email — check spam if not visible", "success");
+
+  Animated.parallel([
+    Animated.timing(cardOpacity, {
+      toValue: 1,
+      duration: 450,
+      useNativeDriver: true,
+    }),
+    Animated.spring(cardTranslateY, {
+      toValue: 0,
+      friction: 7,
+      tension: 70,
+      useNativeDriver: true,
+    }),
+    Animated.spring(cardScale, {
+      toValue: 1,
+      friction: 8,
+      tension: 80,
+      useNativeDriver: true,
+    }),
+  ]).start();
+
+  setTimeout(() => {
+    inputRefs.current[0]?.focus();
+  }, 300);
+
+  return () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  };
+}, []);
 
   useEffect(() => {
     Animated.timing(inputsFade, {
@@ -312,7 +323,7 @@ const OtpVerify = () => {
         return;
       }
 
-      showToast("OTP sent to your email");
+      showToast("OTP sent to your email — check spam if not visible","success");
       startCooldown();
     } catch (error) {
       setOtpError("Unable to resend OTP.");
@@ -361,7 +372,33 @@ const OtpVerify = () => {
                 styles.diviExpanded,
               ]}
             >
-              <Text style={[styles.divtext]}>Login to your workspace</Text>
+              <Text style={[typography.subheading]}>Login to your workspace</Text>
+              {/* <Text style={[typography.body]}>OTP sent to your email. If it's not in your inbox, please check spam/junk too.</Text> */}
+              {/* <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  gap: 8,
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.status.completed,
+                  padding: 10,
+                  marginBottom: 12,
+                  marginTop: 12
+                }}
+              >
+                {/* <Ionicons
+                  name="information-circle-outline"
+                  size={16}
+                  color={colors.status.overdue}
+                  style={{ marginTop: 1 }}
+                /> */}
+                {/* <Text style={{ ...typography.label, color: colors.status.completed, flex: 1 }}>
+                  OTP sent to your email — check spam if not visible
+                </Text>
+              </View> */}
+
 
               <Animated.View
                 style={{ width: "100%", alignItems: "center", opacity: inputsFade }}
