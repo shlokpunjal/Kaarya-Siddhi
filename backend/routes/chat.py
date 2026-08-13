@@ -33,7 +33,7 @@ MESSAGE_PAGE_SIZE = 30
 async def _get_own_row(email: str) -> dict:
     result = await run_db(
         supabase.table("users")
-        .select("id, name, email, role, workspace_id, profile_pic_url")
+        .select("id, name, email, role, workspace_id, profile_pic_url, last_seen_at")
         .eq("email", email)
     )
     if not result.data:
@@ -48,7 +48,7 @@ async def _get_other_party(own_row: dict, other_email: str) -> dict:
 
     other = await run_db(
         supabase.table("users")
-        .select("id, name, email, role, workspace_id, profile_pic_url")
+        .select("id, name, email, role, workspace_id, profile_pic_url, last_seen_at")
         .eq("email", other_email)
     )
     if not other.data:
@@ -323,6 +323,11 @@ async def mark_conversation_read(other_email: str, current_user: dict = Depends(
     genuinely reflects the recipient having seen the messages, not just
     having fetched them in the background."""
     own_row = await _get_own_row(current_user["sub"])
+    await run_db(
+        supabase.table("users")
+        .update({"last_seen_at": datetime.now(timezone.utc).isoformat()})
+        .eq("id", own_row["id"])
+    )
     other_row = await _get_other_party(own_row, other_email)
     admin_id, employee_id = _admin_employee_ids(own_row, other_row)
 

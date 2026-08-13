@@ -13,7 +13,7 @@ import ChatContactsSkeleton from "../../components/skeletonScreens/Chat/ChatCont
 export default function ChatContactsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { contacts, loading, refreshing, error, refresh } = useChatContacts();
+  const { contacts, loading, refreshing, error, refresh, typingConversationIds } = useChatContacts();
 
   const renderItem = ({ item }: { item: ChatContact }) => (
     <TouchableOpacity
@@ -46,21 +46,25 @@ export default function ChatContactsScreen() {
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 3 }}>
-          <Text
-            style={{
-              ...typography.body,
-              color: colors.text.secondary,
-              flex: 1,
-              marginRight: 8,
-            }}
-            numberOfLines={1}
-          >
-            {item.last_message_type === "image" && !item.last_message
-              ? "📷 Photo"
-              : item.last_message_type === "file" && !item.last_message
-              ? "📎 File"
-              : item.last_message || (item.designation ?? "Tap to start chatting")}
-          </Text>
+          {typingConversationIds.has(item.conversation_id ?? "") ? (
+            <Text
+              style={{ ...typography.body, color: "#25D366", flex: 1, marginRight: 8, fontWeight: "600" }}
+              numberOfLines={1}
+            >
+              typing...
+            </Text>
+          ) : (
+            <Text
+              style={{ ...typography.body, color: colors.text.secondary, flex: 1, marginRight: 8 }}
+              numberOfLines={1}
+            >
+              {item.last_message_type === "image" && !item.last_message
+                ? "📷 Photo"
+                : item.last_message_type === "file" && !item.last_message
+                  ? "📎 File"
+                  : item.last_message || (item.designation ?? "Tap to start chatting")}
+            </Text>
+          )}
           {item.unread_count > 0 && (
             <View
               style={{
@@ -84,8 +88,8 @@ export default function ChatContactsScreen() {
   );
 
   if (loading) {
-  return <ChatContactsSkeleton />;
-}
+    return <ChatContactsSkeleton />;
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }} edges={["top"]}>
@@ -118,7 +122,7 @@ export default function ChatContactsScreen() {
         </Text>
       </View>
 
-      { error ? (
+      {error ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: wp(10) }}>
           <Ionicons name="cloud-offline-outline" size={40} color={colors.text.secondary} />
           <Text style={{ ...typography.body, color: colors.text.secondary, marginTop: 10, textAlign: "center" }}>

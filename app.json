@@ -40,7 +40,8 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#1A2744"
         }
-      ]
+      ],
+      "expo-video"
     ],
     "extra": {
       "router": {},

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -13,11 +13,13 @@ type Props = {
   replyTo: ChatMessage | null;
   onCancelReply: () => void;
   onSend: (params: { content?: string; files?: PendingAttachment[]; messageType?: "text" | "image" | "file" }) => void;
+  onTyping?: (isTyping: boolean) => void;
 };
 
-export function ChatInputBar({ replyTo, onCancelReply, onSend }: Props) {
+export function ChatInputBar({ replyTo, onCancelReply, onSend, onTyping }: Props) {
   const { colors } = useTheme();
   const [text, setText] = useState("");
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [pendingPreviewUri, setPendingPreviewUri] = useState<string | null>(null);
@@ -88,9 +90,20 @@ export function ChatInputBar({ replyTo, onCancelReply, onSend }: Props) {
     setPendingPreviewUri(null);
   };
 
+  const handleTextChange = (value: string) => {
+    setText(value);
+    if (!onTyping) return;
+    onTyping(true);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => onTyping(false), 2000);
+  };
+
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed && !pendingAttachment) return;
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    onTyping?.(false);
 
     onSend({
       content: trimmed || undefined,
@@ -101,6 +114,8 @@ export function ChatInputBar({ replyTo, onCancelReply, onSend }: Props) {
     setText("");
     clearAttachment();
   };
+
+
 
   return (
     <View style={{ backgroundColor: colors.base.surfaceL1, borderTopWidth: 1, borderTopColor: colors.base.border }}>
@@ -163,17 +178,24 @@ export function ChatInputBar({ replyTo, onCancelReply, onSend }: Props) {
             borderColor: colors.base.border,
             paddingHorizontal: 14,
             paddingVertical: 8,
-            maxHeight: moderateScale(100),
+            maxHeight: moderateScale(56),
             justifyContent: "center",
           }}
         >
           <TextInput
             value={text}
-            onChangeText={setText}
+            onChangeText={handleTextChange}
             placeholder="Type a message"
             placeholderTextColor={colors.text.secondary}
             multiline
-            style={{ ...typography.body, color: colors.text.primary, maxHeight: moderateScale(84) }}
+            scrollEnabled
+            style={{
+              ...typography.body,
+              color: colors.text.primary,
+              maxHeight: moderateScale(40),
+              textAlign: text.length ? "left" : "center",
+              textAlignVertical: "center",
+            }}
           />
         </View>
 
