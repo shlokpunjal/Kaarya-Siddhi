@@ -99,8 +99,8 @@ export default function TeamModal({
                     )}
 
                     <Text
-                      style={[typography.body, profileStyles.employeeName, { color: colors.text.primary }]}
-                      numberOfLines={1}
+                      style={[typography.heading3, profileStyles.employeeName, { color: colors.text.primary, fontSize: 13 }]}
+                      numberOfLines={2}
                     >
                       {emp.name}
                     </Text>
