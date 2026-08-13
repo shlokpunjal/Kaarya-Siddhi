@@ -63,6 +63,7 @@ export type ConversationResponse = {
     role: string;
     workspace_id: string | null;
     profile_pic_url: string | null;
+    last_seen_at: string | null;
   };
   messages: ChatMessage[];
   has_more: boolean;

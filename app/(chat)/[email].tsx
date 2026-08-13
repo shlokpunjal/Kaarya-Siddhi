@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,6 +16,7 @@ import { typography } from "../../theme/theme";
 import { moderateScale } from "../../utils/responsive";
 import { useCurrentUserId } from "../../hooks/useCurrentUserId";
 import { useConversation } from "../../hooks/chat/useConversation";
+import { MediaViewerModal } from "../../components/chat/MediaViewerModal";
 import { ChatAvatar } from "../../components/chat/ChatAvatar";
 import { MessageBubble } from "../../components/chat/MessageBubble";
 import { MessageActionSheet } from "../../components/chat/MessageActionSheet";
@@ -22,12 +24,20 @@ import { ChatInputBar } from "../../components/chat/ChatInputBar";
 import { formatDateSeparator } from "../../utils/chatTime";
 import { useToast } from "../../context/ToastContext";
 import ConfirmModal from "../../components/common/confirmModal";
-import type { ChatMessage } from "../../types/chat";
+import type { ChatMessage, ChatFile } from "../../types/chat";
 import ConversationSkeleton from "../../components/skeletonScreens/Chat/ConversationSkeleton";
 import LoadOlderSkeleton from "../../components/skeletonScreens/Chat/LoadOlderSkeleton";
+import { TypingDots } from "../../components/chat/TypingDots";
 // Renders either a real message row or a synthetic date-separator row.
 type ListRow = { kind: "message"; message: ChatMessage } | { kind: "separator"; label: string };
-
+function formatLastSeen(iso: string | null): string {
+  if (!iso) return "offline";
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return sameDay ? `last seen today at ${time}` : `last seen ${d.toLocaleDateString(undefined, { day: "numeric", month: "short" })} at ${time}`;
+}
 export default function ConversationScreen() {
   const { email } = useLocalSearchParams<{ email: string }>();
   const otherEmail = decodeURIComponent(email);
@@ -37,26 +47,23 @@ export default function ConversationScreen() {
   const { showToast } = useToast();
   const ownUserId = useCurrentUserId();
 
-  const {
-    otherUser,
-    messages,
-    loading,
-    loadingOlder,
-    hasMore,
-    error,
-    loadOlder,
-    sendMessage,
-    react,
-    removeMessage,
-    clear,
-  } = useConversation(otherEmail, ownUserId);
+  const { otherUser, messages, loading, loadingOlder, hasMore, error, otherOnline, otherTyping, loadOlder, sendMessage, react, removeMessage, clear, reload, notifyTyping } = useConversation(otherEmail, ownUserId);
 
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [actionSheetFor, setActionSheetFor] = useState<ChatMessage | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<ChatMessage | null>(null);
+  // add a separate state for the pull spinner so it doesn't trigger the full skeleton:
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await reload();
+    setRefreshing(false);
+  }, [reload]);
 
+  // add media viewer state:
+  const [mediaViewer, setMediaViewer] = useState<ChatFile | null>(null);
   const messagesById = useMemo(() => {
     const map = new Map<string, ChatMessage>();
     messages.forEach((m) => map.set(m.id, m));
@@ -156,7 +163,7 @@ export default function ConversationScreen() {
             {otherUser.name}
           </Text>
           <Text style={{ ...typography.label, color: "rgba(255,255,255,0.7)" }} numberOfLines={1}>
-            {otherUser.role === "admin" ? "Admin" : "Employee"}
+            {otherTyping ? "typing..." : otherOnline ? "online" : formatLastSeen(otherUser.last_seen_at)}
           </Text>
         </View>
         <TouchableOpacity onPress={() => setMenuOpen((v) => !v)} hitSlop={8}>
@@ -201,6 +208,9 @@ export default function ConversationScreen() {
         <FlatList
           data={rows}
           keyExtractor={(row, i) => (row.kind === "message" ? row.message.id : `sep-${i}-${row.label}`)}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.brand.accent} colors={[colors.brand.accent]} />
+          }
           renderItem={({ item }) => {
             if (item.kind === "separator") {
               return (
@@ -220,9 +230,13 @@ export default function ConversationScreen() {
                 isOwn={isOwn}
                 replyPreview={replyPreview}
                 onLongPress={() => setActionSheetFor(m)}
+                onSwipeReply={() => setReplyTo(m)}
+                onOpenMedia={(f) => setMediaViewer(f)}
               />
             );
-          }}
+          }
+          }
+
           contentContainerStyle={{ paddingVertical: 10, flexGrow: 1, justifyContent: messages.length === 0 ? "center" : undefined }}
           onEndReachedThreshold={0.3}
           ListHeaderComponent={
@@ -236,6 +250,23 @@ export default function ConversationScreen() {
               )
             ) : null
           }
+          ListFooterComponent={
+            otherTyping ? (
+              <View style={{ alignSelf: "flex-start", marginHorizontal: 12, marginTop: 4 }}>
+                <View
+                  style={{
+                    backgroundColor: colors.base.surfaceL2,
+                    borderRadius: moderateScale(16),
+                    borderTopLeftRadius: 4,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                  }}
+                >
+                  <TypingDots color={colors.text.secondary} />
+                </View>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={{ alignItems: "center", paddingHorizontal: 30 }}>
               <Ionicons name="chatbubble-outline" size={36} color={colors.text.secondary} />
@@ -246,7 +277,12 @@ export default function ConversationScreen() {
           }
         />
 
-        <ChatInputBar replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onSend={handleSend} />
+        <ChatInputBar
+          replyTo={replyTo}
+          onCancelReply={() => setReplyTo(null)}
+          onSend={handleSend}
+          onTyping={notifyTyping}
+        />
       </KeyboardAvoidingView>
 
       <MessageActionSheet
@@ -261,7 +297,12 @@ export default function ConversationScreen() {
           setActionSheetFor(null);
         }}
       />
-
+      <MediaViewerModal
+        visible={!!mediaViewer}
+        fileUrl={mediaViewer?.file_url ?? null}
+        fileType={mediaViewer?.file_type ?? null}
+        onClose={() => setMediaViewer(null)}
+      />
       <ConfirmModal
         visible={confirmClear}
         title="Clear chat?"
