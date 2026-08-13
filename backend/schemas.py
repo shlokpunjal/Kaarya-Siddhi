@@ -77,3 +77,36 @@ class UpdateProfileRequest(BaseModel):
     name: str | None = None
     mobile_number: str | None = None
     email: str | None = None
+
+
+# ---- Chat ----
+
+MessageType = Literal["text", "image", "file", "video", "audio"]
+
+
+class ChatFileInput(BaseModel):
+    file_url: str
+    file_name: str | None = None
+    file_type: str | None = None
+    file_size: int | None = None
+    thumbnail_url: str | None = None
+
+
+class SendMessageRequest(BaseModel):
+    # Identify the other side of the conversation by email — mirrors
+    # ConnectRequest/ConnectionRespond, and lets the client start a
+    # conversation before it knows the thread's conversation_id yet
+    # (first message ever sent creates the conversation row).
+    other_email: str
+    content: str | None = Field(default=None, max_length=4000)
+    message_type: MessageType = "text"
+    reply_to_id: str | None = None
+    files: list[ChatFileInput] = Field(default_factory=list)
+
+
+class ReactToMessageRequest(BaseModel):
+    emoji: str = Field(min_length=1, max_length=8)
+
+
+class ClearChatRequest(BaseModel):
+    other_email: str

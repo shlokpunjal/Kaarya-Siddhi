@@ -22,6 +22,7 @@ import TaskDetailSkeleton from "../../components/skeletonScreens/Tasks/TaskDetai
 import { ScreenHeader } from "../../components/task/ScreenHeader";
 import { DetailRow } from "../../components/task/DetailRow";
 import { FileAttachmentList } from "../../components/task/FileAttachmentList";
+import { TeammatesList } from "../../components/task/TeammateList";
 import { ActionButton } from "../../components/task/ActionButton";
 import { TaskNotFound } from "../../components/task/TaskNotFound";
 import { useCurrentUserId } from "../../hooks/useCurrentUserId";
@@ -52,7 +53,7 @@ export default function TaskDetailAdmin() {
   const { showToast } = useToast();
 
   const currentUserId = useCurrentUserId();
-  const { task, setTask, taskFiles, meta, loading } = useTaskDetail(
+  const { task, setTask, taskFiles, meta, teammates, loading } = useTaskDetail(
     taskId,
     normalizeStatus,
   );
@@ -245,6 +246,8 @@ export default function TaskDetailAdmin() {
           />
 
           <DetailRow icon="person-outline" label="Assigned To" value={meta.assigned_to_name || "—"} />
+
+          <TeammatesList teammates={teammates} />
 
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 

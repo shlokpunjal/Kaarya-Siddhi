@@ -19,6 +19,7 @@ import TaskDetailSkeleton from "../../components/skeletonScreens/Tasks/TaskDetai
 import { ScreenHeader } from "../../components/task/ScreenHeader";
 import { DetailRow } from "../../components/task/DetailRow";
 import { FileAttachmentList } from "../../components/task/FileAttachmentList";
+import { TeammatesList } from "../../components/task/TeammateList";
 import { ActionButton } from "../../components/task/ActionButton";
 import { TaskNotFound } from "../../components/task/TaskNotFound";
 import { useCurrentUserId } from "../../hooks/useCurrentUserId";
@@ -40,7 +41,7 @@ export default function TaskDetail() {
   const { showToast } = useToast();
 
   const currentUserId = useCurrentUserId();
-  const { task, setTask, taskFiles, meta, loading } = useTaskDetail(taskId);
+  const { task, setTask, taskFiles, meta, teammates, loading } = useTaskDetail(taskId);
 
   // "Own task" governs edit/delete, Mark Complete, and whether this is a
   // self-created task at all (vs one an admin assigned).
@@ -236,6 +237,8 @@ export default function TaskDetail() {
               plain
             />
           )}
+
+          <TeammatesList teammates={teammates} />
 
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
