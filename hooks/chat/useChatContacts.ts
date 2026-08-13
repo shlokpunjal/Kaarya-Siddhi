@@ -10,16 +10,17 @@ export function useChatContacts() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [typingConversationIds, setTypingConversationIds] = useState<Set<string>>(new Set());
+  const hasLoadedOnce = useRef(false);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const load = useCallback(async (mode: "initial" | "refresh" | "silent" = "initial") => {
+    if (mode === "refresh") setRefreshing(true);
+    else if (mode === "initial") setLoading(true);
     setError(null);
     try {
       const data = await fetchChatContacts();
       setContacts(data);
     } catch (err: any) {
-      setError(err?.message || "Could not load your chats.");
+      if (mode !== "silent") setError(err?.message || "Could not load your chats.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -28,7 +29,8 @@ export function useChatContacts() {
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      load(hasLoadedOnce.current ? "silent" : "initial");
+      hasLoadedOnce.current = true;
     }, [load]),
   );
 
@@ -68,7 +70,7 @@ export function useChatContacts() {
     error,
     totalUnread,
     typingConversationIds,
-    refresh: () => load(true),
-    reload: () => load(false),
+    refresh: () => load("refresh"),
+    reload: () => load("silent"),
   };
 }

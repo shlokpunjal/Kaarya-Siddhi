@@ -47,13 +47,14 @@ export default function ConversationScreen() {
   const { showToast } = useToast();
   const ownUserId = useCurrentUserId();
 
-  const { otherUser, messages, loading, loadingOlder, hasMore, error, otherOnline, otherTyping, loadOlder, sendMessage, react, removeMessage, clear, reload, notifyTyping } = useConversation(otherEmail, ownUserId);
-
+  const { otherUser, messages, loading, loadingOlder, hasMore, error, otherOnline, otherTyping, loadOlder, sendMessage, react, removeMessage, removeMessageForMe, clear, reload, notifyTyping } = useConversation(otherEmail, ownUserId);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [actionSheetFor, setActionSheetFor] = useState<ChatMessage | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<ChatMessage | null>(null);
+  const [confirmDeleteForMe, setConfirmDeleteForMe] = useState<ChatMessage | null>(null);
+
   // add a separate state for the pull spinner so it doesn't trigger the full skeleton:
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -125,8 +126,17 @@ export default function ConversationScreen() {
       showToast("Could not clear this chat.", "error");
     }
   }, [clear, showToast]);
-
-  if (loading) {
+  const handleDeleteForMeConfirmed = useCallback(async () => {
+    if (!confirmDeleteForMe) return;
+    try {
+      await removeMessageForMe(confirmDeleteForMe.id);
+    } catch {
+      showToast("Could not delete this message.", "error");
+    } finally {
+      setConfirmDeleteForMe(null);
+    }
+  }, [confirmDeleteForMe, removeMessageForMe, showToast]);
+  if (loading || !ownUserId) {
     return <ConversationSkeleton />;
   }
 
@@ -250,23 +260,7 @@ export default function ConversationScreen() {
               )
             ) : null
           }
-          ListFooterComponent={
-            otherTyping ? (
-              <View style={{ alignSelf: "flex-start", marginHorizontal: 12, marginTop: 4 }}>
-                <View
-                  style={{
-                    backgroundColor: colors.base.surfaceL2,
-                    borderRadius: moderateScale(16),
-                    borderTopLeftRadius: 4,
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                  }}
-                >
-                  <TypingDots color={colors.text.secondary} />
-                </View>
-              </View>
-            ) : null
-          }
+
           ListEmptyComponent={
             <View style={{ alignItems: "center", paddingHorizontal: 30 }}>
               <Ionicons name="chatbubble-outline" size={36} color={colors.text.secondary} />
@@ -276,7 +270,24 @@ export default function ConversationScreen() {
             </View>
           }
         />
-
+        
+        {otherTyping && (
+          <View style={{ paddingHorizontal: 12, paddingBottom: 4 }}>
+            <View
+              style={{
+                alignSelf: "flex-start",
+                backgroundColor: colors.base.surfaceL2,
+                borderRadius: moderateScale(16),
+                borderTopLeftRadius: 4,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+              }}
+            >
+              <TypingDots color={colors.text.secondary} />
+            </View>
+          </View>
+        )}
+        
         <ChatInputBar
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
@@ -294,6 +305,10 @@ export default function ConversationScreen() {
         onReply={handleReply}
         onDelete={() => {
           setConfirmDelete(actionSheetFor);
+          setActionSheetFor(null);
+        }}
+        onDeleteForMe={() => {
+          setConfirmDeleteForMe(actionSheetFor);
           setActionSheetFor(null);
         }}
       />
@@ -321,6 +336,15 @@ export default function ConversationScreen() {
         destructive
         onConfirm={handleDeleteConfirmed}
         onCancel={() => setConfirmDelete(null)}
+      />
+      <ConfirmModal
+        visible={!!confirmDeleteForMe}
+        title="Delete message for you?"
+        message="This message will be removed from your chat only. The other person will still see it."
+        confirmText="Delete"
+        destructive
+        onConfirm={handleDeleteForMeConfirmed}
+        onCancel={() => setConfirmDeleteForMe(null)}
       />
     </SafeAreaView>
   );

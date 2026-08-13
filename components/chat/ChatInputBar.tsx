@@ -193,7 +193,7 @@ export function ChatInputBar({ replyTo, onCancelReply, onSend, onTyping }: Props
               ...typography.body,
               color: colors.text.primary,
               maxHeight: moderateScale(40),
-              textAlign: text.length ? "left" : "center",
+              textAlign: text.length ? "left" : "left",
               textAlignVertical: "center",
             }}
           />
