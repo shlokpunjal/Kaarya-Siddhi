@@ -10,31 +10,41 @@ type Props = {
   title: string;
   summary?: string;
   colors: Theme['colors'];
-  children: ReactNode;
+  children?: ReactNode;
   last?: boolean;
+  // When provided, the row behaves as a plain button: tapping calls onPress
+  // instead of toggling inline content, the chevron always points forward,
+  // and the summary is always shown. Used for rows like Team that open an
+  // external modal rather than expanding in place.
+  onPress?: () => void;
 };
 
-export default function CollapsibleSection({ icon, title, summary, colors, children, last }: Props) {
+export default function CollapsibleSection({ icon, title, summary, colors, children, last, onPress }: Props) {
   const [open, setOpen] = useState(false);
+  const isButton = !!onPress;
 
   return (
     <View style={[styles.wrapper, !last && { borderBottomWidth: 1, borderBottomColor: colors.base.border }]}>
-      <Pressable style={styles.row} onPress={() => setOpen((prev) => !prev)}>
+      <Pressable style={styles.row} onPress={isButton ? onPress : () => setOpen((prev) => !prev)}>
         <View style={[styles.iconCircle, { backgroundColor: colors.base.surfaceL2 }]}>
           <Ionicons name={icon} size={18} color={colors.brand.accent} />
         </View>
         <View style={styles.textCol}>
           <Text style={[typography.heading3, { color: colors.text.primary }]}>{title}</Text>
-          {!open && summary ? (
+          {(isButton || !open) && summary ? (
             <Text style={[typography.label, { color: colors.text.secondary, marginTop: 2 }]} numberOfLines={1}>
               {summary}
             </Text>
           ) : null}
         </View>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.text.secondary} />
+        <Ionicons
+          name={isButton ? 'chevron-forward' : open ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color={colors.text.secondary}
+        />
       </Pressable>
 
-      {open ? <View style={styles.content}>{children}</View> : null}
+      {!isButton && open ? <View style={styles.content}>{children}</View> : null}
     </View>
   );
 }
