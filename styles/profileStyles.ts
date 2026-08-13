@@ -154,7 +154,7 @@ export const profileStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 14,
   },
   teamModalCloseButton: {
     width: moderateScale(26),
@@ -170,13 +170,13 @@ export const profileStyles = StyleSheet.create({
   },
   employeeCard: {
     width: "48%",
-    aspectRatio: 1,
-    borderRadius: 14,
+    aspectRatio: 0.95,
+    borderRadius: 16,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
-    padding: 12,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 14,
   },
   employeeAvatar: {
     width: moderateScale(56),
@@ -188,11 +188,12 @@ export const profileStyles = StyleSheet.create({
     justifyContent: "center",
   },
   employeeName: {
-    marginTop: 10,
+    marginTop: 12,
     textAlign: "center",
+    lineHeight: 16,
   },
   employeeDesignation: {
-    marginTop: 2,
+    marginTop: 4,
     textAlign: "center",
   },
 
