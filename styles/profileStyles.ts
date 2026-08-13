@@ -135,25 +135,66 @@ export const profileStyles = StyleSheet.create({
   closeModalButton: { position: "absolute", top: 50, right: 20, zIndex: 10 },
   fullscreenImage: { width: "90%", height: "70%" },
 
-  // ── Admin-only: team list ────────────────────────────────────────────────
-  teamHeaderRow: {
+  // ── Team popup modal ─────────────────────────────────────────────────────
+  teamModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: wp(6),
+  },
+  teamModalCard: {
+    width: "90%",
+    maxHeight: "70%",
+    borderRadius: 18,
+    borderWidth: 2,
+    padding: 18,
+  },
+  teamModalHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 14,
   },
-  teamMemberRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  countChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    minWidth: 30,
-    minHeight: 22,
+  teamModalCloseButton: {
+    width: moderateScale(26),
+    height: moderateScale(26),
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
+  },
+  employeeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  employeeCard: {
+    width: "48%",
+    aspectRatio: 0.95,
+    borderRadius: 16,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 14,
+    marginBottom: 14,
+  },
+  employeeAvatar: {
+    width: moderateScale(56),
+    height: moderateScale(56),
+    borderRadius: moderateScale(28),
+  },
+  employeeAvatarFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  employeeName: {
+    marginTop: 12,
+    textAlign: "center",
+    lineHeight: 16,
+  },
+  employeeDesignation: {
+    marginTop: 4,
+    textAlign: "center",
   },
 
   // ── Employee-only: connection banner + change admin ──────────────────────

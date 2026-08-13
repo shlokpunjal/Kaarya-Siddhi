@@ -5,6 +5,7 @@ import {
   Poppins_600SemiBold,
   Poppins_700Bold,
 } from "@expo-google-fonts/poppins";
+
 import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { View, Image, Text, Animated, StyleSheet } from "react-native";
@@ -126,10 +127,7 @@ export default function RootLayout() {
                 },
               }}
             >
-              {/* Main entry */}
-              <Stack.Screen name="index" />
-
-              {/* Authentication */}
+             <Stack.Screen name="index" />
               <Stack.Screen name="(auth)" />
 
               {/* Onboarding */}

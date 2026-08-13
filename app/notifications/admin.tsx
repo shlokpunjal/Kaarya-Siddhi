@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import { View, Text, TouchableOpacity, ScrollView, Animated } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -12,7 +12,8 @@ import ScreenHeader from "../../components/notifications/ScreenHeader";
 import EmptyState from "../../components/notifications/EmptyState";
 import { useCurrentUser } from "../../hooks/notifications/useCurrentUser";
 import { useRealtimeTable } from "../../hooks/notifications/useRealtimeTable";
-import { formatDateIN } from "../../utils/notifications/formatDate";
+import { formatDateTimeIN } from "../../utils/notifications/formatDate";
+import ClearAllButton from "../../components/notifications/ClearAllButton";
 
 type OtherNotif = {
   id: string;
@@ -30,6 +31,8 @@ export default function AdminNotifications() {
   const [pageLoading, setPageLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [otherNotifications, setOtherNotifications] = useState<OtherNotif[]>([]);
+  const [clearing, setClearing] = useState(false);
+  const listOpacity = useRef(new Animated.Value(1)).current;
 
   const fetchOtherNotifications = useCallback(async () => {
     try {
@@ -52,18 +55,32 @@ export default function AdminNotifications() {
   );
 
   const clearOtherNotifications = async () => {
-    if (otherNotifications.length === 0) return;
-    try {
-      const ids = otherNotifications.map((n) => n.id).join(",");
-      const res = await authFetch(`/notifications?ids=${ids}`, { method: "DELETE" });
-      if (!res.ok) {
-        console.error("Failed to clear notifications:", res.status);
-        return;
+    if (otherNotifications.length === 0 || clearing) return;
+    setClearing(true);
+
+    Animated.timing(listOpacity, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(async () => {
+      try {
+        const ids = otherNotifications.map((n) => n.id).join(",");
+        const res = await authFetch(`/notifications?ids=${ids}`, { method: "DELETE" });
+        if (!res.ok) {
+          console.error("Failed to clear notifications:", res.status);
+        } else {
+          setOtherNotifications([]);
+        }
+      } catch (err) {
+        console.error("Failed to clear notifications:", err);
+      } finally {
+        Animated.timing(listOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => setClearing(false));
       }
-      setOtherNotifications([]);
-    } catch (err) {
-      console.error("Failed to clear notifications:", err);
-    }
+    });
   };
 
   const fetchPendingCount = useCallback(async () => {
@@ -197,17 +214,16 @@ export default function AdminNotifications() {
               Other Notifications
             </Text>
           </View>
-          {otherNotifications.length > 0 && (
-            <TouchableOpacity onPress={clearOtherNotifications}>
-              <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
-            </TouchableOpacity>
+          {(otherNotifications.length > 0 || clearing) && (
+            <ClearAllButton onPress={clearOtherNotifications} loading={clearing} color={colors.brand.accent} />
           )}
         </View>
 
-        {otherNotifications.length === 0 ? (
-          <EmptyState />
-        ) : (
-          otherNotifications.map((n) => {
+        <Animated.View style={{ opacity: listOpacity, flex: 1 }}>
+          {otherNotifications.length === 0 ? (
+            <EmptyState />
+          ) : (
+            otherNotifications.map((n) => {
             const taskId = n.task_id ?? n.metadata?.taskId;
             const isEoffice = n.type === "eoffice_pending";
             return (
@@ -245,16 +261,17 @@ export default function AdminNotifications() {
                     {n.message}
                   </Text>
                   <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 4 }}>
-                    {formatDateIN(n.created_at)}
+                    {formatDateTimeIN(n.created_at)}
                   </Text>
                 </View>
                 {taskId && (
                   <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
                 )}
-              </TouchableOpacity>
-            );
-          })
-        )}
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );

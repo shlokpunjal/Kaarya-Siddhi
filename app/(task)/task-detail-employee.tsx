@@ -19,13 +19,17 @@ import TaskDetailSkeleton from "../../components/skeletonScreens/Tasks/TaskDetai
 import { ScreenHeader } from "../../components/task/ScreenHeader";
 import { DetailRow } from "../../components/task/DetailRow";
 import { FileAttachmentList } from "../../components/task/FileAttachmentList";
-import { TeammatesList } from "../../components/task/TeammateList";
 import { ActionButton } from "../../components/task/ActionButton";
 import { TaskNotFound } from "../../components/task/TaskNotFound";
 import { useCurrentUserId } from "../../hooks/useCurrentUserId";
 import { useTaskDetail } from "../../hooks/task/useTaskDetail";
 import { useTaskDelete } from "../../hooks/task/useTaskDelete";
 import { useTaskComplete } from "../../hooks/task/useTaskComplete";
+import {
+  TeamAssignedCard,
+  normalizeMemberStatus,
+  STATUS_LABELS,
+} from "../../components/task/TeamAssignedCard";
 
 const statusColorKey: Record<string, string> = {
   overdue: "overdue",
@@ -117,6 +121,12 @@ export default function TaskDetail() {
     colors.status[statusColorKey[displayStatus] as keyof typeof colors.status] ??
     colors.text.secondary;
 
+  // The raw DB value is snake_case ("in_review") and would otherwise render
+  // as the ugly "In_review" via textTransform: capitalize. Route it through
+  // the same STATUS_LABELS map the Team card uses so admin and employee
+  // screens always show identical wording for the same status.
+  const displayStatusLabel = STATUS_LABELS[normalizeMemberStatus(displayStatus)];
+
   const canEditOrDelete = isOwnTask && task.status !== "completed";
 
   return (
@@ -182,8 +192,8 @@ export default function TaskDetail() {
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
             <Ionicons name="ellipse" size={12} color={statusColor} style={{ marginRight: 8 }} />
             <Text style={{ ...typography.heading3, color: colors.text.primary }}>Status: </Text>
-            <Text style={{ ...typography.heading3, color: statusColor, textTransform: "capitalize" }}>
-              {displayStatus}
+            <Text style={{ ...typography.heading3, color: statusColor }}>
+              {displayStatusLabel}
             </Text>
           </View>
 
@@ -238,7 +248,11 @@ export default function TaskDetail() {
             />
           )}
 
-          <TeammatesList teammates={teammates} />
+          {/* Same "Team" popup used on the admin screen — tapping it shows
+              every teammate's name and live status (In Review, Pending,
+              etc). Sharing this component means a status change here
+              renders identically on the admin's screen too. */}
+          <TeamAssignedCard teammates={teammates} colors={colors} label="Team" />
 
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 

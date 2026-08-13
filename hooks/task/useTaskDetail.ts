@@ -53,10 +53,50 @@ export function useTaskDetail(
       teammates: teammatesData,
     } = await res.json();
 
-    setTask(normalizeStatus ? normalizeStatus(taskData) : taskData);
+    const normalizedTask = normalizeStatus ? normalizeStatus(taskData) : taskData;
+
+    // `teammates` from the API is the OTHER employees sharing this task's
+    // team_batch_id — it deliberately excludes THIS row's own assignee.
+    // That's why assigning to N people always shows N-1: the missing one
+    // is this task's own employee, sitting in `taskData`/`assigned_to_name`,
+    // never in `teammatesData`. Add that self row back in.
+    //
+    // NOTE: we don't actually know the field name the backend uses on
+    // `taskData` for "which employee this row belongs to" — it may be
+    // `employee_id`, `assigned_to`, `assignee_id`, `user_id`, etc. Rather
+    // than gate the whole merge on one guessed field name (which silently
+    // no-ops if wrong — that was the bug in the previous version), try a
+    // few common ones and fall back to the task's own id, which always
+    // exists and is still guaranteed unique.
+    const others: Teammate[] = teammatesData ?? [];
+    const selfEmployeeId: string | undefined =
+      taskData?.employee_id ??
+      taskData?.assigned_to ??
+      taskData?.assignee_id ??
+      taskData?.user_id ??
+      taskData?.id;
+
+    const selfAlreadyIncluded = others.some(
+      (t) => t.task_id === taskData?.id || (selfEmployeeId && t.employee_id === selfEmployeeId),
+    );
+
+    const fullTeammates: Teammate[] =
+      others.length > 0 && !selfAlreadyIncluded
+        ? [
+            {
+              task_id: taskData?.id,
+              employee_id: selfEmployeeId ?? taskData?.id,
+              name: assigned_to_name ?? "You",
+              status: taskData?.status ?? null,
+            },
+            ...others,
+          ]
+        : others;
+
+    setTask(normalizedTask);
     setTaskFiles(files ?? []);
     setMeta({ assigned_by_name, assigned_to_name });
-    setTeammates(teammatesData ?? []);
+    setTeammates(fullTeammates);
     setLoading(false);
   }, [taskId]);
 

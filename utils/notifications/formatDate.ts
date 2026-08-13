@@ -13,3 +13,17 @@ export function formatDateIN(date: string | Date): string {
     year: "numeric",
   });
 }
+export function formatDateTimeIN(date: string | Date): string {
+  const d = new Date(date);
+  const datePart = d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  const timePart = d.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `${datePart} • ${timePart}`;
+}

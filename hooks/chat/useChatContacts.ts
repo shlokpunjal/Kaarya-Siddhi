@@ -1,31 +1,26 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { fetchChatContacts } from "../../services/chatApi";
+import { getFreshChannel } from "../../lib/supabase";
 import type { ChatContact } from "../../types/chat";
 
-/**
- * Backs the contact list behind the floating chat icon. No dedicated
- * realtime subscription here (see services/chatRealtime.ts comments on
- * why a workspace-wide channel would leak other people's conversation
- * activity) — instead this refetches whenever the screen regains focus,
- * which covers both "just sent/received a message and came back" and
- * "opened the app fresh".
- */
 export function useChatContacts() {
   const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [typingConversationIds, setTypingConversationIds] = useState<Set<string>>(new Set());
+  const hasLoadedOnce = useRef(false);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const load = useCallback(async (mode: "initial" | "refresh" | "silent" = "initial") => {
+    if (mode === "refresh") setRefreshing(true);
+    else if (mode === "initial") setLoading(true);
     setError(null);
     try {
       const data = await fetchChatContacts();
       setContacts(data);
     } catch (err: any) {
-      setError(err?.message || "Could not load your chats.");
+      if (mode !== "silent") setError(err?.message || "Could not load your chats.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -34,9 +29,37 @@ export function useChatContacts() {
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      load(hasLoadedOnce.current ? "silent" : "initial");
+      hasLoadedOnce.current = true;
     }, [load]),
   );
+
+  // Listen for typing broadcasts on every contact's conversation channel
+  // (same channel topic used by useConversation.ts). Read-only — never
+  // calls .track(), so it won't affect the online-presence feature.
+  useEffect(() => {
+    const conversationIds = contacts.map((c) => c.conversation_id).filter((id): id is string => !!id);
+    if (conversationIds.length === 0) return;
+
+    const channels = conversationIds.map((id) =>
+      getFreshChannel(`chat_conversation_${id}`)
+        .on("broadcast", { event: "typing" }, (payload) => {
+          const { isTyping } = payload.payload as { userId: string; isTyping: boolean };
+          setTypingConversationIds((prev) => {
+            const next = new Set(prev);
+            if (isTyping) next.add(id);
+            else next.delete(id);
+            return next;
+          });
+        })
+        .subscribe(),
+    );
+
+    return () => {
+      channels.forEach((ch) => ch.unsubscribe());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contacts.map((c) => c.conversation_id).join(",")]);
 
   const totalUnread = contacts.reduce((sum, c) => sum + (c.unread_count || 0), 0);
 
@@ -46,7 +69,8 @@ export function useChatContacts() {
     refreshing,
     error,
     totalUnread,
-    refresh: () => load(true),
-    reload: () => load(false),
+    typingConversationIds,
+    refresh: () => load("refresh"),
+    reload: () => load("silent"),
   };
 }

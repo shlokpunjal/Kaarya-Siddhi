@@ -18,7 +18,7 @@ export function ChatFab() {
   const router = useRouter();
   const { totalUnread } = useChatContacts();
 
-  const size = moderateScale(58);
+  const size = moderateScale(55);
 
   return (
     <TouchableOpacity
@@ -26,8 +26,8 @@ export function ChatFab() {
       activeOpacity={0.85}
       style={{
         position: "absolute",
-        right: moderateScale(20),
-        bottom: moderateScale(24),
+        right: moderateScale(18),
+        bottom: moderateScale(0) + moderateScale(5),
         width: size,
         height: size,
         borderRadius: size / 2,

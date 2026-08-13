@@ -22,6 +22,7 @@ from auth_utils import get_current_user
 from services import normalize_email
 from notify_utils import push_only
 from schemas import SendMessageRequest, ReactToMessageRequest, ClearChatRequest
+from cloudinary_utils import delete_cloudinary_assets
 
 router = APIRouter()
 
@@ -33,7 +34,7 @@ MESSAGE_PAGE_SIZE = 30
 async def _get_own_row(email: str) -> dict:
     result = await run_db(
         supabase.table("users")
-        .select("id, name, email, role, workspace_id, profile_pic_url")
+        .select("id, name, email, role, workspace_id, profile_pic_url, last_seen_at")
         .eq("email", email)
     )
     if not result.data:
@@ -48,7 +49,7 @@ async def _get_other_party(own_row: dict, other_email: str) -> dict:
 
     other = await run_db(
         supabase.table("users")
-        .select("id, name, email, role, workspace_id, profile_pic_url")
+        .select("id, name, email, role, workspace_id, profile_pic_url, last_seen_at")
         .eq("email", other_email)
     )
     if not other.data:
@@ -283,6 +284,11 @@ async def get_conversation(
     )
     cleared_at = clear_res.data[0]["cleared_at"] if clear_res.data else None
 
+    hidden_res = await run_db(
+        supabase.table("message_deletions").select("message_id").eq("user_id", own_row["id"])
+    )
+    hidden_ids = [r["message_id"] for r in (hidden_res.data or [])]
+
     query = (
         supabase.table("messages")
         .select("*")
@@ -292,6 +298,8 @@ async def get_conversation(
         query = query.gt("created_at", cleared_at)
     if before:
         query = query.lt("created_at", before)
+    if hidden_ids:
+        query = query.not_.in_("id", hidden_ids)
 
     msgs_res = await run_db(query.order("created_at", desc=True).limit(limit))
     messages = msgs_res.data or []
@@ -323,6 +331,11 @@ async def mark_conversation_read(other_email: str, current_user: dict = Depends(
     genuinely reflects the recipient having seen the messages, not just
     having fetched them in the background."""
     own_row = await _get_own_row(current_user["sub"])
+    await run_db(
+        supabase.table("users")
+        .update({"last_seen_at": datetime.now(timezone.utc).isoformat()})
+        .eq("id", own_row["id"])
+    )
     other_row = await _get_other_party(own_row, other_email)
     admin_id, employee_id = _admin_employee_ids(own_row, other_row)
 
@@ -463,11 +476,6 @@ async def react_to_message(
 
 @router.delete("/chat/messages/{message_id}")
 async def delete_message(message_id: str, current_user: dict = Depends(get_current_user)):
-    """Delete for everyone — only the sender can do this. Content is
-    cleared but the row stays (so `reply_to_id` references elsewhere
-    still resolve, and the UI can render the WhatsApp-style 'This
-    message was deleted' placeholder). Attached Cloudinary files are
-    left in place — only the DB reference/visibility is removed."""
     own_row = await _get_own_row(current_user["sub"])
 
     msg_res = await run_db(supabase.table("messages").select("*").eq("id", message_id))
@@ -478,19 +486,51 @@ async def delete_message(message_id: str, current_user: dict = Depends(get_curre
     if message["sender_id"] != own_row["id"]:
         raise HTTPException(status_code=403, detail="You can only delete your own messages.")
 
+    files_res = await run_db(
+        supabase.table("message_files").select("file_url, file_type, storage_service").eq("message_id", message_id)
+    )
+    files_to_clean = files_res.data or []
+
     await run_db(
         supabase.table("messages")
-        .update({
-            "is_deleted": True,
-            "content": None,
-            "deleted_at": datetime.now(timezone.utc).isoformat(),
-        })
+        .update({"is_deleted": True, "content": None, "deleted_at": datetime.now(timezone.utc).isoformat()})
         .eq("id", message_id)
     )
     await run_db(supabase.table("message_files").delete().eq("message_id", message_id))
 
+    delete_cloudinary_assets(files_to_clean)
+
     return {"success": True}
 
+@router.post("/chat/messages/{message_id}/delete-for-me")
+async def delete_message_for_me(message_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete for me only — hides this one message for the caller
+    without affecting the other party. Works on any message in a
+    conversation the caller is part of, not just their own — matches
+    WhatsApp's 'Delete for me' being available on received messages
+    too."""
+    own_row = await _get_own_row(current_user["sub"])
+
+    msg_res = await run_db(supabase.table("messages").select("conversation_id").eq("id", message_id))
+    if not msg_res.data:
+        raise HTTPException(status_code=404, detail="Message not found.")
+    await _get_conversation_or_404(msg_res.data[0]["conversation_id"], own_row["id"])
+
+    existing = await run_db(
+        supabase.table("message_deletions")
+        .select("id")
+        .eq("message_id", message_id)
+        .eq("user_id", own_row["id"])
+    )
+    if not existing.data:
+        await run_db(
+            supabase.table("message_deletions").insert({
+                "message_id": message_id,
+                "user_id": own_row["id"],
+            })
+        )
+
+    return {"success": True}
 
 @router.post("/chat/clear")
 async def clear_chat(data: ClearChatRequest, current_user: dict = Depends(get_current_user)):

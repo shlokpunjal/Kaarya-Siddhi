@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import React, { useState, useCallback, useRef } from "react";
+import { View, Text, TouchableOpacity, ScrollView, Animated } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -13,7 +13,8 @@ import ScreenHeader from "../../components/notifications/ScreenHeader";
 import EmptyState from "../../components/notifications/EmptyState";
 import { useCurrentUser } from "../../hooks/notifications/useCurrentUser";
 import { useRealtimeTable } from "../../hooks/notifications/useRealtimeTable";
-import { formatDateIN } from "../../utils/notifications/formatDate";
+import { formatDateTimeIN } from "../../utils/notifications/formatDate";
+import ClearAllButton from "../../components/notifications/ClearAllButton";
 
 type NotifRow = {
   id: string;
@@ -48,6 +49,8 @@ export default function EmployeeNotifications() {
   const { userId } = useCurrentUser();
   const [notifications, setNotifications] = useState<NotifRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
+  const listOpacity = useRef(new Animated.Value(1)).current;
 
   const fetchNotifications = useCallback(async (id: string) => {
     setLoading(true);
@@ -86,18 +89,34 @@ export default function EmployeeNotifications() {
   );
 
   const clearAll = async () => {
-    if (!userId || notifications.length === 0) return;
-    try {
-      const ids = notifications.map((n) => n.id).join(",");
-      const res = await authFetch(`/notifications?ids=${ids}`, { method: "DELETE" });
-      if (!res.ok) {
-        console.error("Failed to clear notifications:", res.status);
-        return;
+    if (!userId || notifications.length === 0 || clearing) return;
+    setClearing(true);
+
+    // fade out the current list
+    Animated.timing(listOpacity, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(async () => {
+      try {
+        const ids = notifications.map((n) => n.id).join(",");
+        const res = await authFetch(`/notifications?ids=${ids}`, { method: "DELETE" });
+        if (!res.ok) {
+          console.error("Failed to clear notifications:", res.status);
+        } else {
+          setNotifications([]);
+        }
+      } catch (err) {
+        console.error("Failed to clear notifications:", err);
+      } finally {
+        // fade the (now empty) state back in smoothly instead of snapping
+        Animated.timing(listOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => setClearing(false));
       }
-      setNotifications([]);
-    } catch (err) {
-      console.error("Failed to clear notifications:", err);
-    }
+    });
   };
 
   const handlePress = (n: NotifRow) => {
@@ -141,16 +160,14 @@ export default function EmployeeNotifications() {
         }}
       >
         <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 12 }}>
-          {notifications.length > 0 && (
-            <TouchableOpacity onPress={clearAll}>
-              <Text style={{ ...typography.label, color: colors.brand.accent }}>Clear All</Text>
-            </TouchableOpacity>
+          {(notifications.length > 0 || clearing) && (
+            <ClearAllButton onPress={clearAll} loading={clearing} color={colors.brand.accent} />
           )}
         </View>
 
-        {!loading && notifications.length === 0 && <EmptyState offsetY={-40} />}
-
-        {notifications.map((n) => {
+        <Animated.View style={{ opacity: listOpacity, flex: 1 }}>
+          {!loading && notifications.length === 0 && <EmptyState offsetY={-40} />}
+          {notifications.map((n) => {
           const meta = notifMeta(colors, n.type);
           const isExtension = n.type.startsWith("extension");
           const isTappable =
@@ -182,12 +199,13 @@ export default function EmployeeNotifications() {
               <View style={{ flex: 1 }}>
                 <Text style={{ ...typography.body, color: colors.text.primary }}>{n.message}</Text>
                 <Text style={{ ...typography.label, color: colors.text.secondary, marginTop: 4 }}>
-                  {formatDateIN(n.created_at)}
+                  {formatDateTimeIN(n.created_at)}
                 </Text>
               </View>
             </TouchableOpacity>
-          );
+         );
         })}
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );

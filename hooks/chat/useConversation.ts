@@ -8,6 +8,7 @@ import {
   sendChatMessage,
   reactToMessage,
   deleteChatMessage,
+  deleteChatMessageForMe,
   clearChat,
   fetchMessage,
 } from "../../services/chatApi";
@@ -17,7 +18,10 @@ import type { ChatMessage, MessageType, PendingAttachment } from "../../types/ch
 function generateLocalId() {
   return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
-
+const conversationCache = new Map<
+  string,
+  { conversationId: string; otherUser: ConversationResponseOtherUser; messages: ChatMessage[]; hasMore: boolean }
+>();
 /** Merges a raw postgres_changes row (snake_case DB columns only, no
  * files/reactions) into an existing message we already have loaded. */
 function mergeDbFields(existing: ChatMessage, row: any): ChatMessage {
@@ -44,22 +48,33 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
 
   const channelRef = useRef<ReturnType<typeof subscribeToConversation> | null>(null);
   const isFocusedRef = useRef(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchConversation(otherEmail);
-      setConversationId(data.conversation_id);
-      setOtherUser(data.other_user);
-      setMessages(data.messages);
-      setHasMore(data.has_more);
-    } catch (err: any) {
-      setError(err?.message || "Could not load this conversation.");
-    } finally {
-      setLoading(false);
-    }
-  }, [otherEmail]);
+  const [otherTyping, setOtherTyping] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [otherOnline, setOtherOnline] = useState(false);
+  const load = useCallback(
+    async (mode: "initial" | "silent" = "initial") => {
+      if (mode === "initial") setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchConversation(otherEmail);
+        setConversationId(data.conversation_id);
+        setOtherUser(data.other_user);
+        setMessages(data.messages);
+        setHasMore(data.has_more);
+        conversationCache.set(otherEmail, {
+          conversationId: data.conversation_id,
+          otherUser: data.other_user,
+          messages: data.messages,
+          hasMore: data.has_more,
+        });
+      } catch (err: any) {
+        if (mode === "initial") setError(err?.message || "Could not load this conversation.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [otherEmail],
+  );
 
   const loadOlder = useCallback(async () => {
     if (!hasMore || loadingOlder || messages.length === 0) return;
@@ -87,12 +102,27 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
     }
   }, [otherEmail]);
 
+  const messagesRef = useRef<ChatMessage[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   // Initial load + realtime subscription lifecycle, tied to the
   // conversation identity (otherEmail), not to screen focus.
   useEffect(() => {
-    load();
-  }, [load]);
-
+    const cached = conversationCache.get(otherEmail);
+    if (cached) {
+      setConversationId(cached.conversationId);
+      setOtherUser(cached.otherUser);
+      setMessages(cached.messages);
+      setHasMore(cached.hasMore);
+      setLoading(false);
+      load("silent");
+    } else {
+      load("initial");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otherEmail]);
   useEffect(() => {
     if (!conversationId || !ownUserId) return;
 
@@ -143,7 +173,23 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
       }
     };
 
-    channelRef.current = subscribeToConversation(conversationId, handleInsert, handleUpdate);
+    channelRef.current = subscribeToConversation(
+      conversationId,
+      ownUserId,
+      handleInsert,
+      handleUpdate,
+      (payload) => {
+        if (payload.userId === ownUserId) return;
+        setOtherTyping(payload.isTyping);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        if (payload.isTyping) {
+          typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 4000);
+        }
+      },
+      (onlineUserIds) => {
+        setOtherOnline(onlineUserIds.some((id) => id !== ownUserId));
+      },
+    );
 
     return () => {
       if (channelRef.current) {
@@ -152,6 +198,29 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
       }
     };
   }, [conversationId, ownUserId, markRead]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const interval = setInterval(async () => {
+      if (!isFocusedRef.current) return;
+      try {
+        const latest = messagesRef.current[messagesRef.current.length - 1];
+        const data = await fetchConversation(otherEmail, latest ? { before: undefined } : {});
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const fresh = data.messages.filter((m) => !existingIds.has(m.id));
+          if (fresh.length === 0) return prev;
+          return [...prev, ...fresh];
+        });
+      } catch {
+        // silent — this is just a safety net, the pull-to-refresh and
+        // realtime path are the primary mechanisms
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [conversationId, otherEmail]);
 
   // Mark read whenever the chat screen is actually focused, and again
   // whenever the app comes back to the foreground while it's focused.
@@ -282,6 +351,28 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
     }
   }, []);
 
+  const removeMessageForMe = useCallback(async (messageId: string) => {
+  // Optimistic — just drop it from local state, same as a real refetch would.
+  setMessages((prev) => prev.filter((m) => m.id !== messageId));
+  try {
+    await deleteChatMessageForMe(messageId);
+  } catch (err) {
+    console.error("[useConversation] delete-for-me failed:", err);
+    // Reconcile with the server rather than silently leaving a message
+    // missing if the request actually failed.
+    load();
+    throw err;
+  }
+}, [load]);
+
+  const notifyTyping = useCallback(
+    (isTyping: boolean) => {
+      if (!channelRef.current || !ownUserId) return;
+      channelRef.current.send({ type: "broadcast", event: "typing", payload: { userId: ownUserId, isTyping } });
+    },
+    [ownUserId],
+  );
+
   const clear = useCallback(async () => {
     await clearChat(otherEmail);
     setMessages([]);
@@ -296,12 +387,16 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
     loadingOlder,
     hasMore,
     error,
+    otherOnline,
+    otherTyping,
     loadOlder,
     sendMessage,
     react,
     removeMessage,
+    removeMessageForMe,
     clear,
     reload: load,
+    notifyTyping,
   };
 }
 
@@ -312,4 +407,5 @@ type ConversationResponseOtherUser = {
   role: string;
   workspace_id: string | null;
   profile_pic_url: string | null;
-};
+  last_seen_at: string | null;
+}; 
