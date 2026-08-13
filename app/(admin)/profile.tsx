@@ -17,8 +17,8 @@ import ProfileFieldsCard, { ProfileField } from "../../components/profile/Profil
 import AppearanceCard from "../../components/profile/AppearanceCard";
 import AccountModals from "../../components/profile/AccountModals";
 import AvatarPreviewModal from "../../components/profile/AvatarPreviewModal";
-
-type ManagedEmployee = { email: string; name: string };
+import TeamModal, { ManagedEmployee } from "../../components/profile/TeamModal";
+import CollapsibleSection from "../../components/common/CollapsibleSection";
 
 export default function AdminProfile() {
   const { colors } = useTheme();
@@ -42,6 +42,7 @@ export default function AdminProfile() {
 
   const [managedEmployees, setManagedEmployees] = useState<ManagedEmployee[]>([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
+  const [teamModalVisible, setTeamModalVisible] = useState(false);
 
   const { currentUser, setCurrentUser, loading, fetchCurrentUser } =
     useCurrentUser((msg) => showToast(msg, "error"));
@@ -249,42 +250,23 @@ export default function AdminProfile() {
         </View>
 
         <View
-          style={[profileStyles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}
+          style={[
+            profileStyles.card,
+            { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border, paddingVertical: 4 },
+          ]}
         >
-          <View style={profileStyles.teamHeaderRow}>
-            <Text style={[typography.subheading, { color: colors.text.primary }]}>Team</Text>
-            <View style={[profileStyles.countChip, { backgroundColor: colors.base.surfaceL2 }]}>
-              {loadingTeam ? (
-                <ActivityIndicator size="small" color={colors.text.secondary} />
-              ) : (
-                <Text style={[typography.label, { color: colors.text.secondary }]}>
-                  {managedEmployees.length} {managedEmployees.length === 1 ? "employee" : "employees"}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          {!loadingTeam && managedEmployees.length === 0 && (
-            <Text style={[typography.body, { color: colors.text.secondary, marginTop: 8 }]}>
-              No connected employees yet.
-            </Text>
-          )}
-
-          {managedEmployees.map((emp) => (
-            <Pressable
-              key={emp.email}
-              onPress={() =>
-                router.push({
-                  pathname: "/(task)/employee-tasks",
-                  params: { employeeEmail: emp.email, employeeName: emp.name },
-                })
-              }
-              style={({ pressed }) => [profileStyles.teamMemberRow, { opacity: pressed ? 0.6 : 1 }]}
-            >
-              <Text style={[typography.body, { color: colors.text.primary, flex: 1 }]}>· {emp.name}</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
-            </Pressable>
-          ))}
+          <CollapsibleSection
+            icon="people-outline"
+            title="Team"
+            summary={
+              loadingTeam
+                ? "Loading..."
+                : `${managedEmployees.length} ${managedEmployees.length === 1 ? "employee" : "employees"}`
+            }
+            colors={colors}
+            last
+            onPress={() => setTeamModalVisible(true)}
+          />
         </View>
 
         <AppearanceCard colors={colors} mode={mode} setMode={setMode} />
@@ -304,6 +286,21 @@ export default function AdminProfile() {
       </ScrollView>
 
       <AvatarPreviewModal visible={showImage} avatarUri={avatarUri} onClose={() => setShowImage(false)} />
+
+      <TeamModal
+        visible={teamModalVisible}
+        colors={colors}
+        employees={managedEmployees}
+        loading={loadingTeam}
+        onClose={() => setTeamModalVisible(false)}
+        onPressEmployee={(emp) => {
+          setTeamModalVisible(false);
+          router.push({
+            pathname: "/(task)/employee-tasks",
+            params: { employeeEmail: emp.email, employeeName: emp.name },
+          });
+        }}
+      />
 
       <AccountModals
         logoutVisible={logoutVisible}

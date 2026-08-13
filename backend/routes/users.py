@@ -140,15 +140,20 @@ async def get_team(current_user: dict = Depends(get_current_user)):
 
     users = (
         supabase.table("users")
-        .select("email, name")
+        .select("email, name, designation, profile_pic_url")
         .in_("email", employee_emails)
         .execute()
     )
 
-    users_by_email = {u["email"]: u["name"] for u in users.data or []}
+    users_by_email = {u["email"]: u for u in users.data or []}
 
     return [
-        {"email": e, "name": users_by_email.get(e, e)}
+        {
+            "email": e,
+            "name": users_by_email.get(e, {}).get("name", e),
+            "designation": users_by_email.get(e, {}).get("designation"),
+            "profile_pic_url": users_by_email.get(e, {}).get("profile_pic_url"),
+        }
         for e in employee_emails
     ]
     
