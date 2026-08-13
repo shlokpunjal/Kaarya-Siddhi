@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -9,7 +9,7 @@ import { useChatContacts } from "../../hooks/chat/useChatContacts";
 import { ChatAvatar } from "../../components/chat/ChatAvatar";
 import { formatContactPreviewTime } from "../../utils/chatTime";
 import type { ChatContact } from "../../types/chat";
-
+import ChatContactsSkeleton from "../../components/skeletonScreens/Chat/ChatContactsSkeleton";
 export default function ChatContactsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -83,6 +83,10 @@ export default function ChatContactsScreen() {
     </TouchableOpacity>
   );
 
+  if (loading) {
+  return <ChatContactsSkeleton />;
+}
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }} edges={["top"]}>
       {/* Header */}
@@ -114,11 +118,7 @@ export default function ChatContactsScreen() {
         </Text>
       </View>
 
-      {loading ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator color={colors.brand.accent} />
-        </View>
-      ) : error ? (
+      { error ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: wp(10) }}>
           <Ionicons name="cloud-offline-outline" size={40} color={colors.text.secondary} />
           <Text style={{ ...typography.body, color: colors.text.secondary, marginTop: 10, textAlign: "center" }}>

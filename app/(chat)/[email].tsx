@@ -4,7 +4,6 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -24,7 +23,8 @@ import { formatDateSeparator } from "../../utils/chatTime";
 import { useToast } from "../../context/ToastContext";
 import ConfirmModal from "../../components/common/confirmModal";
 import type { ChatMessage } from "../../types/chat";
-
+import ConversationSkeleton from "../../components/skeletonScreens/Chat/ConversationSkeleton";
+import LoadOlderSkeleton from "../../components/skeletonScreens/Chat/LoadOlderSkeleton";
 // Renders either a real message row or a synthetic date-separator row.
 type ListRow = { kind: "message"; message: ChatMessage } | { kind: "separator"; label: string };
 
@@ -120,11 +120,7 @@ export default function ConversationScreen() {
   }, [clear, showToast]);
 
   if (loading) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator color={colors.brand.accent} />
-      </SafeAreaView>
-    );
+    return <ConversationSkeleton />;
   }
 
   if (error || !otherUser) {
@@ -139,7 +135,7 @@ export default function ConversationScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.base.background }} edges={["top", "bottom"]}>
       {/* Header */}
       <View
         style={{
@@ -199,7 +195,7 @@ export default function ConversationScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
         <FlatList
@@ -231,13 +227,13 @@ export default function ConversationScreen() {
           onEndReachedThreshold={0.3}
           ListHeaderComponent={
             hasMore ? (
-              <TouchableOpacity onPress={loadOlder} disabled={loadingOlder} style={{ alignItems: "center", paddingVertical: 10 }}>
-                {loadingOlder ? (
-                  <ActivityIndicator size="small" color={colors.brand.accent} />
-                ) : (
+              loadingOlder ? (
+                <LoadOlderSkeleton />
+              ) : (
+                <TouchableOpacity onPress={loadOlder} style={{ alignItems: "center", paddingVertical: 10 }}>
                   <Text style={{ ...typography.label, color: colors.brand.accent }}>Load earlier messages</Text>
-                )}
-              </TouchableOpacity>
+                </TouchableOpacity>
+              )
             ) : null
           }
           ListEmptyComponent={
