@@ -18,6 +18,7 @@ import AppearanceCard from "../../components/profile/AppearanceCard";
 import AccountModals from "../../components/profile/AccountModals";
 import AvatarPreviewModal from "../../components/profile/AvatarPreviewModal";
 import TeamModal, { ManagedEmployee } from "../../components/profile/TeamModal";
+import CollapsibleSection from "../../components/common/CollapsibleSection";
 
 export default function AdminProfile() {
   const { colors } = useTheme();
@@ -249,29 +250,23 @@ export default function AdminProfile() {
         </View>
 
         <View
-          style={[profileStyles.card, { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border }]}
+          style={[
+            profileStyles.card,
+            { backgroundColor: colors.base.surfaceL1, borderColor: colors.base.border, paddingVertical: 4 },
+          ]}
         >
-          <View style={profileStyles.teamHeaderRow}>
-            <Text style={[typography.subheading, { color: colors.text.primary }]}>Team</Text>
-            <View style={profileStyles.teamHeaderRight}>
-              <View style={[profileStyles.countChip, { backgroundColor: colors.base.surfaceL2 }]}>
-                {loadingTeam ? (
-                  <ActivityIndicator size="small" color={colors.text.secondary} />
-                ) : (
-                  <Text style={[typography.label, { color: colors.text.secondary }]}>
-                    {managedEmployees.length} {managedEmployees.length === 1 ? "employee" : "employees"}
-                  </Text>
-                )}
-              </View>
-              <Pressable
-                style={[profileStyles.teamArrowButton, { backgroundColor: colors.base.surfaceL2 }]}
-                onPress={() => setTeamModalVisible(true)}
-                hitSlop={8}
-              >
-                <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
-              </Pressable>
-            </View>
-          </View>
+          <CollapsibleSection
+            icon="people-outline"
+            title="Team"
+            summary={
+              loadingTeam
+                ? "Loading..."
+                : `${managedEmployees.length} ${managedEmployees.length === 1 ? "employee" : "employees"}`
+            }
+            colors={colors}
+            last
+            onPress={() => setTeamModalVisible(true)}
+          />
         </View>
 
         <AppearanceCard colors={colors} mode={mode} setMode={setMode} />

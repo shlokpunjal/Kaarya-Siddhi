@@ -135,40 +135,6 @@ export const profileStyles = StyleSheet.create({
   closeModalButton: { position: "absolute", top: 50, right: 20, zIndex: 10 },
   fullscreenImage: { width: "90%", height: "70%" },
 
-  // ── Admin-only: team list ────────────────────────────────────────────────
-  teamHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  teamMemberRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  countChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    minWidth: 30,
-    minHeight: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  teamHeaderRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  teamArrowButton: {
-    width: moderateScale(26),
-    height: moderateScale(26),
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
   // ── Team popup modal ─────────────────────────────────────────────────────
   teamModalOverlay: {
     flex: 1,
