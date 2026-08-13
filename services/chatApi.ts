@@ -78,6 +78,11 @@ export async function deleteChatMessage(messageId: string): Promise<void> {
   await parseOrThrow(res, "Could not delete this message.");
 }
 
+export async function deleteChatMessageForMe(messageId: string): Promise<void> {
+  const res = await authFetch(`/chat/messages/${messageId}/delete-for-me`, { method: "POST" });
+  await parseOrThrow(res, "Could not delete this message.");
+}
+
 export async function clearChat(otherEmail: string): Promise<void> {
   const res = await authFetch("/chat/clear", {
     method: "POST",

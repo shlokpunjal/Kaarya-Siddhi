@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from supabase_client import supabase, run_db
 from auth_utils import get_current_user, validate_cloudinary_url
 from notify_utils import create_notification
+from cloudinary_utils import delete_cloudinary_assets
 
 router = APIRouter()
 
@@ -218,6 +219,8 @@ async def update_task(task_id: str, payload: TaskUpdate, current_user: dict = De
     result = await run_db(supabase.table("tasks").update(updates).eq("id", task_id).select())
     return result.data[0]
 
+from cloudinary_utils import delete_cloudinary_assets
+
 @router.delete("/tasks/{task_id}")
 async def delete_task(task_id: str, current_user: dict = Depends(get_current_user)):
     own_id = await _get_own_id(current_user["sub"])
@@ -225,26 +228,28 @@ async def delete_task(task_id: str, current_user: dict = Depends(get_current_use
     if not task.data:
         raise HTTPException(status_code=404, detail="Task not found.")
     if task.data[0]["created_by"] != own_id:
-        # Only the person who created the task (admin, or the employee on
-        # their own self-task) can delete it — being the assignee isn't enough.
         raise HTTPException(status_code=403, detail="Only the task creator can delete this task.")
 
-    # Four independent deletes across unrelated tables, all scoped to the
-    # same task_id — nothing here depends on another finishing first, so
-    # run them concurrently instead of one round trip after another.
+    # Grab the file rows before they're deleted, so we can clean up
+    # Cloudinary afterward.
+    files_res = await run_db(
+        supabase.table("task_files").select("file_url, file_type, storage_service").eq("task_id", task_id)
+    )
+    files_to_clean = files_res.data or []
+
     await asyncio.gather(
         run_db(supabase.table("task_files").delete().eq("task_id", task_id)),
         run_db(supabase.table("task_submissions").delete().eq("task_id", task_id)),
         run_db(supabase.table("extension_requests").delete().eq("task_id", task_id)),
         run_db(supabase.table("notifications").delete().eq("task_id", task_id)),
     )
-    # The tasks row itself must go last — foreign keys from the tables
-    # above reference it, so deleting it before (or concurrently with)
-    # those deletes would risk a foreign-key violation.
     await run_db(supabase.table("tasks").delete().eq("id", task_id))
 
-    return {"deleted": True}
+    # Best-effort, after the DB rows are already gone — a failure here
+    # never blocks the delete response.
+    delete_cloudinary_assets(files_to_clean)
 
+    return {"deleted": True}
 
 @router.post("/task-files")
 async def add_task_files(payload: list[TaskFileIn], current_user: dict = Depends(get_current_user)):
