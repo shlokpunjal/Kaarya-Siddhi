@@ -22,13 +22,18 @@ import TaskDetailSkeleton from "../../components/skeletonScreens/Tasks/TaskDetai
 import { ScreenHeader } from "../../components/task/ScreenHeader";
 import { DetailRow } from "../../components/task/DetailRow";
 import { FileAttachmentList } from "../../components/task/FileAttachmentList";
-import { TeammatesList } from "../../components/task/TeammateList";
 import { ActionButton } from "../../components/task/ActionButton";
 import { TaskNotFound } from "../../components/task/TaskNotFound";
 import { useCurrentUserId } from "../../hooks/useCurrentUserId";
 import { useTaskDetail } from "../../hooks/task/useTaskDetail";
 import { useTaskDelete } from "../../hooks/task/useTaskDelete";
 import { useTaskComplete } from "../../hooks/task/useTaskComplete";
+import {
+  TeamAssignedCard,
+  computeTeamStatus,
+  STATUS_LABELS,
+  type TeamMemberStatus,
+} from "../../components/task/TeamAssignedCard";
 
 // Keyed by the normalized in-app status ("inReview"), not the raw DB value.
 const statusColorKey: Record<string, string> = {
@@ -62,8 +67,16 @@ export default function TaskDetailAdmin() {
   // a stray deep link to someone else's task.
   const isOwnTask =
     !!task && !!currentUserId && task.created_by === currentUserId;
-  const canEditOrDelete = isOwnTask && task?.status !== "completed";
-  const canReview = task?.status !== "completed";
+
+  // The status shown on screen (and used to gate actions) is DERIVED from
+  // the team's individual statuses when this is a team task. It stays
+  // "pending" until every teammate has requested review — only once ALL
+  // of them have does it flip to "inReview".
+  const teamStatus =
+    teammates && teammates.length > 0 ? computeTeamStatus(teammates) : task?.status;
+
+  const canEditOrDelete = isOwnTask && teamStatus !== "completed";
+  const canReview = teamStatus !== "completed";
 
   const taskDelete = useTaskDelete(taskId, () => router.back());
   const taskComplete = useTaskComplete(taskId, () =>
@@ -117,7 +130,7 @@ export default function TaskDetailAdmin() {
   }
 
   const statusColor =
-    colors.status[statusColorKey[task.status] as keyof typeof colors.status] ??
+    colors.status[statusColorKey[teamStatus] as keyof typeof colors.status] ??
     colors.text.secondary;
 
   return (
@@ -183,16 +196,16 @@ export default function TaskDetailAdmin() {
 
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
-          {/* Status */}
+          {/* Status — derived from the team's statuses when it's a team task */}
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
             <Ionicons name="ellipse" size={12} color={statusColor} style={{ marginRight: 8 }} />
             <Text style={{ ...typography.heading3, color: colors.text.primary }}>Status: </Text>
             <Text style={{ ...typography.heading3, color: statusColor, textTransform: "capitalize" }}>
-              {task.status ?? "pending"}
+              {STATUS_LABELS[teamStatus as TeamMemberStatus] ?? teamStatus ?? "Pending"}
             </Text>
           </View>
 
-          {task.status === "completed" && (
+          {teamStatus === "completed" && (
             <View
               style={{
                 flexDirection: "row",
@@ -245,9 +258,10 @@ export default function TaskDetailAdmin() {
             valueColor={statusColor}
           />
 
-          <DetailRow icon="person-outline" label="Assigned To" value={meta.assigned_to_name || "—"} />
-
-          <TeammatesList teammates={teammates} />
+          {/* "Assigned To" row — tapping it opens a Team modal (matching the
+              app's existing Team modal style) listing each teammate's
+              avatar, name, and individual status. */}
+          <TeamAssignedCard teammates={teammates} colors={colors} />
 
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
