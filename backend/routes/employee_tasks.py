@@ -64,6 +64,10 @@ class AssignedTaskCreate(BaseModel):
     # single-employee assignment.
     team_batch_id: Optional[Annotated[str, Field(max_length=64)]] = None
 
+class AskReviewBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    file_url: Optional[UrlStr] = None
+    file_name: Optional[str] = Field(None, max_length=255)
 
 class TaskUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -344,13 +348,21 @@ async def get_task_detail(task_id: str, current_user: dict = Depends(get_current
     # The task row and its attached files are independent reads (files
     # only needs task_id, which we already have from the path) — fetch
     # both concurrently instead of one after the other.
-    task_result, files_result = await asyncio.gather(
+    task_result, files_result, submissions_result = await asyncio.gather(
         run_db(supabase.table("tasks").select("*").eq("id", task_id)),
         run_db(supabase.table("task_files").select("*").eq("task_id", task_id)),
+        run_db(
+            supabase.table("task_submissions")
+            .select("file_url, file_name, submitted_at")
+            .eq("task_id", task_id)
+            .order("submitted_at", desc=True)
+        ),
     )
     task = task_result.data[0]
     files = files_result.data or []
-
+    # Only submissions that actually had a file attached — most "Ask to
+    # Review" submissions won't, since the upload is optional.
+    submission_files = [s for s in (submissions_result.data or []) if s.get("file_url")]
     # Previously two separate queries (one per id) run one after another.
     # created_by and assigned_to are both just user ids — resolve both in
     # a single batched query instead.
@@ -414,6 +426,7 @@ async def get_task_detail(task_id: str, current_user: dict = Depends(get_current
     return {
         "task": task,
         "files": files,
+        "submission_files": submission_files,
         "assigned_by_name": _resolve_name(task.get("created_by")),
         "assigned_to_name": _resolve_name(task.get("assigned_to")),
         "teammates": teammates,
@@ -434,18 +447,28 @@ async def get_pending_extension(task_id: str, current_user: dict = Depends(get_c
     return {"pending": bool(result.data)}
 
 @router.post("/tasks/{task_id}/ask-review")
-async def ask_for_review(task_id: str, current_user: dict = Depends(get_current_user)):
+async def ask_for_review(
+    task_id: str,
+    payload: AskReviewBody | None = None,
+    current_user: dict = Depends(get_current_user),
+):
     own_id = await _get_own_id(current_user["sub"])
     await _check_ownership(task_id, own_id)
 
     task_result = await run_db(supabase.table("tasks").select("*").eq("id", task_id))
     task = task_result.data[0]
 
+    # File is optional — the employee may or may not have anything to submit.
+    file_url = validate_cloudinary_url(payload.file_url) if payload and payload.file_url else None
+    file_name = payload.file_name if payload else None
+
     await run_db(
         supabase.table("task_submissions").insert({
             "task_id": task_id,
             "submitted_by": own_id,
             "note": "Requested review via app",
+            "file_url": file_url,
+            "file_name": file_name,
         })
     )
 
@@ -454,16 +477,6 @@ async def ask_for_review(task_id: str, current_user: dict = Depends(get_current_
     recipients = {task.get("assigned_to"), task.get("created_by")} - {None}
     if recipients:
         message = f'"{task["title"]}" has been submitted for review.'
-        # The submission itself is already saved above — a failure here
-        # must not turn into an error for the employee who just
-        # successfully submitted their work for review.
-        # NOTE: create_notification() itself still does its DB insert +
-        # push send synchronously/blocking (see notify_utils.py) — it's
-        # called from several other route files too, so converting it to
-        # run off the event loop is a separate, coordinated change rather
-        # than something to do only here. With at most 2 recipients this
-        # loop's contribution to request latency is small, but it's not
-        # yet off the event loop the way the calls above now are.
         try:
             for uid in recipients:
                 create_notification(
@@ -472,7 +485,7 @@ async def ask_for_review(task_id: str, current_user: dict = Depends(get_current_
                     message,
                     task_id=task_id,
                     title="Task submitted for review",
-                    send_push=(uid != own_id),  # don't buzz the person who just submitted it
+                    send_push=(uid != own_id),
                 )
         except Exception as e:
             print(f"Failed to notify recipients of task {task_id} in review: {e}")
