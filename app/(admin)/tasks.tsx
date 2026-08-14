@@ -26,12 +26,16 @@ type FilterType =
   | "priorityHighLow"
   | "priorityLowHigh";
 
-// Matches the actual `tasks` table columns — no `label` or `suggestion` columns exist yet
+// Matches the actual `tasks` table columns, including `label` (added
+// alongside the LabelSelector on the create/edit form). `suggestion` still
+// doesn't exist on this row shape — the admin list endpoint never returned
+// it and doesn't need to, since suggestions only matter on the detail screen.
 type TaskRow = {
   id: string;
   title: string;
   status: "overdue" | "pending" | "in_review" | "completed";
   priority: "low" | "medium" | "high";
+  label: string | null;
   assigned_to: string;
   created_by: string;
   deadline: string;
@@ -54,7 +58,9 @@ function mapRowToTask(row: TaskRow): Task {
     title: row.title,
     status: row.status === "in_review" ? "inReview" : row.status,
     priority: row.priority,
-    label: "General",
+    // Real label from the backend now, falling back to "General" only for
+    // rows created before the label column existed (row.label is null/"").
+    label: row.label?.trim() || "General",
     assignedTo: row.assigned_to,
     createdBy: row.created_by,
     dueDate: row.deadline,
