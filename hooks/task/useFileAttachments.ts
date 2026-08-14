@@ -74,7 +74,7 @@ export function useFileAttachments() {
     return {
       file_url: secureUrl,
       file_name: file.name,
-      file_type: file.name.split(".").pop()?.toLowerCase() ?? "file",
+      file_type: file.mimeType || "application/octet-stream",
     };
   };
 

@@ -53,7 +53,7 @@ def delete_cloudinary_asset(file_url: str, file_type: str | None = None) -> None
     signature = hashlib.sha1(to_sign.encode("utf-8")).hexdigest()
 
     try:
-        http_requests.post(
+        resp = http_requests.post(
             f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/{resource_type}/destroy",
             data={
                 "public_id": public_id,
@@ -63,6 +63,9 @@ def delete_cloudinary_asset(file_url: str, file_type: str | None = None) -> None
             },
             timeout=8,
         )
+        result = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+        if resp.status_code != 200 or result.get("result") not in ("ok", "not found"):
+            print(f"[cloudinary_utils] delete failed for {public_id} (resource_type={resource_type}): {resp.status_code} {result}")
     except Exception as err:
         print(f"[cloudinary_utils] failed to delete {public_id}: {err}")
 
