@@ -20,6 +20,7 @@ import OfflineScreen from "../components/common/OfflineScreen";
 // as soon as this module loads — no separate setNotificationHandler call
 // needed here anymore.
 import { useNotificationBridge } from "../hooks/useNotificationBridge";
+import { AppReadyProvider, useAppReady } from "../context/AppReadyContext";
 
 // enableScreens(false);
 SplashScreen.preventAutoHideAsync();
@@ -30,6 +31,8 @@ const BRAND_SHADOW = "#815727";
 const TEXT_PRIMARY = "#F0EDE6";
 const TEXT_SECONDARY = "#8B95A1";
 const LOGO_SIZE = 114;
+const MIN_HOLD_MS = 900;
+const MAX_HOLD_MS = 6000;
 
 // Was: a full second copy of push-token registration + realtime
 // subscription + notification-tap routing, inlined here as
@@ -44,6 +47,14 @@ function NotificationBridge() {
 }
 
 export default function RootLayout() {
+  return (
+    <AppReadyProvider>
+      <RootLayoutInner />
+    </AppReadyProvider>
+  );
+}
+
+function RootLayoutInner() {
   const [fontsLoaded] = useFonts({
     "Poppins-Regular": Poppins_400Regular,
     "Poppins-Medium": Poppins_500Medium,
@@ -51,28 +62,38 @@ export default function RootLayout() {
     "Poppins-Bold": Poppins_700Bold,
   });
 
+  const { appReady } = useAppReady();
+
   const [showSplash, setShowSplash] = useState(true);
+  const [minHoldDone, setMinHoldDone] = useState(false);
+  const [forceReady, setForceReady] = useState(false);
   const splashOpacity = useRef(new Animated.Value(1)).current;
+  const fadeStarted = useRef(false);
 
   useEffect(() => {
     if (!fontsLoaded) return;
+    SplashScreen.hideAsync();
 
-    async function prepare() {
-      await SplashScreen.hideAsync();
-
-      const holdTimer = setTimeout(() => {
-        Animated.timing(splashOpacity, {
-          toValue: 0,
-          duration: 450,
-          useNativeDriver: true,
-        }).start(() => setShowSplash(false));
-      }, 1500);
-
-      return () => clearTimeout(holdTimer);
-    }
-
-    prepare();
+    const minTimer = setTimeout(() => setMinHoldDone(true), MIN_HOLD_MS);
+    const maxTimer = setTimeout(() => setForceReady(true), MAX_HOLD_MS);
+    return () => {
+      clearTimeout(minTimer);
+      clearTimeout(maxTimer);
+    };
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (fadeStarted.current || !fontsLoaded) return;
+    const canFade = forceReady || (minHoldDone && appReady);
+    if (!canFade) return;
+
+    fadeStarted.current = true;
+    Animated.timing(splashOpacity, {
+      toValue: 0,
+      duration: 450,
+      useNativeDriver: true,
+    }).start(() => setShowSplash(false));
+  }, [fontsLoaded, minHoldDone, appReady, forceReady]);
 
   if (!fontsLoaded) {
     return <View style={{ flex: 1, backgroundColor: BRAND_PRIMARY }} />;

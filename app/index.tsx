@@ -5,9 +5,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { authFetch } from "../utils/authFetch";
 import LoadingAssetsScreen from "../components/common/LoadingAssetsScreen"; // adjust path
+import { useAppReady } from "../context/AppReadyContext";
 
 
 export default function Index() {
+  const { setAppReady } = useAppReady();
+
   useEffect(() => {
     checkSession();
   }, []);
@@ -17,17 +20,16 @@ export default function Index() {
       const token = await SecureStore.getItemAsync("token");
       const savedRole = await AsyncStorage.getItem("userRole");
 
-      // No saved session → show Login Choice
       if (!token) {
         router.replace("/(auth)/LoginChoice");
+        setAppReady();
         return;
       }
 
-      // Validate the token against the backend before trusting it
       const res = await authFetch("/me");
 
       if (!res.ok) {
-        // authFetch already wipes storage + redirects to LoginChoice on a real 401
+        setAppReady();
         return;
       }
 
@@ -38,12 +40,12 @@ export default function Index() {
       } else {
         router.replace("/(employee)");
       }
+      setAppReady();
     } catch (err) {
-      // console.log(err);
       router.replace("/(auth)/LoginChoice");
+      setAppReady();
     }
   }
-
   return (
     <LoadingAssetsScreen />
   );
