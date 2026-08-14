@@ -10,13 +10,16 @@ type TaskFile = {
 
 type Props = {
   files: TaskFile[];
+  /** Defaults to "Files Attached (N)" — pass a custom one for other
+   * sections that reuse this list, e.g. "Submitted for Review". */
+  title?: string;
 };
 
 /**
  * "Files Attached (N)" section — identical between task-detail.tsx and
  * taskDetailAdmin.tsx. Each row opens the Cloudinary URL on tap.
  */
-export function FileAttachmentList({ files }: Props) {
+export function FileAttachmentList({ files, title }: Props) {
   const { colors } = useTheme();
 
   return (
@@ -28,7 +31,7 @@ export function FileAttachmentList({ files }: Props) {
           marginBottom: 10,
         }}
       >
-        Files Attached ({files.length})
+        {title ?? `Files Attached (${files.length})`}
       </Text>
 
       {files.length === 0 ? (

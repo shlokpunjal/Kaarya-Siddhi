@@ -58,7 +58,7 @@ export default function TaskDetailAdmin() {
   const { showToast } = useToast();
 
   const currentUserId = useCurrentUserId();
-  const { task, setTask, taskFiles, meta, teammates, loading } = useTaskDetail(
+  const { task, setTask, taskFiles, submissionFiles, meta, teammates, loading } = useTaskDetail(
     taskId,
     normalizeStatus,
   );
@@ -265,7 +265,13 @@ export default function TaskDetailAdmin() {
 
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
-          <FileAttachmentList files={taskFiles} />
+         <FileAttachmentList files={taskFiles} />
+
+          {submissionFiles.length > 0 && (
+            <View style={{ marginTop: 20 }}>
+              <FileAttachmentList files={submissionFiles} title="Submitted for Review" />
+            </View>
+          )}
 
           {/* Suggest Changes / Mark Complete */}
           {canReview ? (

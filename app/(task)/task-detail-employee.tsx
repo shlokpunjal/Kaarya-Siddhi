@@ -15,11 +15,13 @@ import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/common/AlertModal";
 import { authFetch } from "../../utils/authFetch";
+import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import TaskDetailSkeleton from "../../components/skeletonScreens/Tasks/TaskDetailSkeleton";
 import { ScreenHeader } from "../../components/task/ScreenHeader";
 import { DetailRow } from "../../components/task/DetailRow";
 import { FileAttachmentList } from "../../components/task/FileAttachmentList";
 import { ActionButton } from "../../components/task/ActionButton";
+import { AskReviewModal } from "../../components/task/AskReviewModal";
 import { TaskNotFound } from "../../components/task/TaskNotFound";
 import { useCurrentUserId } from "../../hooks/useCurrentUserId";
 import { useTaskDetail } from "../../hooks/task/useTaskDetail";
@@ -45,7 +47,7 @@ export default function TaskDetail() {
   const { showToast } = useToast();
 
   const currentUserId = useCurrentUserId();
-  const { task, setTask, taskFiles, meta, teammates, loading } = useTaskDetail(taskId);
+  const { task, setTask, taskFiles, submissionFiles, meta, teammates, loading } = useTaskDetail(taskId);
 
   // "Own task" governs edit/delete, Mark Complete, and whether this is a
   // self-created task at all (vs one an admin assigned).
@@ -69,17 +71,38 @@ export default function TaskDetail() {
   );
 
   // ── "Ask to Review" (moves task into the review queue) — specific to
-  // tasks assigned BY the admin, so it's gated by !isSelfAssigned. ──
+  // tasks assigned BY the admin, so it's gated by !isSelfAssigned. Opens
+  // a modal first so the employee can optionally attach a file showing
+  // their work; the file itself is never mandatory. ──
   const [askingReview, setAskingReview] = useState(false);
-  const handleAskToReview = async () => {
+  const [askReviewModalVisible, setAskReviewModalVisible] = useState(false);
+
+  const handleSubmitReview = async (
+    file: { uri: string; name: string; mimeType?: string } | null,
+  ) => {
     if (!task) return;
     try {
       setAskingReview(true);
+
+      let file_url: string | undefined;
+      let file_name: string | undefined;
+      if (file) {
+        file_url = await uploadToCloudinary(
+          { uri: file.uri, name: file.name, type: file.mimeType || "application/octet-stream" },
+          { folder: "task_attachments", resourceType: "auto" },
+        );
+        file_name = file.name;
+      }
+
       const res = await authFetch(`/tasks/${task.id}/ask-review`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_url, file_name }),
       });
       if (!res.ok) throw new Error("Failed to request review");
+
       setTask((prev: any) => ({ ...prev, status: "in_review" }));
+      setAskReviewModalVisible(false);
       showToast("Task sent for review!", "success");
     } catch (error: any) {
       showToast(error?.message || "Failed to request review", "error");
@@ -258,6 +281,12 @@ export default function TaskDetail() {
 
           <FileAttachmentList files={taskFiles} />
 
+          {submissionFiles.length > 0 && (
+            <View style={{ marginTop: 20 }}>
+              <FileAttachmentList files={submissionFiles} title="Submitted for Review" />
+            </View>
+          )}
+
           {/* Mark Complete — only for tasks the employee created themselves */}
           {isOwnTask && (
             <View style={{ marginTop: 24 }}>
@@ -270,8 +299,11 @@ export default function TaskDetail() {
             </View>
           )}
 
-          {/* Extend Deadline — only for admin-created tasks */}
-          {!isSelfAssigned && (
+          {/* Extend Deadline — only for admin-created tasks, and only before
+              the employee has sent it for review. Once it's in_review
+              there's nothing left to extend a deadline on, so we hide the
+              button entirely instead of just disabling it. */}
+          {!isSelfAssigned && task.status !== "in_review" && (
             <View style={{ marginTop: 12 }}>
               <ActionButton
                 label={hasPendingExtension ? "Extension Requested" : "Extend Deadline"}
@@ -295,7 +327,7 @@ export default function TaskDetail() {
                       ? "Under Review"
                       : "Ask to Review"
                 }
-                onPress={handleAskToReview}
+                onPress={() => setAskReviewModalVisible(true)}
                 disabled={
                   askingReview || task.status === "completed" || task.status === "in_review"
                 }
@@ -326,6 +358,13 @@ export default function TaskDetail() {
         cancelText="Cancel"
         onConfirm={taskDelete.confirmDelete}
         onCancel={taskDelete.cancelDelete}
+      />
+
+      <AskReviewModal
+        visible={askReviewModalVisible}
+        submitting={askingReview}
+        onCancel={() => setAskReviewModalVisible(false)}
+        onSubmit={handleSubmitReview}
       />
     </SafeAreaView>
   );

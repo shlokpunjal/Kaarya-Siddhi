@@ -14,11 +14,12 @@ export type Teammate = {
 };
 
 /**
- * Fetches /tasks/:id/detail — the task row, its attached files, whatever
- * assignment metadata the endpoint returns (assigned_by_name for the
- * employee screen, assigned_to_name for the admin screen), and — for
- * tasks created via "Team" assign mode — the other employees who share
- * this task's team_batch_id, each with their own status.
+ * Fetches /tasks/:id/detail — the task row, its attached files, the
+ * files (if any) submitted along with an "Ask to Review" request,
+ * whatever assignment metadata the endpoint returns (assigned_by_name
+ * for the employee screen, assigned_to_name for the admin screen), and
+ * — for tasks created via "Team" assign mode — the other employees who
+ * share this task's team_batch_id, each with their own status.
  *
  * `normalizeStatus` lets a screen adapt the raw DB status to whatever
  * shape it wants to render with (e.g. the admin screen maps
@@ -30,6 +31,7 @@ export function useTaskDetail(
 ) {
   const [task, setTask] = useState<any>(null);
   const [taskFiles, setTaskFiles] = useState<any[]>([]);
+  const [submissionFiles, setSubmissionFiles] = useState<any[]>([]);
   const [meta, setMeta] = useState<TaskDetailMeta>({});
   const [teammates, setTeammates] = useState<Teammate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +50,7 @@ export function useTaskDetail(
     const {
       task: taskData,
       files,
+      submission_files,
       assigned_by_name,
       assigned_to_name,
       teammates: teammatesData,
@@ -95,6 +98,7 @@ export function useTaskDetail(
 
     setTask(normalizedTask);
     setTaskFiles(files ?? []);
+    setSubmissionFiles(submission_files ?? []);
     setMeta({ assigned_by_name, assigned_to_name });
     setTeammates(fullTeammates);
     setLoading(false);
@@ -104,5 +108,14 @@ export function useTaskDetail(
     fetchTask();
   }, [fetchTask]);
 
-  return { task, setTask, taskFiles, meta, teammates, loading, refetch: fetchTask };
+  return {
+    task,
+    setTask,
+    taskFiles,
+    submissionFiles,
+    meta,
+    teammates,
+    loading,
+    refetch: fetchTask,
+  };
 }
