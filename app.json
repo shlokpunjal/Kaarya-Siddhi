@@ -34,10 +34,6 @@
           "backgroundColor": "#192744"
         }
       ],
-<<<<<<< HEAD
-      "expo-secure-store"
-    ]
-=======
       "expo-secure-store",
       [
         "expo-notifications",
@@ -54,6 +50,5 @@
         "projectId": "302108ef-f71d-42fe-9837-2b1b4a967552"
       }
     }
->>>>>>> e3d5500783c088e46331f04965b908a6f1ae377c
   }
 }
