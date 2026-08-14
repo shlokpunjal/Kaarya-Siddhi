@@ -6,19 +6,24 @@ import {
   View,
   ScrollView,
   Platform,
+  Modal,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
 import { useTheme } from "../../context/ThemeContext";
 import { typography } from "../../theme/theme";
 import { wp, moderateScale } from "../../utils/responsive";
 import { useToast } from "../../context/ToastContext";
 import { AlertModal } from "../../components/common/AlertModal";
 import { authFetch } from "../../utils/authFetch";
+import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 import TaskDetailSkeleton from "../../components/skeletonScreens/Tasks/TaskDetailSkeleton";
 import { ScreenHeader } from "../../components/task/ScreenHeader";
 import { DetailRow } from "../../components/task/DetailRow";
 import { FileAttachmentList } from "../../components/task/FileAttachmentList";
+import { SubmittedFilesList } from "../../components/task/SubmittedFilesList";
 import { ActionButton } from "../../components/task/ActionButton";
 import { TaskNotFound } from "../../components/task/TaskNotFound";
 import { useCurrentUserId } from "../../hooks/useCurrentUserId";
@@ -38,6 +43,9 @@ const statusColorKey: Record<string, string> = {
   completed: "completed",
 };
 
+// Same ceiling used for regular task attachments (hooks/task/useFileAttachments.ts).
+const MAX_REVIEW_FILE_SIZE = 100 * 1024 * 1024;
+
 export default function TaskDetail() {
   const { colors } = useTheme();
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
@@ -45,7 +53,8 @@ export default function TaskDetail() {
   const { showToast } = useToast();
 
   const currentUserId = useCurrentUserId();
-  const { task, setTask, taskFiles, meta, teammates, loading } = useTaskDetail(taskId);
+  const { task, setTask, taskFiles, submissionFiles, meta, teammates, loading, refetch } =
+    useTaskDetail(taskId);
 
   // "Own task" governs edit/delete, Mark Complete, and whether this is a
   // self-created task at all (vs one an admin assigned).
@@ -69,22 +78,77 @@ export default function TaskDetail() {
   );
 
   // ── "Ask to Review" (moves task into the review queue) — specific to
-  // tasks assigned BY the admin, so it's gated by !isSelfAssigned. ──
-  const [askingReview, setAskingReview] = useState(false);
-  const handleAskToReview = async () => {
+  // tasks assigned BY the admin, so it's gated by !isSelfAssigned. Opens
+  // a small modal first so the employee can optionally attach a file to
+  // submit along with the request. ──
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [reviewFile, setReviewFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [pickingReviewFile, setPickingReviewFile] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const openReviewModal = () => {
+    setReviewFile(null);
+    setReviewModalVisible(true);
+  };
+
+  const pickReviewFile = async () => {
+    try {
+      setPickingReviewFile(true);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      if ((asset.size ?? 0) > MAX_REVIEW_FILE_SIZE) {
+        showToast("File is too large (max 100MB).", "error");
+        return;
+      }
+      setReviewFile(asset);
+    } finally {
+      setPickingReviewFile(false);
+    }
+  };
+
+  const handleSubmitReview = async () => {
     if (!task) return;
     try {
-      setAskingReview(true);
+      setSubmittingReview(true);
+
+      let file_url: string | undefined;
+      let file_name: string | undefined;
+
+      // Uploading the file is optional — the employee may have nothing
+      // to submit and just wants to move the task into review.
+      if (reviewFile) {
+        file_url = await uploadToCloudinary(
+          {
+            uri: reviewFile.uri,
+            name: reviewFile.name,
+            type: reviewFile.mimeType || "application/octet-stream",
+          },
+          { folder: "task_submissions", resourceType: "auto" },
+        );
+        file_name = reviewFile.name;
+      }
+
       const res = await authFetch(`/tasks/${task.id}/ask-review`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(file_url ? { file_url, file_name } : {}),
       });
       if (!res.ok) throw new Error("Failed to request review");
+
       setTask((prev: any) => ({ ...prev, status: "in_review" }));
+      setReviewModalVisible(false);
       showToast("Task sent for review!", "success");
+      refetch(); // pulls the fresh submission_files list in
     } catch (error: any) {
       showToast(error?.message || "Failed to request review", "error");
     } finally {
-      setAskingReview(false);
+      setSubmittingReview(false);
     }
   };
 
@@ -258,6 +322,11 @@ export default function TaskDetail() {
 
           <FileAttachmentList files={taskFiles} />
 
+          {/* Files submitted via "Ask to Review" — only relevant for
+              admin-assigned tasks. Shows every teammate's submission on
+              a shared team task, each tagged with who submitted it. */}
+          {!isSelfAssigned && <SubmittedFilesList files={submissionFiles} />}
+
           {/* Mark Complete — only for tasks the employee created themselves */}
           {isOwnTask && (
             <View style={{ marginTop: 24 }}>
@@ -270,8 +339,10 @@ export default function TaskDetail() {
             </View>
           )}
 
-          {/* Extend Deadline — only for admin-created tasks */}
-          {!isSelfAssigned && (
+          {/* Extend Deadline — only for admin-created tasks, and hidden
+              once the task is in review (nothing to extend while it's
+              awaiting an admin decision). */}
+          {!isSelfAssigned && task.status !== "in_review" && (
             <View style={{ marginTop: 12 }}>
               <ActionButton
                 label={hasPendingExtension ? "Extension Requested" : "Extend Deadline"}
@@ -295,16 +366,129 @@ export default function TaskDetail() {
                       ? "Under Review"
                       : "Ask to Review"
                 }
-                onPress={handleAskToReview}
-                disabled={
-                  askingReview || task.status === "completed" || task.status === "in_review"
-                }
-                loading={askingReview}
+                onPress={openReviewModal}
+                disabled={task.status === "completed" || task.status === "in_review"}
               />
             </View>
           )}
         </View>
       </ScrollView>
+
+      {/* Ask to Review modal — optional file attachment */}
+      <Modal
+        visible={reviewModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !submittingReview && setReviewModalVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            padding: wp(6.4),
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: colors.base.surfaceL1,
+              borderRadius: 16,
+              padding: 20,
+              borderWidth: 1,
+              borderColor: colors.base.border,
+            }}
+          >
+            <Text style={{ ...typography.heading3, color: colors.text.primary, marginBottom: 6 }}>
+              Submit for Review
+            </Text>
+            <Text style={{ ...typography.body, color: colors.text.secondary, marginBottom: 16 }}>
+              Attach a file to submit with this task if you have one — this is optional.
+            </Text>
+
+            <TouchableOpacity
+              onPress={pickReviewFile}
+              disabled={pickingReviewFile || submittingReview}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: colors.base.surfaceL2,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.base.border,
+                padding: 12,
+                gap: 10,
+                marginBottom: reviewFile ? 10 : 16,
+              }}
+            >
+              <Ionicons name="attach" size={20} color={colors.text.secondary} />
+              <Text style={{ ...typography.body, color: colors.text.secondary, flex: 1 }} numberOfLines={1}>
+                {pickingReviewFile ? "Opening picker..." : reviewFile ? "Change file" : "Add a file (optional)"}
+              </Text>
+            </TouchableOpacity>
+
+            {reviewFile && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: colors.base.surfaceL2,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.base.border,
+                  padding: 10,
+                  gap: 10,
+                  marginBottom: 16,
+                }}
+              >
+                <Ionicons name="document-outline" size={20} color={colors.brand.accent} />
+                <Text style={{ ...typography.body, color: colors.text.primary, flex: 1 }} numberOfLines={1}>
+                  {reviewFile.name}
+                </Text>
+                <TouchableOpacity onPress={() => setReviewFile(null)} disabled={submittingReview}>
+                  <Ionicons name="close-circle" size={20} color={colors.status.overdue} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setReviewModalVisible(false)}
+                disabled={submittingReview}
+                style={{
+                  flex: 1,
+                  height: 46,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.base.border,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ ...typography.body, color: colors.text.primary }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSubmitReview}
+                disabled={submittingReview}
+                style={{
+                  flex: 1,
+                  height: 46,
+                  borderRadius: 10,
+                  backgroundColor: colors.brand.accent,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  opacity: submittingReview ? 0.7 : 1,
+                }}
+              >
+                {submittingReview ? (
+                  <ActivityIndicator color={colors.base.surfaceL1} />
+                ) : (
+                  <Text style={{ ...typography.body, color: colors.brand.onPrimary }}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <AlertModal
         visible={taskComplete.confirmVisible}

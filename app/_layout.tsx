@@ -17,6 +17,7 @@ import { AuthProvider } from "../context/AuthContext";
 import { ToastProvider } from "../context/ToastContext";
 import OfflineScreen from "../components/common/OfflineScreen";
 import { useNotificationBridge } from "../hooks/useNotificationBridge";
+import { AppReadyProvider, useAppReady } from "../context/AppReadyContext";
 
 // Prevent the native splash screen from disappearing automatically.
 SplashScreen.preventAutoHideAsync();
@@ -27,6 +28,12 @@ const BRAND_SHADOW = "#815727";
 const TEXT_PRIMARY = "#F0EDE6";
 const TEXT_SECONDARY = "#8B95A1";
 const LOGO_SIZE = 114;
+
+// Minimum time the brand splash stays up even if the app is ready sooner
+// (so it never reads as a flash on a fast connection), and a hard ceiling
+// so a stalled network never leaves the splash on screen forever.
+const MIN_HOLD_MS = 900;
+const MAX_HOLD_MS = 6000;
 
 /**
  * Notification Bridge
@@ -41,6 +48,14 @@ function NotificationBridge() {
 }
 
 export default function RootLayout() {
+  return (
+    <AppReadyProvider>
+      <RootLayoutInner />
+    </AppReadyProvider>
+  );
+}
+
+function RootLayoutInner() {
   const [fontsLoaded] = useFonts({
     "Poppins-Regular": Poppins_400Regular,
     "Poppins-Medium": Poppins_500Medium,
@@ -48,49 +63,52 @@ export default function RootLayout() {
     "Poppins-Bold": Poppins_700Bold,
   });
 
-  const [showSplash, setShowSplash] = useState(true);
+  // Set by app/index.tsx once it has actually decided where to navigate
+  // (session check resolved) — this is what the splash waits on, instead
+  // of guessing a fixed duration and risking a reveal of an unstyled
+  // in-between loading state if the backend is slow to respond.
+  const { appReady } = useAppReady();
 
+  const [showSplash, setShowSplash] = useState(true);
+  const [minHoldDone, setMinHoldDone] = useState(false);
+  const [forceReady, setForceReady] = useState(false);
   const splashOpacity = useRef(new Animated.Value(1)).current;
+  const fadeStarted = useRef(false);
 
   /**
-   * Hide native splash and then animate the custom splash screen.
+   * Hide the native splash the moment fonts are ready, then start the
+   * min-hold / max-hold timers that govern when the custom splash fades.
    */
   useEffect(() => {
     if (!fontsLoaded) return;
+    SplashScreen.hideAsync();
 
-    let holdTimer: ReturnType<typeof setTimeout> | undefined;
-
-    const prepare = async () => {
-      try {
-        await SplashScreen.hideAsync();
-
-        holdTimer = setTimeout(() => {
-          Animated.timing(splashOpacity, {
-            toValue: 0,
-            duration: 450,
-            useNativeDriver: true,
-          }).start(() => {
-            setShowSplash(false);
-          });
-        }, 1500);
-      } catch (error) {
-        console.warn("Splash screen error:", error);
-        setShowSplash(false);
-      }
-    };
-
-    prepare();
-
+    const minTimer = setTimeout(() => setMinHoldDone(true), MIN_HOLD_MS);
+    const maxTimer = setTimeout(() => setForceReady(true), MAX_HOLD_MS);
     return () => {
-      if (holdTimer) {
-        clearTimeout(holdTimer);
-      }
+      clearTimeout(minTimer);
+      clearTimeout(maxTimer);
     };
-  }, [fontsLoaded, splashOpacity]);
+  }, [fontsLoaded]);
 
   /**
-   * Keep the native splash visible until fonts are ready.
+   * Fade the custom splash out once either:
+   * - the min hold has elapsed AND the app has signalled it's ready, or
+   * - the max hold ceiling was hit (safety net for a stalled session check)
    */
+  useEffect(() => {
+    if (fadeStarted.current || !fontsLoaded) return;
+    const canFade = forceReady || (minHoldDone && appReady);
+    if (!canFade) return;
+
+    fadeStarted.current = true;
+    Animated.timing(splashOpacity, {
+      toValue: 0,
+      duration: 450,
+      useNativeDriver: true,
+    }).start(() => setShowSplash(false));
+  }, [fontsLoaded, minHoldDone, appReady, forceReady]);
+
   if (!fontsLoaded) {
     return (
       <View

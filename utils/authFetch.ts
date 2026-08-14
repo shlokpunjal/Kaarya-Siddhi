@@ -78,7 +78,7 @@ export async function authFetch(path: string, options: RequestInit = {}) {
 
   if (response.status === 401) {
     const refreshed = await refreshAccessToken();
-
+    
     if (refreshed) {
       // Retry the original request once with the new access token
       response = await fetch(`${API_BASE_URL}${path}`, {

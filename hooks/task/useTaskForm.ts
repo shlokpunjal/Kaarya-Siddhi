@@ -57,6 +57,7 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
   const [selectedPriority, setSelectedPriority] = useState<Priority | null>(
     null,
   );
+  const [label, setLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Wait for both the employee directory AND the existing task before
@@ -106,6 +107,7 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
     setDescription(data.description ?? "");
     setDeadlineDate(data.deadline ? new Date(data.deadline) : null);
     setSelectedPriority((data.priority as Priority) ?? null);
+    setLabel(data.label ?? null);
 
     if (isAssignMode && data.assigned_to) {
       employeeAutocomplete.presetFromId(data.assigned_to, employees);
@@ -128,8 +130,8 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
       task_id: taskIdForFiles,
       file_url: res.file_url,
       file_name: res.file_name,
-      // file_type: res.file_type,
-      // storage_service: "cloudinary",
+      file_type: res.file_type,
+      storage_service: "cloudinary",
     }));
     const filesRes = await authFetch("/task-files", {
       method: "POST",
@@ -181,6 +183,7 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
         deadline: deadlineDate ? toLocalDateString(deadlineDate) : null,
         description: description || null,
         priority: selectedPriority ?? "medium",
+        label: label || null,
       };
 
       if (isEditMode) {
@@ -280,7 +283,11 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
           }),
         },
       );
-      if (!createRes.ok) throw new Error("Could not create task.");
+      if (!createRes.ok) {
+          const errText = await createRes.text().catch(() => "");
+          console.error("Create task failed:", createRes.status, errText);
+          throw new Error("Could not create task.");
+        }
       const task = await createRes.json();
 
       await attachUploadedFiles(task.id, uploadedResults);
@@ -329,6 +336,8 @@ export function useTaskForm(taskId: string | undefined, mode: TaskFormMode) {
     onChangeDate,
     selectedPriority,
     setSelectedPriority,
+    label,
+    setLabel,
     employeeAutocomplete,
     assignMode,
     setAssignMode,

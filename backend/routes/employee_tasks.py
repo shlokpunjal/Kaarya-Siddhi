@@ -12,6 +12,10 @@ router = APIRouter()
 
 
 # --- Request models ----------------------------------------------------
+
+
+
+
 # `extra="forbid"` on every model so an unexpected field in the request
 # body is a 422 instead of being silently ignored (or, worse, silently
 # accepted somewhere a raw dict would have let it through).
@@ -42,6 +46,12 @@ UrlStr = Annotated[str, Field(min_length=1, max_length=2048)]
 MAX_TASK_FILES_PER_REQUEST = 20
 
 
+# Free-text category tag (e.g. "Documentation", "Sheets Update") set at
+# creation time. Kept short since it's meant for grouping/filtering, not
+# free-form notes — use `description` for that.
+LabelStr = Annotated[str, Field(min_length=1, max_length=60)]
+
+
 class SelfTaskCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     title: str = Field(..., min_length=1, max_length=300)
@@ -49,6 +59,7 @@ class SelfTaskCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=5000)
     attachment_url: Optional[UrlStr] = None
     priority: Priority = "medium"
+    label: Optional[LabelStr] = None
 
 
 class AssignedTaskCreate(BaseModel):
@@ -59,6 +70,7 @@ class AssignedTaskCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=5000)
     attachment_url: Optional[UrlStr] = None
     priority: Priority = "medium"
+    label: Optional[LabelStr] = None
     # Set (to the same value across a batch of requests) only when the
     # frontend's "Team" assign mode fans one task out per employee — lets
     # /tasks/{id}/detail resolve and show teammates. Absent for a normal
@@ -77,6 +89,7 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=5000)
     attachment_url: Optional[UrlStr] = None
     priority: Optional[Priority] = None
+    label: Optional[LabelStr] = None
     assigned_to: Optional[IdStr] = None
     status: Optional[TaskStatus] = None
     suggestion: Optional[str] = Field(None, max_length=2000)
@@ -88,6 +101,8 @@ class TaskFileIn(BaseModel):
     task_id: IdStr
     file_url: UrlStr
     file_name: Optional[str] = Field(None, max_length=300)
+    file_type: Optional[str] = Field(None, max_length=100)
+    storage_service: Optional[str] = Field(None, max_length=50)
 
 
 async def _get_own_id(email: str) -> str:
@@ -161,6 +176,7 @@ async def create_self_task(payload: SelfTaskCreate, current_user: dict = Depends
             "attachment_url": validate_cloudinary_url(payload.attachment_url),
             "status": "pending",
             "priority": payload.priority,
+            "label": payload.label,
             "created_by": row["id"],
             "workspace_id": row["workspace_id"],
         })
@@ -182,7 +198,7 @@ async def update_task(task_id: str, payload: TaskUpdate, current_user: dict = De
     if own_id == row["created_by"]:
         # Creator (admin assigning, or an employee editing their own self-task)
         # can edit everything, including admin feedback.
-        allowed = {"title", "deadline", "description", "attachment_url", "priority", "assigned_to", "status", "suggestion", "completed_at"}
+        allowed = {"title", "deadline", "description", "attachment_url", "priority", "label", "assigned_to", "status", "suggestion", "completed_at"}
     elif own_id == row["assigned_to"]:
         # Pure assignee can only report progress on the task, not rewrite it.
         allowed = {"status", "completed_at"}
@@ -320,6 +336,7 @@ async def create_assigned_task(payload: AssignedTaskCreate, current_user: dict =
             "attachment_url": validate_cloudinary_url(payload.attachment_url),
             "status": "pending",
             "priority": payload.priority,
+            "label": payload.label,
             "created_by": row["id"],
             "workspace_id": row["workspace_id"],
             "team_batch_id": payload.team_batch_id,
@@ -350,28 +367,52 @@ async def get_task_detail(task_id: str, current_user: dict = Depends(get_current
     own_id = await _get_own_id(current_user["sub"])
     await _check_ownership(task_id, own_id)
 
-    # The task row and its attached files are independent reads (files
-    # only needs task_id, which we already have from the path) — fetch
-    # both concurrently instead of one after the other.
-    task_result, files_result, submissions_result = await asyncio.gather(
-        run_db(supabase.table("tasks").select("*").eq("id", task_id)),
+    task_result = await run_db(supabase.table("tasks").select("*").eq("id", task_id))
+    task = task_result.data[0]
+
+    # Team tasks: resolve siblings created in the same "Team" assign-mode
+    # batch (see AssignedTaskCreate.team_batch_id) so the detail screen can
+    # show "who else is on this task" — each teammate's name, progress,
+    # and any file THEY submitted with their own "Ask to Review".
+    team_batch_id = task.get("team_batch_id")
+    siblings: list[dict] = []
+    if team_batch_id:
+        siblings_result = await run_db(
+            supabase.table("tasks")
+            .select("id, assigned_to, status")
+            .eq("team_batch_id", team_batch_id)
+            .eq("workspace_id", task.get("workspace_id"))
+            .neq("id", task_id)
+        )
+        siblings = siblings_result.data or []
+
+    # Submissions are stored per task row (one row per employee, even on
+    # a shared team task) — so to show "who submitted what" across the
+    # whole team we gather them across THIS row and every sibling's row,
+    # not just this one employee's copy.
+    submission_task_ids = [task_id] + [s["id"] for s in siblings if s.get("id")]
+
+    files_result, submissions_result = await asyncio.gather(
         run_db(supabase.table("task_files").select("*").eq("task_id", task_id)),
         run_db(
             supabase.table("task_submissions")
-            .select("file_url, file_name, submitted_at")
-            .eq("task_id", task_id)
+            .select("task_id, submitted_by, file_url, file_name, submitted_at")
+            .in_("task_id", submission_task_ids)
             .order("submitted_at", desc=True)
         ),
     )
-    task = task_result.data[0]
     files = files_result.data or []
     # Only submissions that actually had a file attached — most "Ask to
     # Review" submissions won't, since the upload is optional.
-    submission_files = [s for s in (submissions_result.data or []) if s.get("file_url")]
-    # Previously two separate queries (one per id) run one after another.
-    # created_by and assigned_to are both just user ids — resolve both in
-    # a single batched query instead.
+    raw_submissions = [s for s in (submissions_result.data or []) if s.get("file_url")]
+
+    # created_by / assigned_to (this task) + every sibling's assignee +
+    # every submitter — resolve all names in one batched query instead
+    # of one query per id.
     name_ids = {uid for uid in (task.get("created_by"), task.get("assigned_to")) if uid}
+    name_ids |= {s.get("assigned_to") for s in siblings if s.get("assigned_to")}
+    name_ids |= {s.get("submitted_by") for s in raw_submissions if s.get("submitted_by")}
+
     names_by_id: dict[str, dict] = {}
     if name_ids:
         users_result = await run_db(
@@ -387,46 +428,27 @@ async def get_task_detail(task_id: str, current_user: dict = Depends(get_current
             return user_id
         return u.get("name") or u.get("email") or user_id
 
-    # Team tasks: resolve siblings created in the same "Team" assign-mode
-    # batch (see AssignedTaskCreate.team_batch_id) so the detail screen can
-    # show "who else is on this task" — each teammate's name and their own
-    # progress on their copy of the task.
-    teammates: list[dict] = []
-    team_batch_id = task.get("team_batch_id")
-    if team_batch_id:
-        siblings_result = await run_db(
-            supabase.table("tasks")
-            .select("id, assigned_to, status")
-            .eq("team_batch_id", team_batch_id)
-            .eq("workspace_id", task.get("workspace_id"))
-            .neq("id", task_id)
-        )
-        siblings = siblings_result.data or []
-        sibling_assignee_ids = {s["assigned_to"] for s in siblings if s.get("assigned_to")}
-        if sibling_assignee_ids:
-            sibling_users = await run_db(
-                supabase.table("users")
-                .select("id, name, email")
-                .in_("id", list(sibling_assignee_ids))
-            )
-            sibling_names_by_id = {u["id"]: u for u in (sibling_users.data or [])}
+    submission_files = [
+        {
+            "file_url": s["file_url"],
+            "file_name": s.get("file_name"),
+            "submitted_at": s.get("submitted_at"),
+            "submitted_by": s.get("submitted_by"),
+            "submitted_by_name": _resolve_name(s.get("submitted_by")),
+        }
+        for s in raw_submissions
+    ]
 
-            def _resolve_sibling_name(user_id):
-                u = sibling_names_by_id.get(user_id)
-                if not u:
-                    return user_id
-                return u.get("name") or u.get("email") or user_id
-
-            teammates = [
-                {
-                    "task_id": s["id"],
-                    "employee_id": s["assigned_to"],
-                    "name": _resolve_sibling_name(s["assigned_to"]),
-                    "status": s.get("status"),
-                }
-                for s in siblings
-                if s.get("assigned_to")
-            ]
+    teammates = [
+        {
+            "task_id": s["id"],
+            "employee_id": s["assigned_to"],
+            "name": _resolve_name(s["assigned_to"]),
+            "status": s.get("status"),
+        }
+        for s in siblings
+        if s.get("assigned_to")
+    ]
 
     return {
         "task": task,

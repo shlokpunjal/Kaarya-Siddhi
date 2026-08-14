@@ -1,63 +1,59 @@
-
 import { useEffect } from "react";
 import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../lib/supabase";
-import AppSplash from "../components/splashScreen/AppSplash";
+import { authFetch } from "../utils/authFetch";
+import LoadingAssetsScreen from "../components/common/LoadingAssetsScreen";
+import { useAppReady } from "../context/AppReadyContext";
 
 export default function Index() {
+  const { setAppReady } = useAppReady();
+
   useEffect(() => {
     checkSession();
   }, []);
 
   async function checkSession() {
     try {
-      // This app uses a custom OTP login (see hooks/useAuth.ts), not
-      // Supabase Auth, so the session lives in AsyncStorage — not
-      // supabase.auth.getSession(), which will always be empty here.
-      const token = await AsyncStorage.getItem("token");
-      const email = await AsyncStorage.getItem("userEmail");
+      // Session token lives in SecureStore (see AuthContext.tsx /
+      // secureSession.ts), not AsyncStorage — role is re-validated
+      // against the backend on every launch via /me rather than trusted
+      // from local storage.
+      const token = await SecureStore.getItemAsync("token");
       const savedRole = await AsyncStorage.getItem("userRole");
 
       // No saved session → show Login Choice
-      if (!token || !email) {
+      if (!token) {
         router.replace("/(auth)/LoginChoice");
+        setAppReady();
         return;
       }
 
-      // Fast path: role already known from login, skip the DB round-trip
-      if (savedRole === "admin") {
-        router.replace("/(admin)");
-        return;
-      }
-      if (savedRole === "employee") {
-        router.replace("/(employee)");
-        return;
-      }
+      // Validate the token against the backend before trusting it
+      const res = await authFetch("/me");
 
-      // Fallback for older sessions saved before role was persisted
-      const { data, error } = await supabase
-        .from("users")
-        .select("role")
-        .eq("email", email)
-        .single();
-
-      if (error || !data) {
-        console.log(error);
-        router.replace("/(auth)/LoginChoice");
+      if (!res.ok) {
+        // authFetch already wipes storage + redirects to LoginChoice on a real 401
+        setAppReady();
         return;
       }
 
-      if (data.role === "admin") {
+      const user = await res.json();
+
+      if (user.role === "admin") {
         router.replace("/(admin)");
       } else {
         router.replace("/(employee)");
       }
+      setAppReady();
     } catch (err) {
-      console.log(err);
+      // console.log(err);
       router.replace("/(auth)/LoginChoice");
+      setAppReady();
     }
   }
 
-  return <AppSplash />;
+  // Only actually visible if MAX_HOLD_MS in the root layout is hit —
+  // the branded splash overlay covers this in the normal case.
+  return <LoadingAssetsScreen />;
 }

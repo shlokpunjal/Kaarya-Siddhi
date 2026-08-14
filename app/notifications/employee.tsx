@@ -34,6 +34,8 @@ const notifMeta = (colors: any, type: NotifRow["type"]) => {
     return { color: colors.status.completed, icon: "checkmark-circle-outline" as const };
   if (type === "task_assigned" || type === "eoffice_pending")
     return { color: colors.brand.accent, icon: "briefcase-outline" as const };
+  if (type === "task_in_review")
+    return { color: colors.status.inReview, icon: "paper-plane-outline" as const };
   if (type === "task_suggestion")
     return { color: colors.status.pending, icon: "create-outline" as const };
   if (type === "deadline")
