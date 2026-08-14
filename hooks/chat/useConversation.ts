@@ -8,6 +8,7 @@ import {
   sendChatMessage,
   reactToMessage,
   deleteChatMessage,
+  deleteChatMessageForMe,
   clearChat,
   fetchMessage,
 } from "../../services/chatApi";
@@ -17,7 +18,10 @@ import type { ChatMessage, MessageType, PendingAttachment } from "../../types/ch
 function generateLocalId() {
   return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
-
+const conversationCache = new Map<
+  string,
+  { conversationId: string; otherUser: ConversationResponseOtherUser; messages: ChatMessage[]; hasMore: boolean }
+>();
 /** Merges a raw postgres_changes row (snake_case DB columns only, no
  * files/reactions) into an existing message we already have loaded. */
 function mergeDbFields(existing: ChatMessage, row: any): ChatMessage {
@@ -47,21 +51,30 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [otherOnline, setOtherOnline] = useState(false);
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchConversation(otherEmail);
-      setConversationId(data.conversation_id);
-      setOtherUser(data.other_user);
-      setMessages(data.messages);
-      setHasMore(data.has_more);
-    } catch (err: any) {
-      setError(err?.message || "Could not load this conversation.");
-    } finally {
-      setLoading(false);
-    }
-  }, [otherEmail]);
+  const load = useCallback(
+    async (mode: "initial" | "silent" = "initial") => {
+      if (mode === "initial") setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchConversation(otherEmail);
+        setConversationId(data.conversation_id);
+        setOtherUser(data.other_user);
+        setMessages(data.messages);
+        setHasMore(data.has_more);
+        conversationCache.set(otherEmail, {
+          conversationId: data.conversation_id,
+          otherUser: data.other_user,
+          messages: data.messages,
+          hasMore: data.has_more,
+        });
+      } catch (err: any) {
+        if (mode === "initial") setError(err?.message || "Could not load this conversation.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [otherEmail],
+  );
 
   const loadOlder = useCallback(async () => {
     if (!hasMore || loadingOlder || messages.length === 0) return;
@@ -97,9 +110,19 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
   // Initial load + realtime subscription lifecycle, tied to the
   // conversation identity (otherEmail), not to screen focus.
   useEffect(() => {
-    load();
-  }, [load]);
-
+    const cached = conversationCache.get(otherEmail);
+    if (cached) {
+      setConversationId(cached.conversationId);
+      setOtherUser(cached.otherUser);
+      setMessages(cached.messages);
+      setHasMore(cached.hasMore);
+      setLoading(false);
+      load("silent");
+    } else {
+      load("initial");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otherEmail]);
   useEffect(() => {
     if (!conversationId || !ownUserId) return;
 
@@ -328,6 +351,20 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
     }
   }, []);
 
+  const removeMessageForMe = useCallback(async (messageId: string) => {
+  // Optimistic — just drop it from local state, same as a real refetch would.
+  setMessages((prev) => prev.filter((m) => m.id !== messageId));
+  try {
+    await deleteChatMessageForMe(messageId);
+  } catch (err) {
+    console.error("[useConversation] delete-for-me failed:", err);
+    // Reconcile with the server rather than silently leaving a message
+    // missing if the request actually failed.
+    load();
+    throw err;
+  }
+}, [load]);
+
   const notifyTyping = useCallback(
     (isTyping: boolean) => {
       if (!channelRef.current || !ownUserId) return;
@@ -356,6 +393,7 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
     sendMessage,
     react,
     removeMessage,
+    removeMessageForMe,
     clear,
     reload: load,
     notifyTyping,
@@ -370,4 +408,4 @@ type ConversationResponseOtherUser = {
   workspace_id: string | null;
   profile_pic_url: string | null;
   last_seen_at: string | null;
-};
+}; 

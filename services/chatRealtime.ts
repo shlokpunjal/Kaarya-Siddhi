@@ -45,8 +45,12 @@ export function subscribeToConversation(
 
   if (onPresenceChange) {
     channel.on("presence", { event: "sync" }, () => {
-      const state = channel.presenceState();
-      onPresenceChange(Object.keys(state));
+      const state = channel.presenceState() as Record<string, Array<{ user_id?: string }>>;
+      const userIds = Object.values(state)
+        .flat()
+        .map((presence) => presence.user_id)
+        .filter((id): id is string => !!id);
+      onPresenceChange(userIds);
     });
   }
 

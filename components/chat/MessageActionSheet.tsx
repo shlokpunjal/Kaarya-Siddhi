@@ -16,10 +16,10 @@ type Props = {
   onReact: (emoji: string) => void;
   onReply: () => void;
   onDelete: () => void;
+  onDeleteForMe: () => void;
 };
 
-export function MessageActionSheet({ visible, isOwn, isDeleted, onClose, onReact, onReply, onDelete }: Props) {
-  const { colors } = useTheme();
+export function MessageActionSheet({ visible, isOwn, isDeleted, onClose, onReact, onReply, onDelete, onDeleteForMe }: Props) {  const { colors } = useTheme();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
@@ -77,6 +77,16 @@ export function MessageActionSheet({ visible, isOwn, isDeleted, onClose, onReact
                   >
                     <Ionicons name="trash-outline" size={22} color={colors.status.overdue} />
                     <Text style={{ ...typography.body, color: colors.status.overdue }}>Delete for everyone</Text>
+                  </TouchableOpacity>
+                )}
+
+                {!isDeleted && (
+                  <TouchableOpacity
+                    onPress={onDeleteForMe}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 22, paddingVertical: 14 }}
+                  >
+                    <Ionicons name="trash-outline" size={22} color={colors.text.primary} />
+                    <Text style={{ ...typography.body, color: colors.text.primary }}>Delete for me</Text>
                   </TouchableOpacity>
                 )}
               </View>
