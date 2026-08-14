@@ -57,6 +57,7 @@ create table public.tasks (
   source character varying null default 'app'::character varying,
   deadline_reminder_sent boolean not null default false,
   last_overdue_notified_date date null,
+  team_batch_id text null,
   constraint tasks_pkey primary key (id),
   constraint tasks_workspace_id_fkey foreign KEY (workspace_id) references workspaces (id),
   constraint tasks_priority_check check (
@@ -99,6 +100,8 @@ create table public.task_submissions (
   task_id uuid null,
   submitted_by uuid null,
   note text null,
+  file_url text null,
+  file_name text null,
   submitted_at timestamp without time zone null default now(),
   constraint task_submissions_pkey primary key (id),
   constraint task_submissions_submitted_by_fkey foreign KEY (submitted_by) references users (id),

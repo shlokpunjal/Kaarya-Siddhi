@@ -81,7 +81,7 @@ export default function TaskDetailSkeleton() {
 
           <View style={[styles.divider, { backgroundColor: colors.base.border }]} />
 
-          {/* Files Attached heading */}
+          {/* Files Provided heading */}
           <SkeletonBox width={150} height={15} borderRadius={4} style={{ marginBottom: 10 }} />
 
           {/* File list rows: icon + filename bar + open icon, each its own bordered row */}

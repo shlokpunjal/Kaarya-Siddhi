@@ -16,7 +16,7 @@ type Props = {
 };
 
 /**
- * "Files Attached (N)" section — identical between task-detail.tsx and
+ * "Files Provided (N)" section — identical between task-detail.tsx and
  * taskDetailAdmin.tsx. Tapping a row opens the Cloudinary URL; the
  * download icon saves/shares the file via the device's share sheet.
  */
@@ -46,7 +46,7 @@ export function FileAttachmentList({ files }: Props) {
           marginBottom: 10,
         }}
       >
-        Files Attached ({files.length})
+        Files Provided ({files.length})
       </Text>
 
       {files.length === 0 ? (
@@ -57,7 +57,7 @@ export function FileAttachmentList({ files }: Props) {
             marginBottom: 16,
           }}
         >
-          No files attached.
+          No files provided.
         </Text>
       ) : (
         files.map((file, idx) => (
