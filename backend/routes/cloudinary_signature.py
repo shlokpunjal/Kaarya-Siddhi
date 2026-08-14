@@ -25,7 +25,12 @@ def _sign_params(params: dict) -> str:
     to_sign += CLOUDINARY_API_SECRET
     return hashlib.sha1(to_sign.encode("utf-8")).hexdigest()
 
-ALLOWED_FOLDERS = {"profile_pics", "task_attachments", "chat_attachments"}
+# "task_submissions" holds files an employee attaches when tapping
+# "Ask to Review" (see task-detail-employee.tsx's review modal) — kept
+# separate from "task_attachments" (admin/employee attachments added
+# when the task is created) so the two are easy to tell apart/manage
+# in the Cloudinary dashboard.
+ALLOWED_FOLDERS = {"profile_pics", "task_attachments", "chat_attachments", "task_submissions"}
 
 @router.get("/cloudinary/signature")
 async def get_cloudinary_signature(
@@ -37,7 +42,6 @@ async def get_cloudinary_signature(
 
     if not (CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET):
         raise HTTPException(status_code=500, detail="Cloudinary is not configured on the server.")
-    ...
 
     timestamp = int(time.time())
 

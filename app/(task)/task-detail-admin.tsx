@@ -22,6 +22,7 @@ import TaskDetailSkeleton from "../../components/skeletonScreens/Tasks/TaskDetai
 import { ScreenHeader } from "../../components/task/ScreenHeader";
 import { DetailRow } from "../../components/task/DetailRow";
 import { FileAttachmentList } from "../../components/task/FileAttachmentList";
+import { SubmittedFilesList } from "../../components/task/SubmittedFilesList";
 import { ActionButton } from "../../components/task/ActionButton";
 import { TaskNotFound } from "../../components/task/TaskNotFound";
 import { useCurrentUserId } from "../../hooks/useCurrentUserId";
@@ -265,13 +266,9 @@ export default function TaskDetailAdmin() {
 
           <View style={{ height: 1, backgroundColor: colors.base.border, marginBottom: 16 }} />
 
-         <FileAttachmentList files={taskFiles} />
+          <FileAttachmentList files={taskFiles} />
 
-          {submissionFiles.length > 0 && (
-            <View style={{ marginTop: 20 }}>
-              <FileAttachmentList files={submissionFiles} title="Submitted for Review" />
-            </View>
-          )}
+          <SubmittedFilesList files={submissionFiles} />
 
           {/* Suggest Changes / Mark Complete */}
           {canReview ? (

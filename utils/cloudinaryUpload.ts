@@ -13,7 +13,22 @@ async function getCloudinarySignature(folder?: string): Promise<SignatureRespons
   const res = await authFetch(`/cloudinary/signature${query}`, { method: "GET" });
 
   if (!res.ok) {
-    throw new Error("Could not authorize the upload. Please try again.");
+    // Surface the backend's actual reason (e.g. "Invalid folder." or
+    // "Cloudinary is not configured on the server.") instead of a
+    // generic message — makes this failure mode diagnosable instead of
+    // a dead end.
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail || "";
+    } catch {
+      // response wasn't JSON — ignore, fall through to generic message
+    }
+    throw new Error(
+      detail
+        ? `Could not authorize the upload: ${detail} (status ${res.status})`
+        : `Could not authorize the upload. Please try again. (status ${res.status})`,
+    );
   }
   return res.json();
 }

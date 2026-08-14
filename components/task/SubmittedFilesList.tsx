@@ -5,27 +5,34 @@ import { typography } from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { useToast } from "../../context/ToastContext";
 import { downloadAndShareFile } from "../../utils/downloadFile";
-
-type TaskFile = {
-  file_url?: string;
-  file_name?: string;
-};
+import type { SubmissionFile } from "../../hooks/task/useTaskDetail";
 
 type Props = {
-  files: TaskFile[];
+  files: SubmissionFile[];
+};
+
+const formatWhen = (value?: string | null) => {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
 /**
- * "Files Attached (N)" section — identical between task-detail.tsx and
- * taskDetailAdmin.tsx. Tapping a row opens the Cloudinary URL; the
- * download icon saves/shares the file via the device's share sheet.
+ * Files an employee attached when tapping "Ask to Review". For a team
+ * task these can come from several different teammates — each row is
+ * tagged with who submitted it so the admin (and the rest of the team)
+ * can tell submissions apart. Shared between task-detail-employee.tsx
+ * and task-detail-admin.tsx.
  */
-export function FileAttachmentList({ files }: Props) {
+export function SubmittedFilesList({ files }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const [downloadingIdx, setDownloadingIdx] = useState<number | null>(null);
 
-  const handleDownload = async (idx: number, file: TaskFile) => {
+  const handleDownload = async (idx: number, file: SubmissionFile) => {
     if (!file.file_url || downloadingIdx !== null) return;
     try {
       setDownloadingIdx(idx);
@@ -38,31 +45,19 @@ export function FileAttachmentList({ files }: Props) {
   };
 
   return (
-    <View>
-      <Text
-        style={{
-          ...typography.heading3,
-          color: colors.text.primary,
-          marginBottom: 10,
-        }}
-      >
-        Files Attached ({files.length})
+    <View style={{ marginTop: 16 }}>
+      <Text style={{ ...typography.heading3, color: colors.text.primary, marginBottom: 10 }}>
+        Submitted Files {files.length > 0 ? `(${files.length})` : ""}
       </Text>
 
       {files.length === 0 ? (
-        <Text
-          style={{
-            ...typography.body,
-            color: colors.text.secondary,
-            marginBottom: 16,
-          }}
-        >
-          No files attached.
+        <Text style={{ ...typography.body, color: colors.text.secondary }}>
+          No files submitted with review requests yet.
         </Text>
       ) : (
         files.map((file, idx) => (
           <View
-            key={idx}
+            key={`${file.file_url}-${idx}`}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -79,13 +74,19 @@ export function FileAttachmentList({ files }: Props) {
               onPress={() => file.file_url && Linking.openURL(file.file_url)}
               style={{ flexDirection: "row", alignItems: "center", flex: 1, gap: 10 }}
             >
-              <Ionicons name="document" size={22} color={colors.brand.accent} />
-              <Text
-                numberOfLines={1}
-                style={{ flex: 1, ...typography.body, color: colors.text.primary }}
-              >
-                {file.file_name ?? "Unnamed file"}
-              </Text>
+              <Ionicons name="document-attach" size={22} color={colors.brand.accent} />
+              <View style={{ flex: 1 }}>
+                <Text numberOfLines={1} style={{ ...typography.body, color: colors.text.primary }}>
+                  {file.file_name ?? "Unnamed file"}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{ ...typography.label, color: colors.text.secondary, marginTop: 2 }}
+                >
+                  {file.submitted_by_name ? `Submitted by ${file.submitted_by_name}` : "Submitted"}
+                  {file.submitted_at ? ` • ${formatWhen(file.submitted_at)}` : ""}
+                </Text>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
