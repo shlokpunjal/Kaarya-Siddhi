@@ -46,6 +46,12 @@ UrlStr = Annotated[str, Field(min_length=1, max_length=2048)]
 MAX_TASK_FILES_PER_REQUEST = 20
 
 
+# Free-text category tag (e.g. "Documentation", "Sheets Update") set at
+# creation time. Kept short since it's meant for grouping/filtering, not
+# free-form notes — use `description` for that.
+LabelStr = Annotated[str, Field(min_length=1, max_length=60)]
+
+
 class SelfTaskCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     title: str = Field(..., min_length=1, max_length=300)
@@ -53,6 +59,7 @@ class SelfTaskCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=5000)
     attachment_url: Optional[UrlStr] = None
     priority: Priority = "medium"
+    label: Optional[LabelStr] = None
 
 
 class AssignedTaskCreate(BaseModel):
@@ -63,6 +70,7 @@ class AssignedTaskCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=5000)
     attachment_url: Optional[UrlStr] = None
     priority: Priority = "medium"
+    label: Optional[LabelStr] = None
     # Set (to the same value across a batch of requests) only when the
     # frontend's "Team" assign mode fans one task out per employee — lets
     # /tasks/{id}/detail resolve and show teammates. Absent for a normal
@@ -81,6 +89,7 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=5000)
     attachment_url: Optional[UrlStr] = None
     priority: Optional[Priority] = None
+    label: Optional[LabelStr] = None
     assigned_to: Optional[IdStr] = None
     status: Optional[TaskStatus] = None
     suggestion: Optional[str] = Field(None, max_length=2000)
@@ -165,6 +174,7 @@ async def create_self_task(payload: SelfTaskCreate, current_user: dict = Depends
             "attachment_url": validate_cloudinary_url(payload.attachment_url),
             "status": "pending",
             "priority": payload.priority,
+            "label": payload.label,
             "created_by": row["id"],
             "workspace_id": row["workspace_id"],
         })
@@ -186,7 +196,7 @@ async def update_task(task_id: str, payload: TaskUpdate, current_user: dict = De
     if own_id == row["created_by"]:
         # Creator (admin assigning, or an employee editing their own self-task)
         # can edit everything, including admin feedback.
-        allowed = {"title", "deadline", "description", "attachment_url", "priority", "assigned_to", "status", "suggestion", "completed_at"}
+        allowed = {"title", "deadline", "description", "attachment_url", "priority", "label", "assigned_to", "status", "suggestion", "completed_at"}
     elif own_id == row["assigned_to"]:
         # Pure assignee can only report progress on the task, not rewrite it.
         allowed = {"status", "completed_at"}
@@ -324,6 +334,7 @@ async def create_assigned_task(payload: AssignedTaskCreate, current_user: dict =
             "attachment_url": validate_cloudinary_url(payload.attachment_url),
             "status": "pending",
             "priority": payload.priority,
+            "label": payload.label,
             "created_by": row["id"],
             "workspace_id": row["workspace_id"],
             "team_batch_id": payload.team_batch_id,

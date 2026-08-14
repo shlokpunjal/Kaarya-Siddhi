@@ -18,6 +18,7 @@ from routes.employee_tasks import router as employee_tasks_router
 from routes.eoffice import router as eoffice_router
 from routes.notify import router as notify_router
 from routes.extensions import router as extensions_router
+from routes.task_labels import router as task_labels_router
 from routes import health
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("kaarya_siddhi")
@@ -30,6 +31,7 @@ app.include_router(employee_tasks_router)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(tasks_router)
 app.include_router(extensions_router)
+app.include_router(task_labels_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -44,7 +46,7 @@ async def http_exception_handler(request, exc):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
-    return JSONResponse(status_code=422, content={"detail": "Invalid request data. Please check your input."})
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request, exc):
