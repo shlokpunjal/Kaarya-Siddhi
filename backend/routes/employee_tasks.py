@@ -101,6 +101,8 @@ class TaskFileIn(BaseModel):
     task_id: IdStr
     file_url: UrlStr
     file_name: Optional[str] = Field(None, max_length=300)
+    file_type: Optional[str] = Field(None, max_length=100)
+    storage_service: Optional[str] = Field(None, max_length=50)
 
 
 async def _get_own_id(email: str) -> str:

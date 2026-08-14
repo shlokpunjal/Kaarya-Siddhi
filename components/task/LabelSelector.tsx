@@ -99,7 +99,10 @@ export function LabelSelector({ colors, value, onChange, inputStyle }: LabelSele
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      if (!res.ok) throw new Error("Failed to save label");
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => "");
+        throw new Error(`Failed to save label: ${res.status} ${bodyText}`);
+      }
     } catch (err) {
       // Non-fatal: the label still applies to this task, it just won't
       // be remembered for next time. Silent fail is fine here — surfacing
