@@ -22,6 +22,7 @@ import { TeamAssigneesInput } from "../../components/task/TeamAssigneesInput";
 import { PrioritySelector } from "../../components/task/PrioritySelector";
 import { DeadlinePicker } from "../../components/task/DeadlinePicker";
 import { FileAttachmentPicker } from "../../components/task/FileAttachmentPicker";
+import { LabelSelector } from "../../components/task/LabelSelector";
 import { useTaskForm } from "../../hooks/task/useTaskForm";
 
 export default function Newtask() {
@@ -44,6 +45,8 @@ export default function Newtask() {
     onChangeDate,
     selectedPriority,
     setSelectedPriority,
+    label,
+    setLabel,
     employeeAutocomplete,
     assignMode,
     setAssignMode,
@@ -171,6 +174,13 @@ export default function Newtask() {
                 onChange={setSelectedPriority}
               />
             </View>
+
+            <LabelSelector
+              colors={colors}
+              value={label}
+              onChange={setLabel}
+              inputStyle={inputStyle}
+            />
 
             <TextInput
               placeholder="Add Description"
