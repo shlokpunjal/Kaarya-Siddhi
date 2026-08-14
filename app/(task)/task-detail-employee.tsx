@@ -282,6 +282,31 @@ export default function TaskDetail() {
             {task.description?.trim().replace(/\n{3,}/g, "\n\n") || "No description provided."}
           </Text>
 
+          {/* Label — set via LabelSelector on the create/edit form. Only
+              rendered when the task actually has one so old tasks without
+              a label don't show an empty pill. */}
+          {!!task.label && (
+            <View style={{ marginBottom: 20 }}>
+              <View
+                style={{
+                  alignSelf: "flex-start",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  backgroundColor: colors.brand.accent + "20",
+                  borderRadius: 20,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                }}
+              >
+                <Ionicons name="pricetag" size={12} color={colors.brand.accent} />
+                <Text style={{ ...typography.label, color: colors.brand.accent, fontWeight: "600" }}>
+                  {task.label}
+                </Text>
+              </View>
+            </View>
+          )}
+
           <DetailRow
             icon="calendar-outline"
             label="Deadline"
