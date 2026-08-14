@@ -352,18 +352,19 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
   }, []);
 
   const removeMessageForMe = useCallback(async (messageId: string) => {
-  // Optimistic — just drop it from local state, same as a real refetch would.
-  setMessages((prev) => prev.filter((m) => m.id !== messageId));
-  try {
-    await deleteChatMessageForMe(messageId);
-  } catch (err) {
-    console.error("[useConversation] delete-for-me failed:", err);
-    // Reconcile with the server rather than silently leaving a message
-    // missing if the request actually failed.
-    load();
-    throw err;
-  }
-}, [load]);
+    // Optimistic — just drop it from local state, same as a real refetch would.
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    try {
+      await deleteChatMessageForMe(messageId);
+    } catch (err) {
+      console.error("[useConversation] delete-for-me failed:", err);
+      // Reconcile with the server rather than silently leaving a message
+      // missing if the request actually failed — "silent" so this
+      // doesn't flash the full skeleton over an otherwise-fine screen.
+      load("silent");
+      throw err;
+    }
+  }, [load]);
 
   const notifyTyping = useCallback(
     (isTyping: boolean) => {
@@ -372,7 +373,14 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
     },
     [ownUserId],
   );
-
+  // For messages that never made it to the server at all — still
+  // `_pending` (in flight) or `_failed` (errored out). These only have
+  // a local fake id, so the normal delete/react/reply endpoints would
+  // 404 against them. This just drops it from local state; nothing to
+  // tell the backend since no row was ever created there.
+  const discardLocalMessage = useCallback((localId: string) => {
+    setMessages((prev) => prev.filter((m) => m._localId !== localId));
+  }, []);
   const clear = useCallback(async () => {
     await clearChat(otherEmail);
     setMessages([]);
@@ -394,6 +402,7 @@ export function useConversation(otherEmail: string, ownUserId: string | null) {
     react,
     removeMessage,
     removeMessageForMe,
+    discardLocalMessage,
     clear,
     reload: load,
     notifyTyping,

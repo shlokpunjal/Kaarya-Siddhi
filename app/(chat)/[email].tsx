@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -47,8 +48,7 @@ export default function ConversationScreen() {
   const { showToast } = useToast();
   const ownUserId = useCurrentUserId();
 
-  const { otherUser, messages, loading, loadingOlder, hasMore, error, otherOnline, otherTyping, loadOlder, sendMessage, react, removeMessage, removeMessageForMe, clear, reload, notifyTyping } = useConversation(otherEmail, ownUserId);
-  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const { otherUser, messages, loading, loadingOlder, hasMore, error, otherOnline, otherTyping, loadOlder, sendMessage, react, removeMessage, removeMessageForMe, discardLocalMessage, clear, reload, notifyTyping } = useConversation(otherEmail, ownUserId); const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [actionSheetFor, setActionSheetFor] = useState<ChatMessage | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -65,6 +65,15 @@ export default function ConversationScreen() {
 
   // add media viewer state:
   const [mediaViewer, setMediaViewer] = useState<ChatFile | null>(null);
+  // Auto-scroll to the latest message. `isNearBottomRef` tracks scroll
+  // position so an incoming message doesn't yank the screen down while
+  // someone is reading older history — but sending your own message
+  // always scrolls, same as WhatsApp.
+  const listRef = useRef<FlatList>(null);
+  const isNearBottomRef = useRef(true);
+  const scrollToBottom = useCallback((animated = true) => {
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated }));
+  }, []);
   const messagesById = useMemo(() => {
     const map = new Map<string, ChatMessage>();
     messages.forEach((m) => map.set(m.id, m));
@@ -89,10 +98,62 @@ export default function ConversationScreen() {
     (params: Parameters<typeof sendMessage>[0]) => {
       sendMessage({ ...params, replyToId: replyTo?.id ?? null });
       setReplyTo(null);
+      isNearBottomRef.current = true;
+      scrollToBottom();
     },
-    [sendMessage, replyTo],
+    [sendMessage, replyTo, scrollToBottom],
   );
+  // Pending/failed messages only exist locally (fake id, never made it
+  // to the server) — long-pressing one must NOT open the normal action
+  // sheet, since React/Reply/Delete there all call the backend with
+  // `message.id`, which would 404 against a local-only id.
+  const handleLongPressMessage = useCallback(
+    (m: ChatMessage) => {
+      if (m._pending || m._failed) {
+        const buttons: any[] = [];
+        if (m._failed) {
+          buttons.push({
+            text: "Retry",
+            onPress: () => {
+              discardLocalMessage(m._localId!);
+              sendMessage({
+                content: m.content ?? undefined,
+                messageType: m.message_type,
+                replyToId: m.reply_to_id,
+                files: m.files.map((f) => ({
+                  file_url: f.file_url,
+                  file_name: f.file_name,
+                  file_type: f.file_type,
+                  file_size: f.file_size,
+                  thumbnail_url: f.thumbnail_url,
+                })),
+              });
+              isNearBottomRef.current = true;
+              scrollToBottom();
+            },
+          });
+        }
+        buttons.push({
+          text: "Delete",
+          style: "destructive",
+          onPress: () => discardLocalMessage(m._localId!),
+        });
+        buttons.push({ text: "Cancel", style: "cancel" });
 
+        Alert.alert(
+          m._pending ? "Still sending…" : "Message failed to send",
+          m._pending
+            ? "This message hasn't reached the server yet. You can delete it, but if it does go through, it may reappear the next time this chat refreshes."
+            : "This message never made it to the server.",
+          buttons,
+        );
+        return;
+      }
+
+      setActionSheetFor(m);
+    },
+    [discardLocalMessage, sendMessage, scrollToBottom],
+  );
   const handleReact = useCallback(
     (emoji: string) => {
       if (actionSheetFor) react(actionSheetFor.id, emoji);
@@ -217,6 +278,17 @@ export default function ConversationScreen() {
       >
         <FlatList
           data={rows}
+          ref={listRef}
+          onScroll={(e) => {
+            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+            const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+            isNearBottomRef.current = distanceFromBottom < moderateScale(120);
+          }}
+          scrollEventThrottle={100}
+          onContentSizeChange={() => {
+            if (isNearBottomRef.current) scrollToBottom(true);
+          }}
+          onLayout={() => scrollToBottom(false)}
           keyExtractor={(row, i) => (row.kind === "message" ? row.message.id : `sep-${i}-${row.label}`)}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.brand.accent} colors={[colors.brand.accent]} />
@@ -239,7 +311,7 @@ export default function ConversationScreen() {
                 message={m}
                 isOwn={isOwn}
                 replyPreview={replyPreview}
-                onLongPress={() => setActionSheetFor(m)}
+                onLongPress={() => handleLongPressMessage(m)}
                 onSwipeReply={() => setReplyTo(m)}
                 onOpenMedia={(f) => setMediaViewer(f)}
               />
@@ -270,7 +342,7 @@ export default function ConversationScreen() {
             </View>
           }
         />
-        
+
         {otherTyping && (
           <View style={{ paddingHorizontal: 12, paddingBottom: 4 }}>
             <View
@@ -287,7 +359,7 @@ export default function ConversationScreen() {
             </View>
           </View>
         )}
-        
+
         <ChatInputBar
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
