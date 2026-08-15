@@ -264,6 +264,10 @@ export default function ConversationScreen() {
           setConfirmDelete(actionSheetFor);
           setActionSheetFor(null);
         }}
+        onDeleteForMe={() => {
+          setConfirmDelete(actionSheetFor);
+          setActionSheetFor(null);
+        }}
       />
 
       <ConfirmModal

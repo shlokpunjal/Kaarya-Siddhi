@@ -52,3 +52,9 @@ backend/.env
 backend/service_account.json
 
 firebase-service-account.json
+
+# Gradle
+.gradle-cache/
+android/.gradle/
+android/build/
+android/app/build/
