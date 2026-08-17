@@ -14,6 +14,9 @@ if not SUPABASE_KEY:
 
 # Force HTTP/1.1 — avoids intermittent HTTP/2 StreamReset errors between
 # Render and Supabase's Cloudflare-fronted edge (RemoteProtocolError).
+# Safe here: this backend only uses supabase.table() (PostgREST), so the
+# known issue with shared httpx_client + multiple Supabase services
+# (storage/auth base_url clobbering) doesn't apply.
 _httpx_client = httpx.Client(http2=False, timeout=30)
 
 supabase = create_client(
@@ -22,27 +25,5 @@ supabase = create_client(
     options=ClientOptions(httpx_client=_httpx_client),
 )
 
-# supabase-py's `create_client` is the SYNCHRONOUS client (blocking httpx
-# under the hood). Every route in this app is `async def`, and calling a
-# blocking client directly inside an async function blocks the entire
-# event loop for that call's duration — so under concurrent load,
-# requests queue up serially on every single DB round trip, even ones
-# that have nothing to do with each other.
-#
-# `run_db()` is the fix that doesn't require rewriting the whole app onto
-# an async Supabase client (a much larger, riskier migration): it runs a
-# query builder's `.execute()` on FastAPI's thread pool instead of the
-# event loop thread, so other requests can still be served while this
-# one is waiting on the network. Usage in a route:
-#
-#   result = await run_db(supabase.table("tasks").select("*").eq("id", task_id))
-#
-# instead of:
-#
-#   result = supabase.table("tasks").select("*").eq("id", task_id).execute()
-#
-# Pass in the query builder (the chain of .table()/.select()/.eq()/...
-# calls, everything up to but NOT including .execute()) — run_db calls
-# .execute() for you, on the thread pool.
 async def run_db(query):
     return await run_in_threadpool(query.execute)
