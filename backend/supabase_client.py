@@ -1,7 +1,8 @@
-from supabase import create_client
+from supabase import create_client, ClientOptions
 from dotenv import load_dotenv
 from starlette.concurrency import run_in_threadpool
 import os
+import httpx
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
@@ -11,7 +12,15 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 if not SUPABASE_KEY:
     raise RuntimeError("SUPABASE_KEY is not set — backend needs this to bypass RLS.")
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Force HTTP/1.1 — avoids intermittent HTTP/2 StreamReset errors between
+# Render and Supabase's Cloudflare-fronted edge (RemoteProtocolError).
+_httpx_client = httpx.Client(http2=False, timeout=30)
+
+supabase = create_client(
+    SUPABASE_URL,
+    SUPABASE_KEY,
+    options=ClientOptions(httpx_client=_httpx_client),
+)
 
 # supabase-py's `create_client` is the SYNCHRONOUS client (blocking httpx
 # under the hood). Every route in this app is `async def`, and calling a
