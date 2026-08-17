@@ -35,9 +35,34 @@ def _public_id_from_url(file_url: str) -> str | None:
 def _resource_type_from_file_type(file_type: str | None) -> str:
     if file_type and file_type.startswith("image/"):
         return "image"
+    # Cloudinary files PDFs under resource_type "image" (not "raw") --
+    # it needs that to generate page-preview thumbnails. Guessing "raw"
+    # here would hit /raw/destroy on an asset that actually lives under
+    # /image/destroy, get back {"result": "not found"}, and silently
+    # leave the file undeleted with no error logged.
+    if file_type == "application/pdf":
+        return "image"
     if file_type and file_type.startswith("video/"):
         return "video"
     return "raw"
+
+
+def _destroy(public_id: str, resource_type: str) -> dict:
+    timestamp = int(time.time())
+    to_sign = f"public_id={public_id}&timestamp={timestamp}{CLOUDINARY_API_SECRET}"
+    signature = hashlib.sha1(to_sign.encode("utf-8")).hexdigest()
+    resp = http_requests.post(
+        f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/{resource_type}/destroy",
+        data={
+            "public_id": public_id,
+            "timestamp": timestamp,
+            "api_key": CLOUDINARY_API_KEY,
+            "signature": signature,
+        },
+        timeout=8,
+    )
+    result = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+    return {"status": resp.status_code, "result": result}
 
 
 def delete_cloudinary_asset(file_url: str, file_type: str | None = None) -> None:
@@ -47,25 +72,24 @@ def delete_cloudinary_asset(file_url: str, file_type: str | None = None) -> None
     if not public_id:
         return
 
-    resource_type = _resource_type_from_file_type(file_type)
-    timestamp = int(time.time())
-    to_sign = f"public_id={public_id}&timestamp={timestamp}{CLOUDINARY_API_SECRET}"
-    signature = hashlib.sha1(to_sign.encode("utf-8")).hexdigest()
+    guessed = _resource_type_from_file_type(file_type)
+    # Try the guessed type first; if Cloudinary says "not found", it's
+    # more likely we guessed wrong than that the file is truly gone --
+    # retry against the other candidates before giving up, so a mime
+    # type we didn't anticipate doesn't silently leak storage forever.
+    fallback_order = [guessed] + [t for t in ("image", "raw", "video") if t != guessed]
 
     try:
-        resp = http_requests.post(
-            f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/{resource_type}/destroy",
-            data={
-                "public_id": public_id,
-                "timestamp": timestamp,
-                "api_key": CLOUDINARY_API_KEY,
-                "signature": signature,
-            },
-            timeout=8,
-        )
-        result = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-        if resp.status_code != 200 or result.get("result") not in ("ok", "not found"):
-            print(f"[cloudinary_utils] delete failed for {public_id} (resource_type={resource_type}): {resp.status_code} {result}")
+        for resource_type in fallback_order:
+            outcome = _destroy(public_id, resource_type)
+            result = outcome["result"]
+            if outcome["status"] == 200 and result.get("result") == "ok":
+                return
+            if outcome["status"] == 200 and result.get("result") == "not found":
+                continue  # try the next candidate resource_type
+            print(f"[cloudinary_utils] delete failed for {public_id} (resource_type={resource_type}): {outcome['status']} {result}")
+            return
+        print(f"[cloudinary_utils] delete: {public_id} not found under any resource_type ({fallback_order}) — likely already deleted")
     except Exception as err:
         print(f"[cloudinary_utils] failed to delete {public_id}: {err}")
 
