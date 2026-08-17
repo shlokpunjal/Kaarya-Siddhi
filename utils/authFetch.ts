@@ -3,6 +3,38 @@ import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
 import { API_BASE_URL } from "../constants/api";
 
+// Generous on purpose — a Render free-tier backend that's spun down
+// from inactivity can take 20-50s to wake up on the first request. A
+// short timeout here would abort a request that was actually about to
+// succeed, right before the cold start finished, and make things
+// *worse* than having no timeout at all.
+const REQUEST_TIMEOUT_MS = 30000;
+
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// A network blip or timeout (not a real HTTP error response — those
+// still resolve normally, just with a non-2xx status) gets ONE retry
+// before giving up. This is what turns "randomly hangs forever /
+// randomly fails" into "occasionally takes one extra beat, then
+// works" — without doubling the wait on a cold start that just needed
+// the full timeout window to begin with.
+async function fetchWithRetry(url: string, options: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
+  try {
+    return await fetchWithTimeout(url, options, timeoutMs);
+  } catch (err: any) {
+    console.warn(`[authFetch] ${url} failed (${err?.message || err}) — retrying once`);
+    return await fetchWithTimeout(url, options, timeoutMs);
+  }
+}
+
 async function wipeAndRedirect(sessionAtStart: string | null) {
   // A newer login may have started (and finished) while this request's
   // refresh was still in flight. If the session has already moved on,
@@ -37,7 +69,7 @@ async function refreshAccessToken(): Promise<string | null> {
       const refreshToken = await SecureStore.getItemAsync("refreshToken");
       if (!refreshToken) return null;
 
-      const res = await fetch(`${API_BASE_URL}/refresh-token`, {
+      const res = await fetchWithRetry(`${API_BASE_URL}/refresh-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: refreshToken }),
@@ -71,7 +103,7 @@ export async function authFetch(path: string, options: RequestInit = {}) {
     ...(t ? { Authorization: `Bearer ${t}` } : {}),
   });
 
-  let response = await fetch(`${API_BASE_URL}${path}`, {
+  let response = await fetchWithRetry(`${API_BASE_URL}${path}`, {
     ...options,
     headers: buildHeaders(token),
   });
@@ -81,7 +113,7 @@ export async function authFetch(path: string, options: RequestInit = {}) {
     
     if (refreshed) {
       // Retry the original request once with the new access token
-      response = await fetch(`${API_BASE_URL}${path}`, {
+      response = await fetchWithRetry(`${API_BASE_URL}${path}`, {
         ...options,
         headers: buildHeaders(refreshed),
       });
