@@ -182,8 +182,8 @@ Built during a summer internship at **Central Railway, Solapur Division** under 
 
 | Role          | Responsibility                                                   |
 | ------------- | ------------------------------------------------------------------ |
-| Prathamesh Amone      | Authentication — OTP, login screens, session management           |
+| Prathamesh Amone      | Authentication — OTP, login screens,  API endpoints          |
 | Maheshwari Raccha      | Core workflow — task creation, assignment, dashboard              |
 | Mugdha Vyavhare      | Workflow extensions — extension requests, approval/rejection      |
-| Kartik Gundla     | Backend architecture, Supabase schema, API endpoints              |
+| Kartik Gundla     | Backend architecture, Supabase schema, session management              |
 | Shlok Punjal | Project management, UI/UX consistency, Excel/PDF reports, eOffice          |
