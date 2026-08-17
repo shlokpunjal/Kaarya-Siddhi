@@ -7,6 +7,7 @@ from schemas import DeleteAccountResponse
 from fastapi import Body
 from schemas import DeleteAccountResponse
 from services import delete_user_account
+from cloudinary_utils import delete_cloudinary_asset
 router = APIRouter()
 
 
@@ -37,6 +38,20 @@ async def update_profile(
     if not safe_updates:
         raise HTTPException(status_code=400, detail="No valid fields to update.")
 
+    # If the avatar is being replaced, grab the CURRENT url first --
+    # once .update() below runs, it's gone from the row and there's no
+    # way to know what to clean up on Cloudinary afterward.
+    old_avatar_url = None
+    if "profile_pic_url" in safe_updates:
+        existing = (
+            supabase.table("users")
+            .select("profile_pic_url")
+            .eq("email", current_user["sub"])
+            .execute()
+        )
+        if existing.data:
+            old_avatar_url = existing.data[0].get("profile_pic_url")
+
     result = (
         supabase.table("users")
         .update(safe_updates)
@@ -46,6 +61,12 @@ async def update_profile(
 
     if not result.data:
         raise HTTPException(status_code=404, detail="Account not found.")
+
+    new_avatar_url = safe_updates.get("profile_pic_url")
+    if old_avatar_url and old_avatar_url != new_avatar_url:
+        # Best-effort, after the DB row is already updated -- a failure
+        # here must never block the profile update response.
+        delete_cloudinary_asset(old_avatar_url, "image/jpeg")
 
     return result.data[0]
 
