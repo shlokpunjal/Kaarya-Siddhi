@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { authFetch } from "../../utils/authFetch";
 import { useToast } from "../../context/ToastContext";
 
@@ -20,18 +20,28 @@ export function useTaskDelete(
   const [deleting, setDeleting] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const { showToast } = useToast();
+  // Ref, not just the `deleting` state — state updates aren't
+  // synchronous, so a rapid double-tap on Confirm can call this twice
+  // before a re-render ever happens. That's exactly what fired two
+  // DELETE requests for the same task: the first succeeds (200), the
+  // second 404s (task's already gone) and its error toast stomps the
+  // first request's success toast, making a successful delete look
+  // like it failed.
+  const isDeletingRef = useRef(false);
 
   const requestDelete = () => setConfirmVisible(true);
   const cancelDelete = () => setConfirmVisible(false);
 
   const confirmDelete = async () => {
-    if (!taskId) return;
+    if (!taskId || isDeletingRef.current) return;
+    isDeletingRef.current = true;
 
     if (guard) {
       const result = guard();
       if (result !== true) {
         setConfirmVisible(false);
         showToast(result, "error");
+        isDeletingRef.current = false;
         return;
       }
     }
@@ -49,6 +59,7 @@ export function useTaskDelete(
       showToast(error?.message || "Delete failed", "error");
     } finally {
       setDeleting(false);
+      isDeletingRef.current = false;
     }
   };
 
