@@ -92,8 +92,8 @@ We may update this Privacy Policy from time to time to reflect changes in our pr
 
 If you have questions, concerns, or requests regarding this Privacy Policy or your personal information, please contact:
 
-[YOUR CONTACT EMAIL]
-[ORGANIZATION / TEAM NAME]
+kaaryaasiddhi05@gmail.com
+Kaarya-Siddhi Team
 
 
 By tapping "I Accept" during onboarding, you acknowledge that you have read and understood this Privacy Policy.`
