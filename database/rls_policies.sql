@@ -35,11 +35,7 @@ alter table public.otp_tokens          enable row level security;
 alter table public.otp_sessions        enable row level security;
 alter table public.notifications       enable row level security;
 alter table public.employees           enable row level security;
-<<<<<<< HEAD
 alter table public."e-office"          enable row level security;
-=======
-alter table public."e - office"        enable row level security;
->>>>>>> origin/fix/security-review-findings
 alter table public.connections         enable row level security;
 alter table public.admins              enable row level security;
 alter table public.extension_requests  enable row level security;
@@ -64,7 +60,6 @@ create policy "realtime read own notifications"
   to authenticated
   using (user_id = auth.uid());
 
-<<<<<<< HEAD
 -- FIX: the extension_requests policy below looks up the caller's own
 -- workspace_id via a subquery on public.users. But public.users has
 -- RLS enabled with NO policies (see top of file) — including for its
@@ -83,8 +78,6 @@ create policy "realtime read own user row"
   to authenticated
   using (id = auth.uid());
 
-=======
->>>>>>> origin/fix/security-review-findings
 -- app/_layout.tsx subscribes to INSERT on extension_requests filtered
 -- to the admin's own workspace_id. Match that: an admin can only read
 -- (via Realtime) extension requests in their own workspace. This does
