@@ -100,73 +100,86 @@ Background jobs run on an in-process `BackgroundScheduler`: a sheet sync every 5
 
 ## Project structure
 
+```
 Kaarya-Siddhi/
 ├── app/
-│ ├── (auth)/ # LoginChoice, clientLogin, employeeLogin, OTP screens
-│ ├── (employee)/ # Employee tab group: Home, Tasks, Calendar, Profile
-│ ├── (admin)/ # Admin tab group: Home, Tasks, Reports, Calendar, Profile
-│ ├── (chat)/ # Chat contacts list + conversation screen
-│ ├── (task)/ # Task detail, new task, extend deadline
-│ ├── reports/ # Report generation screens (genExcel, genPdf, pdfViewer)
-│ ├── _layout.tsx # Root layout: font loading, ThemeProvider, notification bridge
-│ └── index.tsx # Entry point: validates session against /me, routes by role
+│   ├── (auth)/              # LoginChoice, clientLogin, employeeLogin, OTP screens
+│   ├── (employee)/          # Employee tab group: Home, Tasks, Calendar, Profile
+│   ├── (admin)/             # Admin tab group: Home, Tasks, Reports, Calendar, Profile
+│   ├── (chat)/              # Chat contacts list + conversation screen
+│   ├── (task)/              # Task detail, new task, extend deadline
+│   ├── reports/             # Report generation screens (genExcel, genPdf, pdfViewer)
+│   ├── _layout.tsx          # Root layout: font loading, ThemeProvider, notification bridge
+│   └── index.tsx            # Entry point: validates session against /me, routes by role
+│
 ├── backend/
-│ ├── routes/
-│ │ ├── auth.py # Signup, login, OTP, refresh/logout
-│ │ ├── users.py # /me, delete-account, profile, team, connection-status
-│ │ ├── connections.py # Employee ↔ Admin workspace connections
-│ │ ├── admin_route.py # Admin-only manual triggers
-│ │ ├── realtime.py # /realtime-token for Supabase Realtime auth
-│ │ ├── chat.py # Chat: contacts, conversation, send, react, delete, clear
-│ │ ├── tasks.py # Task listing, dashboard counts, calendar, admin overview
-│ │ ├── employee_tasks.py # Task CRUD, self-assign, file uploads, ask-for-review
-│ │ ├── extensions.py # Deadline extension requests
-│ │ ├── task_labels.py # Custom task labels
-│ │ ├── notify.py # In-app notifications
-│ │ ├── eoffice.py # e-office file tracking
-│ │ ├── excel_report.py # GET /reports/tasks/excel
-│ │ ├── pdf_report.py # GET /reports/tasks/pdf
-│ │ └── cloudinary_signature.py
-│ ├── main.py # FastAPI entrypoint: CORS, rate limiting, scheduler, routers
-│ ├── config.py # Env-driven settings (JWT, CORS origins, cron secret, rate limits)
-│ ├── auth_utils.py # JWT create/decode, get_current_user dependency
-│ ├── supabase_client.py # Service-role Supabase client (bypasses RLS — backend-only)
-│ ├── rate_limit.py # Shared slowapi Limiter instance
-│ ├── notify_utils.py # Single source of truth for creating/pushing notifications
-│ ├── sheets_sync.py # Periodic sync job
-│ └── requirements.txt
+│   ├── routes/
+│   │   ├── auth.py               # Signup, login, OTP, refresh/logout
+│   │   ├── users.py              # /me, delete-account, profile, team, connection-status
+│   │   ├── connections.py        # Employee ↔ Admin workspace connections
+│   │   ├── admin_route.py        # Admin-only manual triggers
+│   │   ├── realtime.py           # /realtime-token for Supabase Realtime auth
+│   │   ├── chat.py               # Chat: contacts, conversation, send, react, delete, clear
+│   │   ├── tasks.py              # Task listing, dashboard counts, calendar, admin overview
+│   │   ├── employee_tasks.py     # Task CRUD, self-assign, file uploads, ask-for-review
+│   │   ├── extensions.py         # Deadline extension requests
+│   │   ├── task_labels.py        # Custom task labels
+│   │   ├── notify.py             # In-app notifications
+│   │   ├── eoffice.py            # e-office file tracking
+│   │   ├── excel_report.py       # GET /reports/tasks/excel
+│   │   ├── pdf_report.py         # GET /reports/tasks/pdf
+│   │   └── cloudinary_signature.py
+│   ├── main.py                # FastAPI entrypoint: CORS, rate limiting, scheduler, routers
+│   ├── config.py              # Env-driven settings (JWT, CORS origins, cron secret, rate limits)
+│   ├── auth_utils.py          # JWT create/decode, get_current_user dependency
+│   ├── supabase_client.py     # Service-role Supabase client (bypasses RLS — backend-only)
+│   ├── rate_limit.py          # Shared slowapi Limiter instance
+│   ├── notify_utils.py        # Single source of truth for creating/pushing notifications
+│   ├── sheets_sync.py         # Periodic sync job
+│   └── requirements.txt
+│
 ├── components/
-│ └── chat/ # ChatFab, ChatInputBar, ChatAvatar
+│   └── chat/                  # ChatFab, ChatInputBar, ChatAvatar
+│
 ├── hooks/
-│ └── chat/ # useChatContacts, useConversation (Realtime + REST)
+│   └── chat/                  # useChatContacts, useConversation (Realtime + REST)
+│
 ├── services/
-│ ├── chatApi.ts # Chat REST calls (via authFetch)
-│ └── chatRealtime.ts # Supabase Realtime channel helpers for chat
+│   ├── chatApi.ts              # Chat REST calls (via authFetch)
+│   └── chatRealtime.ts         # Supabase Realtime channel helpers for chat
+│
 ├── lib/
-│ └── supabase.ts # Client-side Supabase instance (anon key)
+│   └── supabase.ts            # Client-side Supabase instance (anon key)
+│
 ├── utils/
-│ ├── authFetch.ts # Fetch wrapper: attaches JWT, handles refresh-on-401
-│ └── chatTime.ts # Chat timestamp formatting
+│   ├── authFetch.ts           # Fetch wrapper: attaches JWT, handles refresh-on-401
+│   └── chatTime.ts            # Chat timestamp formatting
+│
 ├── constants/
-│ └── api.ts # API_BASE_URL
+│   └── api.ts                 # API_BASE_URL
+│
 ├── context/
-│ └── ThemeContext.tsx # Light / Dark / System theme provider with persistence
+│   └── ThemeContext.tsx       # Light / Dark / System theme provider with persistence
+│
 ├── theme/
-│ └── theme.ts # Design tokens: colors, typography
+│   └── theme.ts                # Design tokens: colors, typography
+│
 ├── database/
-│ ├── schema.sql # Full table definitions (core + chat)
-│ ├── rls_policies.sql # RLS: deny-by-default backstop + Realtime read policies
-│ ├── chat_schema.sql # Chat tables (now folded into schema.sql)
-│ ├── message_deletions.sql # "Delete for me" table (now folded into schema.sql)
-│ ├── reminders_pg_cron.sql # Deadline/overdue reminder cron jobs
-│ ├── eoffice_cleanup_pg_cron.sql # e-office record cleanup cron job
-│ └── task_suggestion_and_cleanup_pg_cron.sql
+│   ├── schema.sql                            # Full table definitions (core + chat)
+│   ├── rls_policies.sql                       # RLS: deny-by-default backstop + Realtime read policies
+│   ├── chat_schema.sql                        # Chat tables (now folded into schema.sql)
+│   ├── message_deletions.sql                  # "Delete for me" table (now folded into schema.sql)
+│   ├── reminders_pg_cron.sql                  # Deadline/overdue reminder cron jobs
+│   ├── eoffice_cleanup_pg_cron.sql            # e-office record cleanup cron job
+│   └── task_suggestion_and_cleanup_pg_cron.sql
+│
 ├── types/
-│ ├── task.ts
-│ ├── user.ts
-│ └── chat.ts
+│   ├── task.ts
+│   ├── user.ts
+│   └── chat.ts
+│
 └── assets/
-
+```
 
 ---
 
@@ -199,13 +212,14 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Create a `.env` in `backend/` with at minimum:
+```
 JWT_SECRET=
 SUPABASE_SERVICE_ROLE_KEY=
 EXPO_PUBLIC_SUPABASE_URL=
 CRON_SECRET=
-FRONTEND_ORIGIN= # optional, only needed for a browser-based surface
-DEV_LAN_ORIGIN= # optional, e.g. exp://192.168.x.x:8081
-
+FRONTEND_ORIGIN=       # optional, only needed for a browser-based surface
+DEV_LAN_ORIGIN=        # optional, e.g. exp://192.168.x.x:8081
+```
 The app also expects `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in the frontend's own `.env` for `lib/supabase.ts`.
 
 ### Database setup
