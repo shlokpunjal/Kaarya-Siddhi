@@ -6,7 +6,7 @@ A role-based task management mobile app built for field staff at Central Railway
 
 ## What it does
 
-**For Admins**
+**For Admins** 
 - Create and assign tasks to employees with priority, label, and deadline
 - Track task status across the team — Overdue, Pending, In Review, Completed
 - Leave suggestions/feedback on submitted tasks
